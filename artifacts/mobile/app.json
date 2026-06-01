@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Dating App",
+    "name": "Spark",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0D0B12"
     },
     "ios": {
       "supportsTablet": false

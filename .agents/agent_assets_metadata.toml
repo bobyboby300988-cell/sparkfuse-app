@@ -1,0 +1,44 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "sy3yfytmBjsM4xD_s_Y6f"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "DNtxvrwxBPhtXWe3hdmvQ"
+uri = "file://artifacts/mobile/assets/images/p1.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "cMeEZ_A5FNrugtjpLH27K"
+uri = "file://artifacts/mobile/assets/images/p2.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "mPHW6R_iY3zPeIj2OF-3S"
+uri = "file://artifacts/mobile/assets/images/p3.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "mba5T0yXipRJLuqO2hkaG"
+uri = "file://artifacts/mobile/assets/images/p4.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "9xUK_ZMqDAfHwzuP9iF8J"
+uri = "file://artifacts/mobile/assets/images/p5.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "McCjL5d78Gl5aPPbtI4DK"
+uri = "file://artifacts/mobile/assets/images/p6.png"
+type = "image"
+title = "generated_image"
