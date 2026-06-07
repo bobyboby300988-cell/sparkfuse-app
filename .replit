@@ -14,6 +14,7 @@ runButton = "Project"
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
+integrations = ["stripe:1.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
@@ -35,3 +36,6 @@ externalPort = 80
 
 [userenv.shared]
 EXPO_PUBLIC_DAILY_API_KEY = "8815fcebd27b822ff4be2e3c7b4ce019304b5d30634a27e72f4a70c1a8253d40"
+
+[nix]
+channel = "stable-25_05"
