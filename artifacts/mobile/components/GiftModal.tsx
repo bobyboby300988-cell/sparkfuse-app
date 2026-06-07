@@ -23,10 +23,14 @@ const ST_PACKAGES = [
 ];
 
 const GIFTS = [
-  { tokens: 10,  label: "Rose",    emoji: "🌹", desc: "A sweet gesture"      },
-  { tokens: 25,  label: "Heart",   emoji: "💖", desc: "Show you care"         },
-  { tokens: 50,  label: "Diamond", emoji: "💎", desc: "Shine bright"          },
-  { tokens: 100, label: "Crown",   emoji: "👑", desc: "Make them feel royalty" },
+  { tokens: 1,    label: "Rose",         emoji: "🌹",   desc: "A sweet gesture"       },
+  { tokens: 10,   label: "Burning Heart",emoji: "❤️‍🔥", desc: "Heart on fire"          },
+  { tokens: 50,   label: "Kiss",         emoji: "💋",   desc: "Send a kiss"            },
+  { tokens: 100,  label: "Diamond",      emoji: "💎",   desc: "Shine bright"           },
+  { tokens: 250,  label: "Crown",        emoji: "👑",   desc: "Feel like royalty"      },
+  { tokens: 500,  label: "Gold Star",    emoji: "🌟",   desc: "You're a star"          },
+  { tokens: 1000, label: "Trophy",       emoji: "🏆",   desc: "Champion of hearts"     },
+  { tokens: 2000, label: "Supernova",    emoji: "🚀",   desc: "Out of this world"      },
 ];
 
 const FEE = 0.10;
@@ -171,44 +175,51 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
                     <Text style={styles.infoEmoji}>💡</Text>
                     <Text style={[styles.infoText, { color: colors.foreground }]}>
                       Buy Spark Tokens (ST) and use them to send gifts to {recipientName}.{"\n"}
-                      <Text style={{ color: colors.mutedForeground }}>1 ST = €0.10 · Gifts: 10–100 ST</Text>
+                      <Text style={{ color: colors.mutedForeground }}>1 ST = €0.10 · Gifts from 1 ST 🌹 up to 2,000 ST 🚀</Text>
                     </Text>
                   </View>
 
                   <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Choose a package</Text>
 
-                  {ST_PACKAGES.map((pkg) => (
-                    <TouchableOpacity
-                      key={pkg.tokens}
-                      style={[
-                        styles.pkgRow,
-                        {
-                          backgroundColor: pkg.highlight ? "#FF336612" : colors.background,
-                          borderColor: pkg.highlight ? "#FF3366" : colors.border,
-                        },
-                      ]}
-                      onPress={() => handleBuy(pkg)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.pkgIcon}>{pkg.icon}</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.pkgTokens, { color: colors.foreground }]}>
-                          {pkg.tokens} ST
-                          {pkg.highlight && <Text style={styles.pkgPopular}>  ⭐ Most Popular</Text>}
-                        </Text>
-                        <Text style={[styles.pkgSub, { color: colors.mutedForeground }]}>
-                          {pkg.label} · enough for {Math.floor(pkg.tokens / 11)} gifts
-                        </Text>
-                      </View>
-                      <LinearGradient
-                        colors={["#FF3366", "#FF6B35"]}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={styles.pkgBtn}
+                  {ST_PACKAGES.map((pkg) => {
+                    const hint =
+                      pkg.tokens === 50  ? "50 Roses 🌹 or 5 Burning Hearts ❤️‍🔥" :
+                      pkg.tokens === 100 ? "2 Diamonds 💎 or 100 Roses 🌹" :
+                      pkg.tokens === 200 ? "4 Diamonds 💎 or 20 Burning Hearts ❤️‍🔥" :
+                      "1 Supernova 🚀 or 2 Trophies 🏆";
+                    return (
+                      <TouchableOpacity
+                        key={pkg.tokens}
+                        style={[
+                          styles.pkgRow,
+                          {
+                            backgroundColor: pkg.highlight ? "#FF336612" : colors.background,
+                            borderColor: pkg.highlight ? "#FF3366" : colors.border,
+                          },
+                        ]}
+                        onPress={() => handleBuy(pkg)}
+                        activeOpacity={0.85}
                       >
-                        <Text style={styles.pkgBtnText}>€{pkg.eur}</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  ))}
+                        <Text style={styles.pkgIcon}>{pkg.icon}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.pkgTokens, { color: colors.foreground }]}>
+                            {pkg.tokens} ST
+                            {pkg.highlight && <Text style={styles.pkgPopular}>  ⭐ Most Popular</Text>}
+                          </Text>
+                          <Text style={[styles.pkgSub, { color: colors.mutedForeground }]}>
+                            {hint}
+                          </Text>
+                        </View>
+                        <LinearGradient
+                          colors={["#FF3366", "#FF6B35"]}
+                          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                          style={styles.pkgBtn}
+                        >
+                          <Text style={styles.pkgBtnText}>€{pkg.eur}</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    );
+                  })}
 
                   <Text style={[styles.buyNote, { color: colors.mutedForeground }]}>
                     Payment via PayPal · Tokens added instantly to your wallet
