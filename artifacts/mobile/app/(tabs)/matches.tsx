@@ -15,6 +15,56 @@ import { useApp } from "@/context/AppContext";
 import { MOCK_PROFILES } from "@/data/profiles";
 import { useColors } from "@/hooks/useColors";
 
+const AD_EVERY = 20;
+
+const ADS = [
+  {
+    id: "ad_1",
+    emoji: "💎",
+    headline: "Boost your profile",
+    body: "Get 10× more matches this week with a Profile Boost.",
+    cta: "Try Boost",
+    accent: "#7C3AED",
+  },
+  {
+    id: "ad_2",
+    emoji: "📸",
+    headline: "Look your best",
+    body: "Professional dating photos proven to triple your matches.",
+    cta: "Book a shoot",
+    accent: "#0EA5E9",
+  },
+  {
+    id: "ad_3",
+    emoji: "🎯",
+    headline: "Find someone specific",
+    body: "Use advanced filters to match by values, lifestyle & more.",
+    cta: "Upgrade now",
+    accent: "#F59E0B",
+  },
+];
+
+function AdBanner({ adIndex }: { adIndex: number }) {
+  const ad = ADS[adIndex % ADS.length];
+  return (
+    <View style={[adStyles.card, { borderColor: ad.accent + "40", backgroundColor: ad.accent + "12" }]}>
+      <View style={adStyles.topRow}>
+        <Text style={adStyles.sponsoredLabel}>Sponsored</Text>
+      </View>
+      <View style={adStyles.body}>
+        <Text style={adStyles.emoji}>{ad.emoji}</Text>
+        <View style={adStyles.textWrap}>
+          <Text style={adStyles.headline}>{ad.headline}</Text>
+          <Text style={adStyles.bodyText}>{ad.body}</Text>
+        </View>
+      </View>
+      <TouchableOpacity style={[adStyles.ctaBtn, { backgroundColor: ad.accent }]} activeOpacity={0.85}>
+        <Text style={adStyles.ctaText}>{ad.cta}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function formatTime(ts: number) {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
@@ -24,6 +74,10 @@ function formatTime(ts: number) {
   if (hrs < 24) return `${hrs}h`;
   return `${Math.floor(hrs / 24)}d`;
 }
+
+type MatchItem = { type: "match"; match: any; profile: any; lastMsg: any };
+type AdItem = { type: "ad"; adIndex: number; id: string };
+type ListItem = MatchItem | AdItem;
 
 export default function MatchesScreen() {
   const colors = useColors();
@@ -41,6 +95,20 @@ export default function MatchesScreen() {
       .filter(Boolean)
       .sort((a, b) => b!.match.matchedAt - a!.match.matchedAt);
   }, [matches]);
+
+  // Interleave an ad after every AD_EVERY match items
+  const listItems = useMemo<ListItem[]>(() => {
+    const result: ListItem[] = [];
+    let adCount = 0;
+    matchData.forEach((item, index) => {
+      result.push({ type: "match", ...item! } as MatchItem);
+      if ((index + 1) % AD_EVERY === 0) {
+        result.push({ type: "ad", adIndex: adCount, id: `ad_${adCount}` });
+        adCount++;
+      }
+    });
+    return result;
+  }, [matchData]);
 
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
@@ -68,23 +136,23 @@ export default function MatchesScreen() {
         </View>
       ) : (
         <FlatList
-          data={matchData}
-          keyExtractor={(item) => item!.match.profileId}
+          data={listItems}
+          keyExtractor={(item) =>
+            item.type === "ad" ? item.id : item.match.profileId
+          }
           contentContainerStyle={[
             styles.list,
             { paddingBottom: bottomPadding + 100 },
           ]}
-          scrollEnabled={!!matchData.length}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
-            if (!item) return null;
+            if (item.type === "ad") {
+              return <AdBanner adIndex={item.adIndex} />;
+            }
             const { profile, match, lastMsg } = item;
             return (
               <TouchableOpacity
-                style={[
-                  styles.matchRow,
-                  { borderBottomColor: colors.border },
-                ]}
+                style={[styles.matchRow, { borderBottomColor: colors.border }]}
                 onPress={() =>
                   router.push({
                     pathname: "/chat/[id]",
@@ -99,9 +167,7 @@ export default function MatchesScreen() {
                     style={styles.avatar}
                     resizeMode="cover"
                   />
-                  <View
-                    style={[styles.onlineDot, { backgroundColor: colors.like }]}
-                  />
+                  <View style={[styles.onlineDot, { backgroundColor: colors.like }]} />
                 </View>
 
                 <View style={styles.matchInfo}>
@@ -121,11 +187,7 @@ export default function MatchesScreen() {
                   </Text>
                 </View>
 
-                <Ionicons
-                  name="chevron-forward"
-                  size={16}
-                  color={colors.mutedForeground}
-                />
+                <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
               </TouchableOpacity>
             );
           }}
@@ -134,6 +196,62 @@ export default function MatchesScreen() {
     </View>
   );
 }
+
+const adStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 0,
+    marginVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 10,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  sponsoredLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+    color: "#9A93B3",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  body: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  emoji: {
+    fontSize: 32,
+  },
+  textWrap: {
+    flex: 1,
+    gap: 3,
+  },
+  headline: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
+  bodyText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "#9A93B3",
+    lineHeight: 18,
+  },
+  ctaBtn: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  ctaText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
