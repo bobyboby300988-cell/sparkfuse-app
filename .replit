@@ -30,3 +30,8 @@ externalPort = 8081
 [[ports]]
 localPort = 18115
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+EXPO_PUBLIC_DAILY_API_KEY = "8815fcebd27b822ff4be2e3c7b4ce019304b5d30634a27e72f4a70c1a8253d40"
