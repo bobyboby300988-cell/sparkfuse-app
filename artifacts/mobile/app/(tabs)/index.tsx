@@ -16,6 +16,8 @@ import { SwipeCard } from "@/components/SwipeCard";
 import { useApp } from "@/context/AppContext";
 import { MOCK_PROFILES, Profile } from "@/data/profiles";
 import { useColors } from "@/hooks/useColors";
+import { useLocation } from "@/hooks/useLocation";
+import { haversineKm, formatDistance } from "@/lib/distance";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -25,10 +27,24 @@ export default function DiscoverScreen() {
   const { seenProfiles, markSeen, addMatch, userProfile } = useApp();
   const [matchedProfile, setMatchedProfile] = useState<Profile | null>(null);
   const [matchModalVisible, setMatchModalVisible] = useState(false);
+  const { location } = useLocation();
+
+  const profilesWithDistance = useMemo(() => {
+    return MOCK_PROFILES.map((p) => ({
+      ...p,
+      realKm: location
+        ? haversineKm(location.latitude, location.longitude, p.lat, p.lng)
+        : null,
+    })).sort((a, b) => {
+      if (a.realKm === null) return 1;
+      if (b.realKm === null) return -1;
+      return a.realKm - b.realKm;
+    });
+  }, [location]);
 
   const remaining = useMemo(
-    () => MOCK_PROFILES.filter((p) => !seenProfiles.includes(p.id)),
-    [seenProfiles]
+    () => profilesWithDistance.filter((p) => !seenProfiles.includes(p.id)),
+    [seenProfiles, profilesWithDistance]
   );
 
   const visible = remaining.slice(0, 2);
@@ -120,6 +136,11 @@ export default function DiscoverScreen() {
                 onSwipeLeft={handleSwipeLeft}
                 onSwipeRight={handleSwipeRight}
                 onSwipeSuperLike={handleSuperLike}
+                distanceLabel={
+                  profile.realKm !== null
+                    ? formatDistance(profile.realKm)
+                    : profile.location
+                }
               />
             ))
             .reverse()

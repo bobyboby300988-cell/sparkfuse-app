@@ -24,6 +24,7 @@ interface SwipeCardProps {
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
   onSwipeSuperLike: () => void;
+  distanceLabel?: string;
 }
 
 export function SwipeCard({
@@ -33,6 +34,7 @@ export function SwipeCard({
   onSwipeLeft,
   onSwipeRight,
   onSwipeSuperLike,
+  distanceLabel,
 }: SwipeCardProps) {
   const colors = useColors();
   const position = useRef(new Animated.ValueXY()).current;
@@ -165,7 +167,9 @@ export function SwipeCard({
 
         <View style={styles.locationRow}>
           <Ionicons name="location-outline" size={13} color="rgba(255,255,255,0.75)" />
-          <Text style={styles.locationText}>{profile.distance} mi away</Text>
+          <Text style={styles.locationText}>
+            {distanceLabel ?? `${profile.location}`}
+          </Text>
           <Text style={styles.heightText}>{profile.height}</Text>
         </View>
 
