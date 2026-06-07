@@ -20,24 +20,22 @@ import { ALL_PROFILES } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
 
 const { width: W } = Dimensions.get("window");
-const SWIPE_THRESHOLD = W * 0.35;
-const ROW_HEIGHT = 90;
+const SWIPE_THRESHOLD = 60;
+const AVATAR_SIZE = 62;
 
 const AD_EVERY = 20;
 
 const ADS = [
-  { id: "ad_1", emoji: "💎", headline: "Boost your profile", body: "Get 10× more matches this week with a Profile Boost.", cta: "Try Boost", accent: "#7C3AED" },
-  { id: "ad_2", emoji: "📸", headline: "Look your best", body: "Professional dating photos proven to triple your matches.", cta: "Book a shoot", accent: "#0EA5E9" },
-  { id: "ad_3", emoji: "🎯", headline: "Find someone specific", body: "Use advanced filters to match by values, lifestyle & more.", cta: "Upgrade now", accent: "#F59E0B" },
+  { id: "ad_1", emoji: "💎", headline: "Boost your profile", body: "Get 10× more matches this week.", cta: "Try Boost", accent: "#7C3AED" },
+  { id: "ad_2", emoji: "📸", headline: "Look your best", body: "Pro photos triple your matches.", cta: "Book a shoot", accent: "#0EA5E9" },
+  { id: "ad_3", emoji: "🎯", headline: "Find someone specific", body: "Advanced filters by values & lifestyle.", cta: "Upgrade now", accent: "#F59E0B" },
 ];
 
 function AdBanner({ adIndex }: { adIndex: number }) {
   const ad = ADS[adIndex % ADS.length];
   return (
     <View style={[adStyles.card, { borderColor: ad.accent + "40", backgroundColor: ad.accent + "12" }]}>
-      <View style={adStyles.topRow}>
-        <Text style={adStyles.sponsoredLabel}>Sponsored</Text>
-      </View>
+      <Text style={adStyles.sponsoredLabel}>Sponsored</Text>
       <View style={adStyles.body}>
         <Text style={adStyles.emoji}>{ad.emoji}</Text>
         <View style={adStyles.textWrap}>
@@ -62,119 +60,71 @@ function formatTime(ts: number) {
   return `${Math.floor(hrs / 24)}d`;
 }
 
-interface SwipeableRowProps {
-  profile: any;
-  match: any;
-  lastMsg: any;
-  onChat: () => void;
-  onRemove: () => void;
+interface SwipeAvatarProps {
+  photo: any;
+  onLike: () => void;
+  onNope: () => void;
   colors: any;
 }
 
-function SwipeableMatchRow({ profile, match, lastMsg, onChat, onRemove, colors }: SwipeableRowProps) {
+function SwipeAvatar({ photo, onLike, onNope, colors }: SwipeAvatarProps) {
   const translateX = useRef(new Animated.Value(0)).current;
-  const rowOpacity = useRef(new Animated.Value(1)).current;
+  const rotate = translateX.interpolate({ inputRange: [-80, 0, 80], outputRange: ["-18deg", "0deg", "18deg"] });
+
+  const likeOpacity = translateX.interpolate({ inputRange: [0, SWIPE_THRESHOLD], outputRange: [0, 1], extrapolate: "clamp" });
+  const nopeOpacity = translateX.interpolate({ inputRange: [-SWIPE_THRESHOLD, 0], outputRange: [1, 0], extrapolate: "clamp" });
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 6 && Math.abs(g.dx) > Math.abs(g.dy),
       onPanResponderGrant: () => {
         translateX.setOffset((translateX as any)._value);
         translateX.setValue(0);
       },
-      onPanResponderMove: (_, g) => {
-        translateX.setValue(g.dx);
-      },
+      onPanResponderMove: (_, g) => translateX.setValue(g.dx),
       onPanResponderRelease: (_, g) => {
         translateX.flattenOffset();
-        const dx = g.dx;
-
-        if (dx > SWIPE_THRESHOLD) {
-          // Swipe right → open chat
+        if (g.dx > SWIPE_THRESHOLD) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           Animated.spring(translateX, { toValue: W, useNativeDriver: true }).start(() => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            onChat();
-            Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+            onLike();
+            translateX.setValue(0);
           });
-        } else if (dx < -SWIPE_THRESHOLD) {
-          // Swipe left → unmatch with fade-out
+        } else if (g.dx < -SWIPE_THRESHOLD) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          Animated.parallel([
-            Animated.timing(translateX, { toValue: -W, duration: 250, useNativeDriver: true }),
-            Animated.timing(rowOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
-          ]).start(() => onRemove());
+          Animated.spring(translateX, { toValue: -W, useNativeDriver: true }).start(() => {
+            onNope();
+            translateX.setValue(0);
+          });
         } else {
-          // Snap back
           Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
         }
       },
     })
   ).current;
 
-  // Background color based on direction
-  const rightBg = translateX.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
-    outputRange: ["rgba(34,197,94,0)", "rgba(34,197,94,1)"],
-    extrapolate: "clamp",
-  });
-  const leftBg = translateX.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
-    outputRange: ["rgba(239,68,68,1)", "rgba(239,68,68,0)"],
-    extrapolate: "clamp",
-  });
-  const rightIconOp = translateX.interpolate({ inputRange: [0, SWIPE_THRESHOLD * 0.5], outputRange: [0, 1], extrapolate: "clamp" });
-  const leftIconOp = translateX.interpolate({ inputRange: [-SWIPE_THRESHOLD * 0.5, 0], outputRange: [1, 0], extrapolate: "clamp" });
-
   return (
-    <Animated.View style={[styles.rowOuter, { opacity: rowOpacity }]}>
-      {/* Right action bg (chat) */}
-      <Animated.View style={[styles.actionBg, styles.actionBgRight, { backgroundColor: rightBg }]}>
-        <Animated.View style={{ opacity: rightIconOp, alignItems: "center" }}>
-          <Ionicons name="chatbubble" size={22} color="#fff" />
-          <Text style={styles.actionLabel}>Chat</Text>
-        </Animated.View>
+    <View style={styles.avatarWrap}>
+      {/* NOPE stamp */}
+      <Animated.View style={[styles.stamp, styles.stampNope, { opacity: nopeOpacity }]}>
+        <Text style={styles.stampTextNope}>NOPE</Text>
       </Animated.View>
 
-      {/* Left action bg (unmatch) */}
-      <Animated.View style={[styles.actionBg, styles.actionBgLeft, { backgroundColor: leftBg }]}>
-        <Animated.View style={{ opacity: leftIconOp, alignItems: "center" }}>
-          <Ionicons name="heart-dislike" size={22} color="#fff" />
-          <Text style={styles.actionLabel}>Unmatch</Text>
-        </Animated.View>
+      {/* LIKE stamp */}
+      <Animated.View style={[styles.stamp, styles.stampLike, { opacity: likeOpacity }]}>
+        <Text style={styles.stampTextLike}>LIKE</Text>
       </Animated.View>
 
-      {/* Sliding row */}
+      {/* Avatar */}
       <Animated.View
-        style={[
-          styles.matchRow,
-          { borderBottomColor: colors.border, backgroundColor: colors.background, transform: [{ translateX }] },
-        ]}
+        style={{ transform: [{ translateX }, { rotate }] }}
         {...panResponder.panHandlers}
       >
-        <TouchableOpacity style={styles.rowInner} onPress={onChat} activeOpacity={0.75}>
-          <View style={styles.avatarWrap}>
-            <Image source={profile.photo} style={styles.avatar} resizeMode="cover" />
-            <View style={[styles.onlineDot, { backgroundColor: colors.like }]} />
-          </View>
-
-          <View style={styles.matchInfo}>
-            <View style={styles.matchNameRow}>
-              <Text style={[styles.matchName, { color: colors.foreground }]}>{profile.name}</Text>
-              <Text style={[styles.matchTime, { color: colors.mutedForeground }]}>{formatTime(match.matchedAt)}</Text>
-            </View>
-            <Text style={[styles.lastMessage, { color: colors.mutedForeground }]} numberOfLines={1}>
-              {lastMsg ? lastMsg.text || "📎 Attachment" : `Say hello to ${profile.name}!`}
-            </Text>
-          </View>
-
-          <View style={styles.hintIcons}>
-            <Ionicons name="arrow-back" size={12} color={colors.mutedForeground} />
-            <Ionicons name="arrow-forward" size={12} color={colors.mutedForeground} />
-          </View>
-        </TouchableOpacity>
+        <Image source={photo} style={styles.avatar} resizeMode="cover" />
       </Animated.View>
-    </Animated.View>
+
+      <View style={[styles.onlineDot, { backgroundColor: colors.like }]} />
+    </View>
   );
 }
 
@@ -219,16 +169,9 @@ export default function MatchesScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>Matches</Text>
-        <View style={styles.headerSub}>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            {matchData.length} {matchData.length === 1 ? "match" : "matches"}
-          </Text>
-          <View style={styles.swipeHint}>
-            <Ionicons name="arrow-back" size={11} color={colors.mutedForeground} />
-            <Text style={[styles.swipeHintText, { color: colors.mutedForeground }]}>swipe rows</Text>
-            <Ionicons name="arrow-forward" size={11} color={colors.mutedForeground} />
-          </View>
-        </View>
+        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+          {matchData.length} {matchData.length === 1 ? "match" : "matches"} · swipe photo to like or pass
+        </Text>
       </View>
 
       {matchData.length === 0 ? (
@@ -251,15 +194,43 @@ export default function MatchesScreen() {
             if (item.type === "ad") return <AdBanner adIndex={item.adIndex} />;
             const { profile, match, lastMsg } = item;
             return (
-              <SwipeableMatchRow
-                key={profile.id}
-                profile={profile}
-                match={match}
-                lastMsg={lastMsg}
-                colors={colors}
-                onChat={() => router.push({ pathname: "/chat/[id]", params: { id: profile.id } })}
-                onRemove={() => removeMatch(profile.id)}
-              />
+              <View style={[styles.matchRow, { borderBottomColor: colors.border }]}>
+                <SwipeAvatar
+                  photo={profile.photo}
+                  colors={colors}
+                  onLike={() =>
+                    router.push({ pathname: "/chat/[id]", params: { id: profile.id } })
+                  }
+                  onNope={() => removeMatch(profile.id)}
+                />
+
+                <TouchableOpacity
+                  style={styles.matchInfo}
+                  onPress={() =>
+                    router.push({ pathname: "/chat/[id]", params: { id: profile.id } })
+                  }
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.matchNameRow}>
+                    <Text style={[styles.matchName, { color: colors.foreground }]}>
+                      {profile.name}
+                    </Text>
+                    <Text style={[styles.matchTime, { color: colors.mutedForeground }]}>
+                      {formatTime(match.matchedAt)}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[styles.lastMessage, { color: colors.mutedForeground }]}
+                    numberOfLines={1}
+                  >
+                    {lastMsg
+                      ? lastMsg.text || "📎 Attachment"
+                      : `Say hello to ${profile.name}!`}
+                  </Text>
+                </TouchableOpacity>
+
+                <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+              </View>
             );
           }}
         />
@@ -269,8 +240,7 @@ export default function MatchesScreen() {
 }
 
 const adStyles = StyleSheet.create({
-  card: { marginHorizontal: 0, marginVertical: 8, borderRadius: 16, borderWidth: 1, padding: 16, gap: 10 },
-  topRow: { flexDirection: "row", alignItems: "center" },
+  card: { marginVertical: 8, borderRadius: 16, borderWidth: 1, padding: 16, gap: 10 },
   sponsoredLabel: { fontSize: 10, fontFamily: "Inter_500Medium", color: "#9A93B3", textTransform: "uppercase", letterSpacing: 0.8 },
   body: { flexDirection: "row", alignItems: "center", gap: 12 },
   emoji: { fontSize: 32 },
@@ -284,43 +254,86 @@ const adStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 24, paddingBottom: 16 },
-  headerSub: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 },
   title: { fontSize: 32, fontWeight: "800", fontFamily: "Inter_700Bold", marginBottom: 2 },
-  subtitle: { fontSize: 14, fontFamily: "Inter_400Regular" },
-  swipeHint: { flexDirection: "row", alignItems: "center", gap: 4 },
-  swipeHintText: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  subtitle: { fontSize: 13, fontFamily: "Inter_400Regular" },
   list: { paddingHorizontal: 20 },
 
-  rowOuter: { height: ROW_HEIGHT, overflow: "hidden", position: "relative" },
-  actionBg: {
-    position: "absolute", top: 0, bottom: 0,
-    justifyContent: "center", alignItems: "center", width: "50%",
-  },
-  actionBgRight: { left: 0, alignItems: "flex-start", paddingLeft: 24 },
-  actionBgLeft: { right: 0, alignItems: "flex-end", paddingRight: 24 },
-  actionLabel: { color: "#fff", fontSize: 11, fontFamily: "Inter_600SemiBold", marginTop: 3 },
-
   matchRow: {
-    position: "absolute", top: 0, left: 0, right: 0,
-    height: ROW_HEIGHT,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 14,
+    overflow: "visible",
   },
-  rowInner: {
-    flex: 1, flexDirection: "row", alignItems: "center",
-    paddingHorizontal: 0, gap: 14,
+
+  avatarWrap: {
+    position: "relative",
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
   },
-  avatarWrap: { position: "relative" },
-  avatar: { width: 62, height: 62, borderRadius: 31 },
+  avatar: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+  },
   onlineDot: {
-    position: "absolute", width: 14, height: 14, borderRadius: 7,
-    bottom: 1, right: 1, borderWidth: 2, borderColor: "white",
+    position: "absolute",
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    bottom: 1,
+    right: 1,
+    borderWidth: 2,
+    borderColor: "white",
+    zIndex: 10,
   },
+
+  stamp: {
+    position: "absolute",
+    zIndex: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 2,
+  },
+  stampLike: {
+    top: 4,
+    left: -8,
+    borderColor: "#22c55e",
+    backgroundColor: "rgba(34,197,94,0.15)",
+    transform: [{ rotate: "-15deg" }],
+  },
+  stampNope: {
+    top: 4,
+    right: -8,
+    borderColor: "#ef4444",
+    backgroundColor: "rgba(239,68,68,0.15)",
+    transform: [{ rotate: "15deg" }],
+  },
+  stampTextLike: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    color: "#22c55e",
+    letterSpacing: 1,
+  },
+  stampTextNope: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    color: "#ef4444",
+    letterSpacing: 1,
+  },
+
   matchInfo: { flex: 1 },
-  matchNameRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  matchNameRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
   matchName: { fontSize: 16, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   matchTime: { fontSize: 12, fontFamily: "Inter_400Regular" },
   lastMessage: { fontSize: 14, fontFamily: "Inter_400Regular" },
-  hintIcons: { flexDirection: "row", gap: 2, opacity: 0.4 },
 
   emptyState: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 40, gap: 12 },
   emptyIcon: { width: 80, height: 80, borderRadius: 40, justifyContent: "center", alignItems: "center", marginBottom: 8 },
