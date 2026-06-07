@@ -14,7 +14,7 @@ import {
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import WebView from "react-native-webview";
-import { MOCK_PROFILES } from "@/data/profiles";
+import { ALL_PROFILES } from "@/data/allProfiles";
 import { getOrCreateRoom } from "@/lib/daily";
 
 type CallPhase = "connecting" | "ready" | "error";
@@ -29,7 +29,7 @@ export default function CallScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
 
-  const profile = useMemo(() => MOCK_PROFILES.find((p) => p.id === id), [id]);
+  const profile = useMemo(() => ALL_PROFILES.find((p) => p.id === id), [id]);
 
   const [phase, setPhase] = useState<CallPhase>("connecting");
   const [roomUrl, setRoomUrl] = useState<string | null>(null);

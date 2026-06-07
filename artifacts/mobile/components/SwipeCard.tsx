@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Profile } from "@/data/profiles";
+import { Profile } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");

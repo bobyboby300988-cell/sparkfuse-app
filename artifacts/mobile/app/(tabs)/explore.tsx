@@ -16,12 +16,20 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
-import { MOCK_PROFILES, Profile } from "@/data/profiles";
+import { getProfilesByMode } from "@/data/allProfiles";
+import type { Profile } from "@/data/allProfiles";
+import { ModeSelector } from "@/components/ModeSelector";
 import { useColors } from "@/hooks/useColors";
 
 const { width: W } = Dimensions.get("window");
 const COLS = 3;
-const TILE = (W - 4) / COLS; // 2px gap each side
+const TILE = (W - 4) / COLS;
+
+const MODE_ACCENT: Record<string, string> = {
+  dating: "#FF3366",
+  naughty: "#FF6B35",
+  business: "#0EA5E9",
+};
 
 function ProfileModal({
   profile,
@@ -34,10 +42,9 @@ function ProfileModal({
 }) {
   const colors = useColors();
   const { addMatch, matches } = useApp();
-
   if (!profile) return null;
-
   const alreadyMatched = matches.some((m) => m.profileId === profile.id);
+  const accent = MODE_ACCENT[profile.mode] ?? colors.primary;
 
   const handleLike = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -49,45 +56,37 @@ function ProfileModal({
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={[modalStyles.container, { backgroundColor: colors.background }]}>
-        {/* Close */}
         <TouchableOpacity style={modalStyles.closeBtn} onPress={onClose} activeOpacity={0.8}>
-          <Ionicons name="close" size={22} color={colors.foreground} />
+          <Ionicons name="close" size={22} color="#fff" />
         </TouchableOpacity>
 
         <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-          {/* Photo */}
           <Image source={profile.photo} style={modalStyles.photo} contentFit="cover" />
-
-          {/* Info */}
           <View style={modalStyles.info}>
             <View style={modalStyles.nameRow}>
               <Text style={[modalStyles.name, { color: colors.foreground }]}>
                 {profile.name}, {profile.age}
               </Text>
-              <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+              <Ionicons name="checkmark-circle" size={22} color={accent} />
             </View>
-
             <View style={modalStyles.metaRow}>
               <Ionicons name="location-outline" size={14} color={colors.mutedForeground} />
               <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>{profile.location}</Text>
               <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>·</Text>
               <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>{profile.height}</Text>
             </View>
-
             <Text style={[modalStyles.bio, { color: colors.foreground }]}>{profile.bio}</Text>
-
             <Text style={[modalStyles.sectionLabel, { color: colors.mutedForeground }]}>Interests</Text>
             <View style={modalStyles.chips}>
               {profile.interests.map((interest) => (
-                <View key={interest} style={[modalStyles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <Text style={[modalStyles.chipText, { color: colors.foreground }]}>{interest}</Text>
+                <View key={interest} style={[modalStyles.chip, { backgroundColor: accent + "18", borderColor: accent + "40" }]}>
+                  <Text style={[modalStyles.chipText, { color: accent }]}>{interest}</Text>
                 </View>
               ))}
             </View>
           </View>
         </ScrollView>
 
-        {/* Actions */}
         <View style={[modalStyles.actions, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
           <TouchableOpacity
             style={[modalStyles.nopeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -96,15 +95,14 @@ function ProfileModal({
           >
             <Ionicons name="close" size={26} color="#FF4D6D" />
           </TouchableOpacity>
-
           <TouchableOpacity
-            style={[modalStyles.likeBtn, { backgroundColor: colors.primary }]}
+            style={[modalStyles.likeBtn, { backgroundColor: accent }]}
             onPress={handleLike}
             activeOpacity={0.85}
           >
-            <Ionicons name="heart" size={28} color="#fff" />
+            <Ionicons name={profile.mode === "business" ? "briefcase" : "heart"} size={24} color="#fff" />
             <Text style={modalStyles.likeBtnText}>
-              {alreadyMatched ? "Send message" : "Like"}
+              {alreadyMatched ? "Message" : profile.mode === "business" ? "Connect" : "Like"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -116,16 +114,10 @@ function ProfileModal({
 const modalStyles = StyleSheet.create({
   container: { flex: 1 },
   closeBtn: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    zIndex: 10,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center",
+    position: "absolute", top: 16, right: 16, zIndex: 10,
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center", alignItems: "center",
   },
   photo: { width: "100%", height: W * 1.1 },
   info: { padding: 24, gap: 12 },
@@ -139,29 +131,16 @@ const modalStyles = StyleSheet.create({
   chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   actions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-    padding: 20,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 16, padding: 20, borderTopWidth: StyleSheet.hairlineWidth,
   },
   nopeBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    width: 58, height: 58, borderRadius: 29, borderWidth: 1,
+    justifyContent: "center", alignItems: "center",
   },
   likeBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    height: 58,
-    borderRadius: 29,
+    flex: 1, flexDirection: "row", alignItems: "center",
+    justifyContent: "center", gap: 8, height: 58, borderRadius: 29,
   },
   likeBtnText: { color: "#fff", fontSize: 17, fontFamily: "Inter_700Bold" },
 });
@@ -169,29 +148,26 @@ const modalStyles = StyleSheet.create({
 export default function ExploreScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { appMode, setAppMode } = useApp();
   const [selected, setSelected] = useState<Profile | null>(null);
 
+  const profiles = getProfilesByMode(appMode);
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
-  const handlePress = (profile: Profile) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelected(profile);
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>Explore</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {MOCK_PROFILES.length} people nearby
+          {profiles.length} people in {appMode} mode
         </Text>
       </View>
 
-      {/* Grid */}
+      <ModeSelector value={appMode} onChange={setAppMode} />
+
       <FlatList
-        data={MOCK_PROFILES}
+        data={profiles}
         keyExtractor={(p) => p.id}
         numColumns={COLS}
         columnWrapperStyle={styles.row}
@@ -200,7 +176,10 @@ export default function ExploreScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.tile}
-            onPress={() => handlePress(item)}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSelected(item);
+            }}
             activeOpacity={0.88}
           >
             <Image source={item.photo} style={styles.tileImg} contentFit="cover" />
@@ -223,54 +202,20 @@ export default function ExploreScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "800",
-    fontFamily: "Inter_700Bold",
-    marginBottom: 2,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-  },
-  row: {
-    gap: 2,
-    marginBottom: 2,
-    paddingHorizontal: 2,
-  },
+  header: { paddingHorizontal: 24, paddingBottom: 4 },
+  title: { fontSize: 32, fontWeight: "800", fontFamily: "Inter_700Bold", marginBottom: 2 },
+  subtitle: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  row: { gap: 2, marginBottom: 2, paddingHorizontal: 2 },
   tile: {
-    width: TILE,
-    height: TILE * 1.25,
-    borderRadius: 4,
-    overflow: "hidden",
-    position: "relative",
+    width: TILE, height: TILE * 1.25, borderRadius: 4,
+    overflow: "hidden", position: "relative",
   },
-  tileImg: {
-    width: "100%",
-    height: "100%",
-  },
+  tileImg: { width: "100%", height: "100%" },
   tileOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 6,
-    paddingBottom: 6,
-    paddingTop: 18,
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    paddingHorizontal: 6, paddingBottom: 6, paddingTop: 18,
     backgroundColor: "rgba(0,0,0,0.42)",
   },
-  tileName: {
-    color: "#fff",
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-  },
-  tileAge: {
-    color: "rgba(255,255,255,0.75)",
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-  },
+  tileName: { color: "#fff", fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  tileAge: { color: "rgba(255,255,255,0.75)", fontSize: 11, fontFamily: "Inter_400Regular" },
 });

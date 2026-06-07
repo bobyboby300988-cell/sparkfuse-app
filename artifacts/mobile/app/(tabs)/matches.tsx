@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
-import { MOCK_PROFILES } from "@/data/profiles";
+import { ALL_PROFILES } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
 
 const AD_EVERY = 20;
@@ -87,7 +87,7 @@ export default function MatchesScreen() {
   const matchData = useMemo(() => {
     return matches
       .map((m) => {
-        const profile = MOCK_PROFILES.find((p) => p.id === m.profileId);
+        const profile = ALL_PROFILES.find((p) => p.id === m.profileId);
         if (!profile) return null;
         const lastMsg = m.messages[m.messages.length - 1];
         return { match: m, profile, lastMsg };

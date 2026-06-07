@@ -20,7 +20,7 @@ import {
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
-import { MOCK_PROFILES } from "@/data/profiles";
+import { ALL_PROFILES } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
 
 function formatTime(ts: number) {
@@ -147,7 +147,7 @@ export default function ChatScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const recordingStart = useRef<number>(0);
 
-  const profile = useMemo(() => MOCK_PROFILES.find((p) => p.id === id), [id]);
+  const profile = useMemo(() => ALL_PROFILES.find((p) => p.id === id), [id]);
   const match = useMemo(() => matches.find((m) => m.profileId === id), [matches, id]);
   const reversedMessages = useMemo(() => {
     if (!match) return [];

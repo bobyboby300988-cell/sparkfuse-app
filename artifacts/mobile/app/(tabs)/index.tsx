@@ -12,35 +12,45 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatchModal } from "@/components/MatchModal";
+import { ModeSelector } from "@/components/ModeSelector";
 import { SwipeCard } from "@/components/SwipeCard";
 import { useApp } from "@/context/AppContext";
-import { MOCK_PROFILES, Profile } from "@/data/profiles";
+import { getProfilesByMode } from "@/data/allProfiles";
+import type { Profile } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
 import { useLocation } from "@/hooks/useLocation";
 import { haversineKm, formatDistance } from "@/lib/distance";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
+const MODE_LABELS: Record<string, string> = {
+  dating: "Find your person",
+  naughty: "Tonight's vibe",
+  business: "Grow your network",
+};
+
 export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { seenProfiles, markSeen, addMatch, userProfile } = useApp();
+  const { seenProfiles, markSeen, addMatch, appMode, setAppMode } = useApp();
   const [matchedProfile, setMatchedProfile] = useState<Profile | null>(null);
   const [matchModalVisible, setMatchModalVisible] = useState(false);
   const { location } = useLocation();
 
   const profilesWithDistance = useMemo(() => {
-    return MOCK_PROFILES.map((p) => ({
-      ...p,
-      realKm: location
-        ? haversineKm(location.latitude, location.longitude, p.lat, p.lng)
-        : null,
-    })).sort((a, b) => {
-      if (a.realKm === null) return 1;
-      if (b.realKm === null) return -1;
-      return a.realKm - b.realKm;
-    });
-  }, [location]);
+    return getProfilesByMode(appMode)
+      .map((p) => ({
+        ...p,
+        realKm: location
+          ? haversineKm(location.latitude, location.longitude, p.lat, p.lng)
+          : null,
+      }))
+      .sort((a, b) => {
+        if (a.realKm === null) return 1;
+        if (b.realKm === null) return -1;
+        return a.realKm - b.realKm;
+      });
+  }, [location, appMode]);
 
   const remaining = useMemo(
     () => profilesWithDistance.filter((p) => !seenProfiles.includes(p.id)),
@@ -75,25 +85,8 @@ export default function DiscoverScreen() {
     setMatchModalVisible(true);
   };
 
-  const handleActionLike = () => {
-    if (visible.length === 0) return;
-    handleSwipeRight();
-  };
-
-  const handleActionNope = () => {
-    if (visible.length === 0) return;
-    handleSwipeLeft();
-  };
-
-  const handleActionSuperLike = () => {
-    if (visible.length === 0) return;
-    handleSuperLike();
-  };
-
-  const topPadding =
-    insets.top + (Platform.OS === "web" ? 67 : 0);
-  const bottomPadding =
-    insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
+  const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -101,9 +94,12 @@ export default function DiscoverScreen() {
       <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
         <View style={styles.logoRow}>
           <Ionicons name="flame" size={26} color={colors.primary} />
-          <Text style={[styles.logoText, { color: colors.foreground }]}>
-            Spark
-          </Text>
+          <View>
+            <Text style={[styles.logoText, { color: colors.foreground }]}>Spark</Text>
+            <Text style={[styles.modeHint, { color: colors.mutedForeground }]}>
+              {MODE_LABELS[appMode]}
+            </Text>
+          </View>
         </View>
         <TouchableOpacity
           style={[styles.iconBtn, { backgroundColor: colors.card }]}
@@ -112,6 +108,9 @@ export default function DiscoverScreen() {
           <Ionicons name="options-outline" size={20} color={colors.foreground} />
         </TouchableOpacity>
       </View>
+
+      {/* Mode switcher */}
+      <ModeSelector value={appMode} onChange={setAppMode} />
 
       {/* Card Stack */}
       <View style={styles.cardArea}>
@@ -149,15 +148,10 @@ export default function DiscoverScreen() {
 
       {/* Action buttons */}
       {visible.length > 0 && (
-        <View
-          style={[
-            styles.actions,
-            { paddingBottom: bottomPadding + 96 },
-          ]}
-        >
+        <View style={[styles.actions, { paddingBottom: bottomPadding + 96 }]}>
           <TouchableOpacity
             style={[styles.actionBtn, styles.smallBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={handleActionNope}
+            onPress={handleSwipeLeft}
             activeOpacity={0.8}
           >
             <Ionicons name="close" size={26} color={colors.nope} />
@@ -165,7 +159,7 @@ export default function DiscoverScreen() {
 
           <TouchableOpacity
             style={[styles.actionBtn, styles.largeBtn, { backgroundColor: colors.primary }]}
-            onPress={handleActionLike}
+            onPress={handleSwipeRight}
             activeOpacity={0.85}
           >
             <Ionicons name="heart" size={32} color="#FFFFFF" />
@@ -173,7 +167,7 @@ export default function DiscoverScreen() {
 
           <TouchableOpacity
             style={[styles.actionBtn, styles.smallBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={handleActionSuperLike}
+            onPress={handleSuperLike}
             activeOpacity={0.8}
           >
             <Ionicons name="star" size={24} color={colors.superLike} />
@@ -181,7 +175,6 @@ export default function DiscoverScreen() {
         </View>
       )}
 
-      {/* Profile info hint */}
       {visible.length > 0 && (
         <View style={styles.swipeHint}>
           <Text style={[styles.hintText, { color: colors.mutedForeground }]}>
@@ -209,26 +202,30 @@ export default function DiscoverScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingBottom: 4,
   },
   logoRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
   logoText: {
     fontSize: 24,
     fontWeight: "800",
     fontFamily: "Inter_700Bold",
     letterSpacing: -0.5,
+    lineHeight: 26,
+  },
+  modeHint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 16,
   },
   iconBtn: {
     width: 40,
@@ -278,15 +275,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  smallBtn: {
-    width: 58,
-    height: 58,
-  },
-  largeBtn: {
-    width: 72,
-    height: 72,
-    borderWidth: 0,
-  },
+  smallBtn: { width: 58, height: 58 },
+  largeBtn: { width: 72, height: 72, borderWidth: 0 },
   swipeHint: {
     position: "absolute",
     bottom: 80,
@@ -294,8 +284,5 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: "center",
   },
-  hintText: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-  },
+  hintText: { fontSize: 12, fontFamily: "Inter_400Regular" },
 });

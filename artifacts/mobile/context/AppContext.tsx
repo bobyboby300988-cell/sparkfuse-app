@@ -24,10 +24,14 @@ export interface Match {
   messages: Message[];
 }
 
+export type AppMode = "dating" | "naughty" | "business";
+
 interface AppContextType {
   userProfile: UserProfile | null;
   isLoaded: boolean;
   isSubscribed: boolean;
+  appMode: AppMode;
+  setAppMode: (mode: AppMode) => void;
   setUserProfile: (p: UserProfile) => Promise<void>;
   setSubscribed: () => Promise<void>;
   matches: Match[];
@@ -54,6 +58,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [seenProfiles, setSeenProfiles] = useState<string[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSubscribed, setIsSubscribedState] = useState(false);
+  const [appMode, setAppModeState] = useState<AppMode>("dating");
 
   useEffect(() => {
     async function load() {
@@ -167,6 +172,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         userProfile,
         isLoaded,
         isSubscribed,
+        appMode,
+        setAppMode: setAppModeState,
         setUserProfile,
         setSubscribed,
         matches,
