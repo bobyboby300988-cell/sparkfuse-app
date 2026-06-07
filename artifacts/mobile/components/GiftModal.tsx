@@ -31,6 +31,8 @@ const GIFT_OPTIONS = [
   { coins: 100, label: "Crown",      emoji: "👑" },
 ];
 
+const TOKEN = "ST"; // Spark Token abbreviation
+
 const PLATFORM_FEE_RATE = 0.10;
 
 interface Props {
@@ -68,13 +70,13 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
       "https://www.paypal.com/cgi-bin/webscr?" +
       "cmd=_xclick&business=dumitru8830%40gmail.com" +
       `&amount=${pkg.eur}.00&currency_code=EUR` +
-      `&item_name=Spark+${pkg.coins}+Coins`;
+      `&item_name=Spark+${pkg.coins}+Tokens`;
     await WebBrowser.openBrowserAsync(url, {
       presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
     });
     addCoins(pkg.coins);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert("Coins added! 🎉", `${pkg.coins} coins have been added to your wallet.`);
+    Alert.alert("Spark Tokens added! 🔥", `${pkg.coins} ST have been added to your wallet.`);
     setTab("send");
   }
 
@@ -94,7 +96,7 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.foreground }]}>
-              {sent ? "Gift Sent! 🎉" : `Send a Gift to ${recipientName}`}
+              {sent ? "Gift Sent! 🎉" : `Send Spark Tokens to ${recipientName}`}
             </Text>
             <TouchableOpacity onPress={handleClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Ionicons name="close" size={24} color={colors.mutedForeground} />
@@ -109,7 +111,7 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
                 {selectedGift.label} sent to {recipientName}!
               </Text>
               <Text style={[styles.successSub, { color: colors.mutedForeground }]}>
-                They received {selectedGift.coins} coins worth of gifts.
+                They received {selectedGift.coins} Spark Tokens as a gift.
               </Text>
               <TouchableOpacity
                 style={[styles.doneBtn, { backgroundColor: "#FF3366" }]}
@@ -125,8 +127,8 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
               <View style={[styles.balanceRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
                 <Text style={styles.coinIcon}>🪙</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.balanceLabel, { color: colors.mutedForeground }]}>Your coin balance</Text>
-                  <Text style={[styles.balanceValue, { color: colors.foreground }]}>{coinBalance} coins</Text>
+                  <Text style={[styles.balanceLabel, { color: colors.mutedForeground }]}>Your Spark Token balance</Text>
+                  <Text style={[styles.balanceValue, { color: colors.foreground }]}>{coinBalance} ST</Text>
                 </View>
                 <TouchableOpacity
                   style={[styles.topUpBtn, { borderColor: "#FF3366" }]}
@@ -147,7 +149,7 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.tabLabel, { color: tab === t ? "#fff" : colors.mutedForeground }]}>
-                      {t === "send" ? "🎁  Send Gift" : "🪙  Buy Coins"}
+                      {t === "send" ? "🎁  Send Gift" : "🔥  Buy ST"}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -173,7 +175,7 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
                           <Text style={styles.giftEmoji}>{g.emoji}</Text>
                           <Text style={[styles.giftName, { color: colors.foreground }]}>{g.label}</Text>
                           <Text style={[styles.giftCoins, { color: active ? "#FF3366" : colors.mutedForeground }]}>
-                            {g.coins} coins
+                            {g.coins} ST
                           </Text>
                           {active && (
                             <View style={styles.checkBadge}>
@@ -189,23 +191,23 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
                   <View style={[styles.feeBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     <View style={styles.feeRow}>
                       <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Gift amount</Text>
-                      <Text style={[styles.feeValue, { color: colors.foreground }]}>{selectedGift.coins} coins</Text>
+                      <Text style={[styles.feeValue, { color: colors.foreground }]}>{selectedGift.coins} ST</Text>
                     </View>
                     <View style={styles.feeRow}>
                       <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Platform fee (10% from you)</Text>
-                      <Text style={[styles.feeValue, { color: "#EF4444" }]}>+{fee} coins</Text>
+                      <Text style={[styles.feeValue, { color: "#EF4444" }]}>+{fee} ST</Text>
                     </View>
                     <View style={[styles.feeDivider, { backgroundColor: colors.border }]} />
                     <View style={styles.feeRow}>
                       <Text style={[styles.feeLabelBold, { color: colors.foreground }]}>You pay total</Text>
-                      <Text style={[styles.feeValueBold, { color: "#FF3366" }]}>{totalCost} coins</Text>
+                      <Text style={[styles.feeValueBold, { color: "#FF3366" }]}>{totalCost} ST</Text>
                     </View>
                     <View style={styles.feeRow}>
                       <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>{recipientName} receives</Text>
-                      <Text style={[styles.feeValue, { color: "#22C55E" }]}>{selectedGift.coins} coins</Text>
+                      <Text style={[styles.feeValue, { color: "#22C55E" }]}>{selectedGift.coins} ST</Text>
                     </View>
                     <Text style={[styles.feeNote, { color: colors.mutedForeground }]}>
-                      Note: {recipientName} pays an additional 10% platform fee when they withdraw their coins.
+                      Note: {recipientName} pays a 10% platform fee when they withdraw their Spark Tokens.
                     </Text>
                   </View>
 
@@ -213,7 +215,7 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
                     <View style={[styles.insufficientRow, { backgroundColor: "#EF444415", borderColor: "#EF444430" }]}>
                       <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
                       <Text style={[styles.insufficientText, { color: "#EF4444" }]}>
-                        Not enough coins. Need {totalCost - coinBalance} more. Buy coins below.
+                        Not enough Spark Tokens. Need {totalCost - coinBalance} more ST. Buy below.
                       </Text>
                     </View>
                   )}
@@ -225,14 +227,14 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
                   >
                     <Text style={styles.sendBtnIcon}>{selectedGift.emoji}</Text>
                     <Text style={styles.sendBtnText}>
-                      {canSend ? `Send ${selectedGift.label} · ${totalCost} coins` : "Buy coins to send"}
+                      {canSend ? `Send ${selectedGift.label} · ${totalCost} ST` : "Buy Spark Tokens to send"}
                     </Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
                   {/* Buy coins */}
-                  <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Select a coin package</Text>
+                  <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Select a Spark Token package</Text>
                   {COIN_PACKAGES.map((pkg) => (
                     <TouchableOpacity
                       key={pkg.coins}
@@ -249,7 +251,7 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
                       <Text style={styles.pkgIcon}>{pkg.icon}</Text>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.pkgLabel, { color: colors.foreground }]}>
-                          {pkg.coins} coins{pkg.highlight ? "  ⭐ Popular" : ""}
+                          {pkg.coins} ST{pkg.highlight ? "  ⭐ Popular" : ""}
                         </Text>
                         <Text style={[styles.pkgSub, { color: colors.mutedForeground }]}>
                           €{pkg.eur}.00 · via PayPal
@@ -265,7 +267,7 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
                     </TouchableOpacity>
                   ))}
                   <Text style={[styles.buyNote, { color: colors.mutedForeground }]}>
-                    Coins are added instantly after payment. 1 coin = €0.10
+                    Spark Tokens are added instantly after payment. 1 ST = €0.10
                   </Text>
                 </>
               )}

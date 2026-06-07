@@ -220,9 +220,9 @@ export default function ProfileScreen() {
 
         <View style={[styles.walletGrid, { borderColor: colors.border }]}>
           <View style={[styles.walletCell, { borderRightColor: colors.border }]}>
-            <Text style={styles.walletCoin}>🪙</Text>
-            <Text style={[styles.walletValue, { color: colors.foreground }]}>{coinBalance}</Text>
-            <Text style={[styles.walletLabel, { color: colors.mutedForeground }]}>Coins to spend</Text>
+            <Text style={styles.walletCoin}>🔥</Text>
+            <Text style={[styles.walletValue, { color: colors.foreground }]}>{coinBalance} ST</Text>
+            <Text style={[styles.walletLabel, { color: colors.mutedForeground }]}>Spark Tokens</Text>
           </View>
           <View style={styles.walletCell}>
             <Text style={styles.walletCoin}>🎁</Text>
@@ -232,7 +232,7 @@ export default function ProfileScreen() {
         </View>
 
         <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
-          Platform fee: 10% charged to sender + 10% deducted from your withdrawal.
+          Send & receive Spark Tokens (ST) as gifts. Platform fee: 10% from sender + 10% on withdrawal.
         </Text>
 
         <TouchableOpacity
