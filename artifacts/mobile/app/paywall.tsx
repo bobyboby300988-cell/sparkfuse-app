@@ -19,6 +19,8 @@ const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
   : "https://match-maker-dumitru8830.replit.app/api";
 
+const APP_DOMAIN = "https://match-maker-dumitru8830.replit.app";
+
 const PERKS = [
   { icon: "heart", label: "Unlimited swipes & matches" },
   { icon: "chatbubbles", label: "Chat with all your matches" },
@@ -30,44 +32,73 @@ const PERKS = [
 export default function PaywallScreen() {
   const insets = useSafeAreaInsets();
   const { setSubscribed } = useApp();
-  const [loading, setLoading] = useState(false);
+  const [loadingStripe, setLoadingStripe] = useState(false);
+  const [loadingPayPal, setLoadingPayPal] = useState(false);
 
-  const handleSubscribe = async () => {
-    setLoading(true);
+  const handleStripe = async () => {
+    setLoadingStripe(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
     try {
       const res = await fetch(`${API_BASE}/stripe/subscription-checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          successUrl: "https://match-maker-dumitru8830.replit.app/success",
-          cancelUrl: "https://match-maker-dumitru8830.replit.app/cancel",
+          successUrl: `${APP_DOMAIN}/success`,
+          cancelUrl: `${APP_DOMAIN}/cancel`,
         }),
       });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error((err as any).error ?? "Could not start checkout");
       }
-
-      const { url } = await res.json() as { url: string };
-      setLoading(false);
-
+      const { url } = (await res.json()) as { url: string };
+      setLoadingStripe(false);
       await WebBrowser.openBrowserAsync(url, {
         presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
         showTitle: false,
       });
-
-      // When browser closes, mark as subscribed and enter the app
       await setSubscribed();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/");
     } catch (err: any) {
-      setLoading(false);
+      setLoadingStripe(false);
       Alert.alert("Error", err.message ?? "Something went wrong. Please try again.");
     }
   };
+
+  const handlePayPal = async () => {
+    setLoadingPayPal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const res = await fetch(`${API_BASE}/paypal/create-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          returnUrl: `${APP_DOMAIN}/paypal-success`,
+          cancelUrl: `${APP_DOMAIN}/cancel`,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).error ?? "Could not start PayPal checkout");
+      }
+      const { url } = (await res.json()) as { url: string };
+      setLoadingPayPal(false);
+      await WebBrowser.openBrowserAsync(url, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        showTitle: false,
+      });
+      // After the browser closes (user paid or returned), mark as subscribed
+      await setSubscribed();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/");
+    } catch (err: any) {
+      setLoadingPayPal(false);
+      Alert.alert("Error", err.message ?? "Something went wrong. Please try again.");
+    }
+  };
+
+  const anyLoading = loadingStripe || loadingPayPal;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -109,27 +140,52 @@ export default function PaywallScreen() {
           ))}
         </View>
 
-        {/* CTA */}
+        {/* Stripe CTA */}
         <TouchableOpacity
-          style={[styles.btn, loading && styles.btnLoading]}
-          onPress={handleSubscribe}
-          disabled={loading}
+          style={[styles.btn, anyLoading && styles.btnDisabled]}
+          onPress={handleStripe}
+          disabled={anyLoading}
           activeOpacity={0.88}
         >
-          {loading ? (
+          {loadingStripe ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Ionicons name="flash" size={20} color="#fff" />
-              <Text style={styles.btnText}>Start for €1 / month</Text>
+              <Ionicons name="card" size={20} color="#fff" />
+              <Text style={styles.btnText}>Pay with Card (Stripe)</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {/* Divider */}
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* PayPal CTA */}
+        <TouchableOpacity
+          style={[styles.btnPayPal, anyLoading && styles.btnDisabled]}
+          onPress={handlePayPal}
+          disabled={anyLoading}
+          activeOpacity={0.88}
+        >
+          {loadingPayPal ? (
+            <ActivityIndicator color="#003087" />
+          ) : (
+            <>
+              <Text style={styles.btnPayPalText}>
+                <Text style={{ color: "#003087" }}>Pay</Text>
+                <Text style={{ color: "#009cde" }}>Pal</Text>
+              </Text>
             </>
           )}
         </TouchableOpacity>
 
         {/* Fine print */}
         <Text style={styles.finePrint}>
-          Billed monthly via Stripe. Cancel any time from your Stripe account.
-          By subscribing you agree to our Terms of Service.
+          €1 billed monthly. Cancel anytime.{"\n"}By subscribing you agree to our Terms of Service.
         </Text>
       </ScrollView>
     </View>
@@ -252,14 +308,49 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 16,
     elevation: 10,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  btnLoading: {
-    opacity: 0.7,
+  btnDisabled: {
+    opacity: 0.6,
   },
   btnText: {
     color: "#fff",
     fontSize: 17,
+    fontFamily: "Inter_700Bold",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 14,
+    gap: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#2A253A",
+  },
+  dividerText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "#6B6480",
+  },
+  btnPayPal: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFC439",
+    paddingVertical: 16,
+    borderRadius: 32,
+    shadowColor: "#FFC439",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+    marginBottom: 20,
+  },
+  btnPayPalText: {
+    fontSize: 20,
     fontFamily: "Inter_700Bold",
   },
   finePrint: {
