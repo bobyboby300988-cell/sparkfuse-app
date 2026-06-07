@@ -40,6 +40,7 @@ function UnlockModal({
   onUnlocked: () => void;
 }) {
   const colors = useColors();
+  const { addEarning } = useApp();
   const [loading, setLoading] = useState(false);
 
   if (!photo) return null;
@@ -77,6 +78,7 @@ function UnlockModal({
 
   const handleDemo = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    addEarning(photo.priceEur);
     onUnlocked();
     onClose();
   };

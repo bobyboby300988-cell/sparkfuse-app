@@ -140,4 +140,42 @@ router.post('/stripe/unlock-photo', async (req, res) => {
   }
 });
 
+// Creator withdrawal request (simulated payout — real Stripe Connect payout goes here)
+router.post('/stripe/withdraw', async (req, res) => {
+  try {
+    const { amount, method, details } = req.body as {
+      amount: number;
+      method: 'bank' | 'paypal';
+      details: { iban?: string; accountHolder?: string; paypalEmail?: string };
+    };
+
+    if (!amount || amount < 1) {
+      res.status(400).json({ error: 'Minimum withdrawal is €1' });
+      return;
+    }
+    if (method === 'bank' && (!details.iban || !details.accountHolder)) {
+      res.status(400).json({ error: 'IBAN and account holder name are required' });
+      return;
+    }
+    if (method === 'paypal' && !details.paypalEmail) {
+      res.status(400).json({ error: 'PayPal email is required' });
+      return;
+    }
+
+    // In production: use Stripe Connect to transfer to connected account
+    // stripe.transfers.create({ amount: amount * 100, currency: 'eur', destination: connectedAccountId })
+    logger.info({ amount, method }, 'Creator withdrawal processed');
+
+    const eta = method === 'paypal' ? '24 hours' : '3-5 business days';
+    res.json({
+      success: true,
+      message: `Withdrawal of €${amount.toFixed(2)} via ${method === 'paypal' ? 'PayPal' : 'bank transfer'} initiated. Funds arrive in ${eta}.`,
+      referenceId: `WD-${Date.now()}`,
+    });
+  } catch (err: any) {
+    logger.error({ err }, 'Withdrawal failed');
+    res.status(500).json({ error: err.message ?? 'Withdrawal failed' });
+  }
+});
+
 export default router;

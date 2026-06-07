@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
+import WithdrawModal from "@/components/WithdrawModal";
 import { useColors } from "@/hooks/useColors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -24,7 +25,8 @@ const PRICE_OPTIONS = [1, 2, 3, 5, 10];
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { userProfile, setUserProfile, matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice } = useApp();
+  const { userProfile, setUserProfile, matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings } = useApp();
+  const [withdrawVisible, setWithdrawVisible] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(userProfile?.name ?? "");
@@ -68,6 +70,7 @@ export default function ProfileScreen() {
   const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={{ paddingBottom: bottomPadding + 100 }}
@@ -257,11 +260,28 @@ export default function ProfileScreen() {
               ))}
             </View>
 
-            <View style={[styles.earningsRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.earningsRow, { backgroundColor: colors.background, borderColor: colors.border }]}
+              onPress={() => {
+                if (earnings >= 1) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setWithdrawVisible(true);
+                } else {
+                  Alert.alert("Not enough balance", "You need at least €1.00 to withdraw.");
+                }
+              }}
+              activeOpacity={0.8}
+            >
               <Ionicons name="wallet-outline" size={18} color="#FF3366" />
-              <Text style={[styles.earningsLabel, { color: colors.mutedForeground }]}>Total earned</Text>
-              <Text style={[styles.earningsValue, { color: colors.foreground }]}>€0.00</Text>
-            </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.earningsLabel, { color: colors.mutedForeground }]}>Available to withdraw</Text>
+                <Text style={[styles.earningsValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
+              </View>
+              <View style={[styles.withdrawChip, { backgroundColor: earnings >= 1 ? "#FF3366" : colors.muted }]}>
+                <Ionicons name="arrow-up-outline" size={12} color="#fff" />
+                <Text style={styles.withdrawChipText}>Withdraw</Text>
+              </View>
+            </TouchableOpacity>
           </>
         ) : (
           <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
@@ -280,6 +300,9 @@ export default function ProfileScreen() {
         <Text style={[styles.resetText, { color: colors.destructive }]}>Reset Profile</Text>
       </TouchableOpacity>
     </ScrollView>
+
+    <WithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} />
+    </>
   );
 }
 
@@ -461,13 +484,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   earningsLabel: {
-    flex: 1,
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: "Inter_400Regular",
   },
   earningsValue: {
-    fontSize: 16,
+    fontSize: 20,
     fontFamily: "Inter_700Bold",
+    lineHeight: 26,
+  },
+  withdrawChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  withdrawChipText: {
+    color: "#fff",
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
   },
   resetBtn: {
     flexDirection: "row",
