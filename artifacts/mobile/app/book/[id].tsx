@@ -60,10 +60,11 @@ export default function BookScreen() {
   const [showBuyST,    setShowBuyST]    = useState(false);
   const [booked,       setBooked]       = useState(false);
 
-  const platformFee = session ? Math.round(session.tokenPrice * 0.10) : 0;
-  const totalST     = session ? session.tokenPrice + platformFee : 0;
-  const canPay      = coinBalance >= totalST;
-  const needMore    = totalST - coinBalance;
+  const totalST       = session ? session.tokenPrice : 0;
+  const platformFee   = session ? Math.round(session.tokenPrice * 0.10) : 0;
+  const coachReceives = totalST - platformFee;
+  const canPay        = coinBalance >= totalST;
+  const needMore      = totalST - coinBalance;
 
   function handlePay() {
     if (!canPay) { setShowBuyST(true); return; }
@@ -197,11 +198,16 @@ export default function BookScreen() {
         {/* Price breakdown */}
         <SectionHeader title="Payment Breakdown" colors={colors} />
         <View style={[styles.priceBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <PriceRow label={session.label} value={`${session.tokenPrice.toLocaleString()} ST`} colors={colors} />
-          <PriceRow label="Platform fee (10%)" value={`+${platformFee} ST`} colors={colors} muted />
+          <PriceRow label={session.label} value={`${totalST.toLocaleString()} ST`} colors={colors} bold accent />
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <PriceRow label="You pay" value={`${totalST.toLocaleString()} ST`} colors={colors} bold accent />
-          <PriceRow label="Coach receives" value={`${session.tokenPrice.toLocaleString()} ST`} colors={colors} muted />
+          <PriceRow label="Coach receives" value={`${coachReceives.toLocaleString()} ST`} colors={colors} muted />
+          <PriceRow label="Spark platform fee (10% from coach)" value={`${platformFee} ST`} colors={colors} muted />
+        </View>
+        <View style={[styles.userNote, { backgroundColor: "#22C55E10", borderColor: "#22C55E30" }]}>
+          <Ionicons name="checkmark-circle-outline" size={14} color="#22C55E" />
+          <Text style={[styles.userNoteText, { color: colors.mutedForeground }]}>
+            You pay exactly what the coach asks. The 10% platform fee comes from the coach's side — not from you.
+          </Text>
         </View>
 
         {/* Not enough ST warning */}
@@ -282,6 +288,9 @@ export default function BookScreen() {
                   </View>
                   <Text style={[styles.modalBalance, { color: colors.mutedForeground }]}>
                     Your balance after: {(coinBalance - totalST).toLocaleString()} ST
+                  </Text>
+                  <Text style={[styles.modalBalance, { color: colors.mutedForeground }]}>
+                    Coach receives: {coachReceives.toLocaleString()} ST · Spark fee: {platformFee} ST
                   </Text>
                 </View>
 
@@ -474,6 +483,12 @@ const styles = StyleSheet.create({
   priceRowValue: { fontSize: 14 },
   divider: { height: 1 },
 
+  userNote: {
+    flexDirection: "row", alignItems: "flex-start", gap: 8,
+    marginHorizontal: 16, marginTop: 8,
+    padding: 12, borderRadius: 12, borderWidth: 1,
+  },
+  userNoteText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
   warnBox: {
     flexDirection: "row", alignItems: "center", gap: 8,
     marginHorizontal: 16, marginTop: 12,
