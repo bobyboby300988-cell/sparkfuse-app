@@ -70,25 +70,21 @@ export default function PaywallScreen() {
     setLoadingPayPal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      const res = await fetch(`${API_BASE}/paypal/create-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          returnUrl: `${APP_DOMAIN}/paypal-success`,
-          cancelUrl: `${APP_DOMAIN}/cancel`,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as any).error ?? "Could not start PayPal checkout");
-      }
-      const { url } = (await res.json()) as { url: string };
+      // Direct PayPal payment link — sends €1 to dumitru8830@gmail.com
+      const paypalUrl =
+        "https://www.paypal.com/cgi-bin/webscr?" +
+        "cmd=_xclick" +
+        "&business=dumitru8830%40gmail.com" +
+        "&amount=1.00" +
+        "&currency_code=EUR" +
+        "&item_name=Spark+Premium+%E2%80%94+1+month";
+
       setLoadingPayPal(false);
-      await WebBrowser.openBrowserAsync(url, {
+      await WebBrowser.openBrowserAsync(paypalUrl, {
         presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
         showTitle: false,
       });
-      // After the browser closes (user paid or returned), mark as subscribed
+      // After browser closes, mark as subscribed
       await setSubscribed();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/");
