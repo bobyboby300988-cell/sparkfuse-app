@@ -1,5 +1,11 @@
 import { AppMode } from "@/context/AppContext";
 
+export interface LockedPhoto {
+  id: string;
+  photo: ReturnType<typeof require>;
+  priceEur: number;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -13,6 +19,7 @@ export interface Profile {
   lat: number;
   lng: number;
   mode: AppMode;
+  lockedPhotos?: LockedPhoto[];
 }
 
 // ─── Dating (IDs kept as "1"–"6" for AsyncStorage backward-compat) ────────────
@@ -23,6 +30,10 @@ const DATING: Profile[] = [
     location: "Paris", interests: ["Hiking", "Coffee", "Photography"],
     photo: require("../assets/images/p1.png"), distance: 2, height: "5'6\"",
     lat: 48.8566, lng: 2.3522,
+    lockedPhotos: [
+      { id: "1_lp1", photo: require("../assets/images/p4.png"), priceEur: 2 },
+      { id: "1_lp2", photo: require("../assets/images/p5.png"), priceEur: 3 },
+    ],
   },
   {
     id: "2", name: "Marcus", age: 28, mode: "dating",
@@ -69,6 +80,11 @@ const NAUGHTY: Profile[] = [
     location: "Paris", interests: ["Late nights", "Skinny dipping", "Champagne"],
     photo: require("../assets/images/p3.png"), distance: 1, height: "5'6\"",
     lat: 48.8566, lng: 2.3522,
+    lockedPhotos: [
+      { id: "n1_lp1", photo: require("../assets/images/p1.png"), priceEur: 5 },
+      { id: "n1_lp2", photo: require("../assets/images/p2.png"), priceEur: 5 },
+      { id: "n1_lp3", photo: require("../assets/images/p6.png"), priceEur: 5 },
+    ],
   },
   {
     id: "n2", name: "Dante", age: 30, mode: "naughty",
@@ -97,6 +113,10 @@ const NAUGHTY: Profile[] = [
     location: "Barcelona", interests: ["Flexibility", "Sensual dance", "Beach nights"],
     photo: require("../assets/images/p5.png"), distance: 4, height: "5'7\"",
     lat: 41.3851, lng: 2.1734,
+    lockedPhotos: [
+      { id: "n5_lp1", photo: require("../assets/images/p3.png"), priceEur: 4 },
+      { id: "n5_lp2", photo: require("../assets/images/p4.png"), priceEur: 4 },
+    ],
   },
   {
     id: "n6", name: "Kai", age: 27, mode: "naughty",

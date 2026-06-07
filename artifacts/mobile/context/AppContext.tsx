@@ -42,6 +42,12 @@ interface AppContextType {
   seenProfiles: string[];
   markSeen: (id: string) => void;
   removeMatch: (profileId: string) => void;
+  unlockedPhotos: string[];
+  unlockPhoto: (photoId: string) => void;
+  creatorMode: boolean;
+  creatorPrice: number;
+  setCreatorMode: (on: boolean) => Promise<void>;
+  setCreatorPrice: (price: number) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -51,6 +57,9 @@ const KEYS = {
   MATCHES: "@spark/matches",
   SEEN: "@spark/seen",
   SUBSCRIBED: "@spark/subscribed",
+  UNLOCKED_PHOTOS: "@spark/unlocked_photos",
+  CREATOR_MODE: "@spark/creator_mode",
+  CREATOR_PRICE: "@spark/creator_price",
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -60,20 +69,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSubscribed, setIsSubscribedState] = useState(false);
   const [appMode, setAppModeState] = useState<AppMode>("dating");
+  const [unlockedPhotos, setUnlockedPhotos] = useState<string[]>([]);
+  const [creatorMode, setCreatorModeState] = useState(false);
+  const [creatorPrice, setCreatorPriceState] = useState(3);
 
   useEffect(() => {
     async function load() {
       try {
-        const [profileRaw, matchesRaw, seenRaw, subscribedRaw] = await Promise.all([
+        const [profileRaw, matchesRaw, seenRaw, subscribedRaw, unlockedRaw, creatorModeRaw, creatorPriceRaw] = await Promise.all([
           AsyncStorage.getItem(KEYS.USER_PROFILE),
           AsyncStorage.getItem(KEYS.MATCHES),
           AsyncStorage.getItem(KEYS.SEEN),
           AsyncStorage.getItem(KEYS.SUBSCRIBED),
+          AsyncStorage.getItem(KEYS.UNLOCKED_PHOTOS),
+          AsyncStorage.getItem(KEYS.CREATOR_MODE),
+          AsyncStorage.getItem(KEYS.CREATOR_PRICE),
         ]);
         if (profileRaw) setUserProfileState(JSON.parse(profileRaw));
         if (matchesRaw) setMatches(JSON.parse(matchesRaw));
         if (seenRaw) setSeenProfiles(JSON.parse(seenRaw));
         if (subscribedRaw === "true") setIsSubscribedState(true);
+        if (unlockedRaw) setUnlockedPhotos(JSON.parse(unlockedRaw));
+        if (creatorModeRaw === "true") setCreatorModeState(true);
+        if (creatorPriceRaw) setCreatorPriceState(Number(creatorPriceRaw));
       } catch {
         // ignore storage errors
       } finally {
@@ -167,6 +185,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const unlockPhoto = (photoId: string) => {
+    setUnlockedPhotos((prev) => {
+      if (prev.includes(photoId)) return prev;
+      const updated = [...prev, photoId];
+      AsyncStorage.setItem(KEYS.UNLOCKED_PHOTOS, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const setCreatorMode = async (on: boolean) => {
+    setCreatorModeState(on);
+    await AsyncStorage.setItem(KEYS.CREATOR_MODE, on ? "true" : "false");
+  };
+
+  const setCreatorPrice = async (price: number) => {
+    setCreatorPriceState(price);
+    await AsyncStorage.setItem(KEYS.CREATOR_PRICE, String(price));
+  };
+
   const removeMatch = (profileId: string) => {
     setMatches((prev) => {
       const updated = prev.filter((m) => m.profileId !== profileId);
@@ -193,6 +230,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         seenProfiles,
         markSeen,
         removeMatch,
+        unlockedPhotos,
+        unlockPhoto,
+        creatorMode,
+        creatorPrice,
+        setCreatorMode,
+        setCreatorPrice,
       }}
     >
       {children}

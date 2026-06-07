@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { getProfilesByMode } from "@/data/allProfiles";
 import type { Profile } from "@/data/allProfiles";
+import { LockedPhotoGrid } from "@/components/LockedPhotoGrid";
 import { ModeSelector } from "@/components/ModeSelector";
 import { useColors } from "@/hooks/useColors";
 
@@ -84,6 +85,10 @@ function ProfileModal({
                 </View>
               ))}
             </View>
+
+            {profile.lockedPhotos && profile.lockedPhotos.length > 0 && (
+              <LockedPhotoGrid profileName={profile.name} lockedPhotos={profile.lockedPhotos} />
+            )}
           </View>
         </ScrollView>
 

@@ -8,6 +8,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -18,10 +19,12 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+const PRICE_OPTIONS = [1, 2, 3, 5, 10];
+
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { userProfile, setUserProfile, matches } = useApp();
+  const { userProfile, setUserProfile, matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice } = useApp();
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(userProfile?.name ?? "");
@@ -203,6 +206,70 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* Creator Mode */}
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.creatorTitleRow}>
+            <Text style={{ fontSize: 18 }}>🔒</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Creator Mode</Text>
+          </View>
+          <Switch
+            value={creatorMode}
+            onValueChange={(v) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setCreatorMode(v);
+            }}
+            trackColor={{ false: colors.muted, true: "#FF3366" }}
+            thumbColor="#fff"
+          />
+        </View>
+
+        {creatorMode ? (
+          <>
+            <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
+              Your profile shows a 🔒 locked section. Others pay to see your exclusive photos.
+            </Text>
+
+            <Text style={[styles.prefText, { color: colors.foreground, marginTop: 12, marginBottom: 8 }]}>
+              Price per unlock
+            </Text>
+            <View style={styles.priceRow}>
+              {PRICE_OPTIONS.map((p) => (
+                <TouchableOpacity
+                  key={p}
+                  style={[
+                    styles.priceChip,
+                    {
+                      backgroundColor: creatorPrice === p ? "#FF3366" : colors.background,
+                      borderColor: creatorPrice === p ? "#FF3366" : colors.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setCreatorPrice(p);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.priceChipText, { color: creatorPrice === p ? "#fff" : colors.foreground }]}>
+                    €{p}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={[styles.earningsRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Ionicons name="wallet-outline" size={18} color="#FF3366" />
+              <Text style={[styles.earningsLabel, { color: colors.mutedForeground }]}>Total earned</Text>
+              <Text style={[styles.earningsValue, { color: colors.foreground }]}>€0.00</Text>
+            </View>
+          </>
+        ) : (
+          <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
+            Turn on Creator Mode to lock exclusive photos behind a paywall and earn from your profile.
+          </Text>
+        )}
+      </View>
+
       {/* Reset */}
       <TouchableOpacity
         style={[styles.resetBtn, { borderColor: colors.destructive }]}
@@ -357,6 +424,50 @@ const styles = StyleSheet.create({
   prefText: {
     fontSize: 15,
     fontFamily: "Inter_400Regular",
+  },
+  creatorTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  creatorHint: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  priceRow: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  priceChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  priceChipText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  earningsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  earningsLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+  },
+  earningsValue: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
   },
   resetBtn: {
     flexDirection: "row",

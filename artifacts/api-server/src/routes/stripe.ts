@@ -96,4 +96,48 @@ router.post('/stripe/subscription-checkout', async (req, res) => {
   }
 });
 
+// Unlock a creator's locked photo (one-time payment)
+router.post('/stripe/unlock-photo', async (req, res) => {
+  try {
+    const { photoId, profileName, price, currency = 'eur', successUrl, cancelUrl } = req.body as {
+      photoId: string;
+      profileName: string;
+      price: number;
+      currency?: string;
+      successUrl: string;
+      cancelUrl: string;
+    };
+
+    if (!price || price < 50) {
+      res.status(400).json({ error: 'Invalid price' });
+      return;
+    }
+
+    const stripe = getStripeClient();
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency,
+          unit_amount: price,
+          product_data: {
+            name: `Unlock photo · ${profileName}`,
+            description: 'One-time unlock of exclusive content on Spark',
+          },
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      metadata: { photoId, profileName },
+    });
+
+    res.json({ url: session.url });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to create unlock-photo session');
+    res.status(500).json({ error: err.message ?? 'Unlock failed' });
+  }
+});
+
 export default router;
