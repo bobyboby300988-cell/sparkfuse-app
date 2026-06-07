@@ -3,6 +3,7 @@ export interface SessionType {
   label: string;
   duration: number;
   price: number;
+  tokenPrice: number;
 }
 
 export interface Coach {
@@ -19,7 +20,6 @@ export interface Coach {
   availability: string[];
   yearsExperience: number;
   totalClients: number;
-  stripeConnectId?: string;
 }
 
 export const MOCK_COACHES: Coach[] = [
@@ -36,9 +36,9 @@ export const MOCK_COACHES: Coach[] = [
     yearsExperience: 9,
     totalClients: 340,
     sessions: [
-      { id: "s1a", label: "Quick Consult", duration: 30, price: 49 },
-      { id: "s1b", label: "Deep Dive", duration: 60, price: 89 },
-      { id: "s1c", label: "4-Session Package", duration: 60, price: 299 },
+      { id: "s1a", label: "Quick Consult",     duration: 30, price: 49,  tokenPrice: 500  },
+      { id: "s1b", label: "Deep Dive",          duration: 60, price: 89,  tokenPrice: 900  },
+      { id: "s1c", label: "4-Session Package",  duration: 60, price: 299, tokenPrice: 3000 },
     ],
     availability: ["Mon", "Wed", "Fri"],
   },
@@ -55,9 +55,9 @@ export const MOCK_COACHES: Coach[] = [
     yearsExperience: 6,
     totalClients: 520,
     sessions: [
-      { id: "s2a", label: "Profile Audit", duration: 30, price: 39 },
-      { id: "s2b", label: "Coaching Session", duration: 60, price: 75 },
-      { id: "s2c", label: "Monthly Mentorship", duration: 60, price: 249 },
+      { id: "s2a", label: "Profile Audit",      duration: 30, price: 39,  tokenPrice: 400  },
+      { id: "s2b", label: "Coaching Session",   duration: 60, price: 75,  tokenPrice: 750  },
+      { id: "s2c", label: "Monthly Mentorship", duration: 60, price: 249, tokenPrice: 2500 },
     ],
     availability: ["Tue", "Thu", "Sat"],
   },
@@ -74,8 +74,8 @@ export const MOCK_COACHES: Coach[] = [
     yearsExperience: 5,
     totalClients: 190,
     sessions: [
-      { id: "s3a", label: "Clarity Call", duration: 45, price: 65 },
-      { id: "s3b", label: "Transformation Session", duration: 90, price: 120 },
+      { id: "s3a", label: "Clarity Call",           duration: 45, price: 65,  tokenPrice: 650  },
+      { id: "s3b", label: "Transformation Session", duration: 90, price: 120, tokenPrice: 1200 },
     ],
     availability: ["Mon", "Tue", "Thu", "Fri"],
   },
@@ -92,9 +92,9 @@ export const MOCK_COACHES: Coach[] = [
     yearsExperience: 8,
     totalClients: 680,
     sessions: [
-      { id: "s4a", label: "Intro Session", duration: 30, price: 45 },
-      { id: "s4b", label: "Full Coaching", duration: 60, price: 85 },
-      { id: "s4c", label: "6-Week Program", duration: 60, price: 449 },
+      { id: "s4a", label: "Intro Session",    duration: 30, price: 45,  tokenPrice: 450  },
+      { id: "s4b", label: "Full Coaching",    duration: 60, price: 85,  tokenPrice: 850  },
+      { id: "s4c", label: "6-Week Program",   duration: 60, price: 449, tokenPrice: 4500 },
     ],
     availability: ["Wed", "Thu", "Sat", "Sun"],
   },
@@ -111,8 +111,8 @@ export const MOCK_COACHES: Coach[] = [
     yearsExperience: 4,
     totalClients: 210,
     sessions: [
-      { id: "s5a", label: "Heart-to-Heart", duration: 60, price: 70 },
-      { id: "s5b", label: "3-Session Reset", duration: 60, price: 189 },
+      { id: "s5a", label: "Heart-to-Heart",  duration: 60, price: 70,  tokenPrice: 700  },
+      { id: "s5b", label: "3-Session Reset", duration: 60, price: 189, tokenPrice: 1900 },
     ],
     availability: ["Mon", "Wed", "Fri", "Sat"],
   },

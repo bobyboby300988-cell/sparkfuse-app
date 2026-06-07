@@ -2,25 +2,33 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+  Alert,
   Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MOCK_COACHES } from "@/data/coaches";
 import { useColors } from "@/hooks/useColors";
+import { useApp } from "@/context/AppContext";
 
 const TIME_SLOTS = [
   "9:00 AM", "10:00 AM", "11:00 AM",
   "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM",
+];
+
+const ST_PACKAGES = [
+  { tokens: 500,  eur: 5,  icon: "💰", label: "Starter"  },
+  { tokens: 1000, eur: 10, icon: "⭐", label: "Popular", highlight: true },
+  { tokens: 2000, eur: 20, icon: "🔥", label: "Value"    },
+  { tokens: 5000, eur: 50, icon: "💎", label: "Premium"  },
 ];
 
 function getDaysFromToday(count: number) {
@@ -30,90 +38,55 @@ function getDaysFromToday(count: number) {
     return {
       date: d,
       dayShort: d.toLocaleDateString("en-US", { weekday: "short" }),
-      dayNum: d.getDate(),
+      dayNum:   d.getDate(),
       monthShort: d.toLocaleDateString("en-US", { month: "short" }),
     };
   });
 }
 
-const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
-  : "https://match-maker-dumitru8830.replit.app/api";
-
 export default function BookScreen() {
   const { id, sessionId } = useLocalSearchParams<{ id: string; sessionId: string }>();
-  const colors = useColors();
-  const insets = useSafeAreaInsets();
+  const colors  = useColors();
+  const insets  = useSafeAreaInsets();
+  const { coinBalance, addCoins, spendCoins } = useApp();
 
-  const coach = useMemo(() => MOCK_COACHES.find((c) => c.id === id), [id]);
-  const session = useMemo(
-    () => coach?.sessions.find((s) => s.id === sessionId),
-    [coach, sessionId]
-  );
+  const coach   = useMemo(() => MOCK_COACHES.find((c) => c.id === id), [id]);
+  const session = useMemo(() => coach?.sessions.find((s) => s.id === sessionId), [coach, sessionId]);
 
   const days = useMemo(() => getDaysFromToday(10), []);
-  const [selectedDay, setSelectedDay] = useState(0);
+  const [selectedDay,  setSelectedDay]  = useState(0);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [booked, setBooked] = useState(false);
+  const [showConfirm,  setShowConfirm]  = useState(false);
+  const [showBuyST,    setShowBuyST]    = useState(false);
+  const [booked,       setBooked]       = useState(false);
 
-  const platformFee = session ? Math.round(session.price * 0.1) : 0;
-  const total = session ? session.price : 0;
-  const amountCents = total * 100;
+  const platformFee = session ? Math.round(session.tokenPrice * 0.10) : 0;
+  const totalST     = session ? session.tokenPrice + platformFee : 0;
+  const canPay      = coinBalance >= totalST;
+  const needMore    = totalST - coinBalance;
 
-  const handlePay = async () => {
-    setLoading(true);
-    try {
-      const checkoutRes = await fetch(`${API_BASE}/stripe/checkout-session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: amountCents,
-          currency: "usd",
-          coachName: coach?.name ?? "",
-          sessionLabel: session?.label ?? "",
-          successUrl: `https://match-maker-dumitru8830.replit.app/booking-success`,
-          cancelUrl: `https://match-maker-dumitru8830.replit.app/booking-cancel`,
-          metadata: {
-            coachId: coach?.id ?? "",
-            sessionId: session?.id ?? "",
-            bookingDate: `${days[selectedDay].dayShort} ${days[selectedDay].dayNum} ${days[selectedDay].monthShort}`,
-            bookingTime: selectedTime ?? "",
-          },
-        }),
-      });
+  function handlePay() {
+    if (!canPay) { setShowBuyST(true); return; }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    spendCoins(totalST);
+    setBooked(true);
+  }
 
-      if (!checkoutRes.ok) {
-        throw new Error("Could not create checkout session");
-      }
-
-      const { url } = await checkoutRes.json() as { url: string };
-
-      setLoading(false);
-      setShowConfirm(false);
-
-      const result = await WebBrowser.openBrowserAsync(url, {
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-        showTitle: false,
-        enableBarCollapsing: true,
-      });
-
-      if (result.type === "cancel" || result.type === "dismiss") {
-        // User came back — assume success for now (webhook will confirm)
-        setBooked(true);
-        setShowConfirm(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-    } catch (err: any) {
-      setLoading(false);
-      Alert.alert(
-        "Payment Error",
-        err.message ?? "Something went wrong. Please try again.",
-        [{ text: "OK" }]
-      );
-    }
-  };
+  async function handleBuyST(pkg: typeof ST_PACKAGES[0]) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const url =
+      "https://www.paypal.com/cgi-bin/webscr?" +
+      "cmd=_xclick&business=dumitru8830%40gmail.com" +
+      `&amount=${pkg.eur}.00&currency_code=EUR` +
+      `&item_name=Spark+${pkg.tokens}+Tokens`;
+    await WebBrowser.openBrowserAsync(url, {
+      presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+    });
+    addCoins(pkg.tokens);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert("Spark Tokens added! 🔥", `${pkg.tokens} ST are now in your wallet.`);
+    setShowBuyST(false);
+  }
 
   if (!coach || !session) {
     return (
@@ -131,7 +104,10 @@ export default function BookScreen() {
           <Ionicons name="chevron-back" size={26} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Book Session</Text>
-        <View style={{ width: 26 }} />
+        {/* Wallet mini-badge */}
+        <View style={[styles.walletBadge, { backgroundColor: "#FF336615", borderColor: "#FF336640" }]}>
+          <Text style={styles.walletBadgeText}>🔥 {coinBalance} ST</Text>
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
@@ -147,11 +123,32 @@ export default function BookScreen() {
           </View>
         </View>
 
+        {/* ST info banner */}
+        <View style={[styles.stBanner, { backgroundColor: "#FF336610", borderColor: "#FF336630" }]}>
+          <Text style={styles.stBannerIcon}>🔥</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.stBannerTitle, { color: colors.foreground }]}>Pay with Spark Tokens</Text>
+            <Text style={[styles.stBannerSub, { color: colors.mutedForeground }]}>
+              Your balance: {coinBalance} ST · This session: {totalST.toLocaleString()} ST
+            </Text>
+          </View>
+          {!canPay && (
+            <TouchableOpacity
+              style={styles.topUpBtn}
+              onPress={() => setShowBuyST(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={13} color="#FF3366" />
+              <Text style={styles.topUpBtnText}>Top up</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Pick a day */}
         <SectionHeader title="Select a Date" colors={colors} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayPicker}>
           {days.map((d, i) => {
-            const avail = coach.availability.includes(d.dayShort);
+            const avail    = coach.availability.includes(d.dayShort);
             const selected = selectedDay === i;
             return (
               <TouchableOpacity
@@ -168,15 +165,9 @@ export default function BookScreen() {
                 onPress={() => { setSelectedDay(i); setSelectedTime(null); }}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.dayBtnShort, { color: selected ? "#fff" : colors.mutedForeground }]}>
-                  {d.dayShort}
-                </Text>
-                <Text style={[styles.dayBtnNum, { color: selected ? "#fff" : colors.foreground }]}>
-                  {d.dayNum}
-                </Text>
-                <Text style={[styles.dayBtnMonth, { color: selected ? "#ffffffbb" : colors.mutedForeground }]}>
-                  {d.monthShort}
-                </Text>
+                <Text style={[styles.dayBtnShort, { color: selected ? "#fff" : colors.mutedForeground }]}>{d.dayShort}</Text>
+                <Text style={[styles.dayBtnNum,   { color: selected ? "#fff" : colors.foreground }]}>{d.dayNum}</Text>
+                <Text style={[styles.dayBtnMonth, { color: selected ? "#ffffffbb" : colors.mutedForeground }]}>{d.monthShort}</Text>
               </TouchableOpacity>
             );
           })}
@@ -192,10 +183,7 @@ export default function BookScreen() {
                 key={t}
                 style={[
                   styles.timeBtn,
-                  {
-                    backgroundColor: sel ? colors.primary : colors.card,
-                    borderColor: sel ? colors.primary : colors.border,
-                  },
+                  { backgroundColor: sel ? colors.primary : colors.card, borderColor: sel ? colors.primary : colors.border },
                 ]}
                 onPress={() => setSelectedTime(t)}
                 activeOpacity={0.8}
@@ -207,63 +195,69 @@ export default function BookScreen() {
         </View>
 
         {/* Price breakdown */}
-        <SectionHeader title="Price Breakdown" colors={colors} />
+        <SectionHeader title="Payment Breakdown" colors={colors} />
         <View style={[styles.priceBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <PriceRow label={session.label} value={`$${session.price}`} colors={colors} />
-          <PriceRow label="Platform fee (10%)" value={`$${platformFee}`} colors={colors} muted />
+          <PriceRow label={session.label} value={`${session.tokenPrice.toLocaleString()} ST`} colors={colors} />
+          <PriceRow label="Platform fee (10%)" value={`+${platformFee} ST`} colors={colors} muted />
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <PriceRow label="Total" value={`$${total}`} colors={colors} bold />
+          <PriceRow label="You pay" value={`${totalST.toLocaleString()} ST`} colors={colors} bold accent />
+          <PriceRow label="Coach receives" value={`${session.tokenPrice.toLocaleString()} ST`} colors={colors} muted />
         </View>
 
-        {/* Payment note */}
-        <View style={[styles.payNote, { backgroundColor: colors.secondary }]}>
-          <Ionicons name="lock-closed" size={14} color={colors.primary} />
-          <Text style={[styles.payNoteText, { color: colors.mutedForeground }]}>
-            Secure payment powered by Stripe. Your coach receives ${total - platformFee} after our 10% platform fee.
-          </Text>
-        </View>
+        {/* Not enough ST warning */}
+        {!canPay && selectedTime && (
+          <View style={[styles.warnBox, { backgroundColor: "#EF444412", borderColor: "#EF444430" }]}>
+            <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+            <Text style={[styles.warnText, { color: "#EF4444" }]}>
+              You need {needMore.toLocaleString()} more ST to book this session.
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* Sticky CTA */}
-      <View
-        style={[
-          styles.footer,
-          { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 16 },
-        ]}
-      >
+      <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
-          style={[
-            styles.payBtn,
-            {
-              backgroundColor: selectedTime ? colors.primary : colors.muted,
-              opacity: selectedTime ? 1 : 0.6,
-            },
-          ]}
+          style={[styles.payBtn, { backgroundColor: selectedTime ? (canPay ? "#FF3366" : colors.muted) : colors.muted, opacity: selectedTime ? 1 : 0.55 }]}
           disabled={!selectedTime}
           onPress={() => setShowConfirm(true)}
           activeOpacity={0.85}
         >
-          <Ionicons name="card" size={20} color="#fff" />
-          <Text style={styles.payBtnText}>
-            {selectedTime ? `Pay $${total} — Confirm Booking` : "Select a time to continue"}
-          </Text>
+          {selectedTime ? (
+            canPay ? (
+              <>
+                <Text style={styles.payBtnFire}>🔥</Text>
+                <Text style={styles.payBtnText}>Pay {totalST.toLocaleString()} ST — Confirm</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="cart-outline" size={20} color="#fff" />
+                <Text style={styles.payBtnText}>Buy ST to Book · Need {needMore.toLocaleString()} more</Text>
+              </>
+            )
+          ) : (
+            <Text style={styles.payBtnText}>Select a time to continue</Text>
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* Confirm modal */}
+      {/* ── Confirm modal ── */}
       <Modal visible={showConfirm} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
             {booked ? (
               <View style={styles.successBox}>
-                <View style={[styles.successIcon, { backgroundColor: colors.like + "22" }]}>
-                  <Ionicons name="checkmark-circle" size={52} color={colors.like} />
+                <View style={[styles.successIcon, { backgroundColor: "#22C55E22" }]}>
+                  <Ionicons name="checkmark-circle" size={52} color="#22C55E" />
                 </View>
                 <Text style={[styles.successTitle, { color: colors.foreground }]}>Booking Confirmed!</Text>
                 <Text style={[styles.successSub, { color: colors.mutedForeground }]}>
                   Your session with {coach.name} is booked for {days[selectedDay].dayShort}{" "}
                   {days[selectedDay].dayNum} {days[selectedDay].monthShort} at {selectedTime}.
                 </Text>
+                <View style={[styles.successST, { backgroundColor: "#FF336612", borderColor: "#FF336630" }]}>
+                  <Text style={styles.successSTText}>🔥 {totalST.toLocaleString()} ST deducted from your wallet</Text>
+                </View>
                 <Text style={[styles.successNote, { color: colors.mutedForeground }]}>
                   You'll receive a video call link 15 minutes before your session.
                 </Text>
@@ -276,20 +270,37 @@ export default function BookScreen() {
               </View>
             ) : (
               <>
-                <Text style={[styles.modalTitle, { color: colors.foreground }]}>Confirm Payment</Text>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>Confirm Booking</Text>
                 <View style={[styles.modalSummary, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <Text style={[styles.modalCoach, { color: colors.foreground }]}>{coach.name}</Text>
+                  <Text style={[styles.modalCoach,   { color: colors.foreground }]}>{coach.name}</Text>
                   <Text style={[styles.modalSession, { color: colors.mutedForeground }]}>
                     {session.label} · {days[selectedDay].dayShort} {days[selectedDay].dayNum} at {selectedTime}
                   </Text>
-                  <Text style={[styles.modalTotal, { color: colors.primary }]}>${total}</Text>
-                </View>
-                <View style={[styles.stripeNote, { backgroundColor: colors.secondary }]}>
-                  <Ionicons name="shield-checkmark-outline" size={15} color={colors.primary} />
-                  <Text style={[styles.stripeNoteText, { color: colors.mutedForeground }]}>
-                    You'll be taken to a secure Stripe checkout page to complete your payment.
+                  <View style={styles.modalSTRow}>
+                    <Text style={styles.modalSTFire}>🔥</Text>
+                    <Text style={[styles.modalSTAmount, { color: "#FF3366" }]}>{totalST.toLocaleString()} ST</Text>
+                  </View>
+                  <Text style={[styles.modalBalance, { color: colors.mutedForeground }]}>
+                    Your balance after: {(coinBalance - totalST).toLocaleString()} ST
                   </Text>
                 </View>
+
+                {canPay ? (
+                  <View style={[styles.stNote, { backgroundColor: "#22C55E10", borderColor: "#22C55E30" }]}>
+                    <Ionicons name="shield-checkmark-outline" size={15} color="#22C55E" />
+                    <Text style={[styles.stNoteText, { color: colors.mutedForeground }]}>
+                      Spark Tokens deducted instantly from your wallet. Secure &amp; instant.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={[styles.stNote, { backgroundColor: "#EF444412", borderColor: "#EF444430" }]}>
+                    <Ionicons name="alert-circle-outline" size={15} color="#EF4444" />
+                    <Text style={[styles.stNoteText, { color: "#EF4444" }]}>
+                      Not enough ST. You need {needMore.toLocaleString()} more tokens.
+                    </Text>
+                  </View>
+                )}
+
                 <View style={styles.modalBtns}>
                   <TouchableOpacity
                     style={[styles.cancelBtn, { borderColor: colors.border }]}
@@ -297,20 +308,84 @@ export default function BookScreen() {
                   >
                     <Text style={[styles.cancelBtnText, { color: colors.foreground }]}>Cancel</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
-                    onPress={handlePay}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.confirmBtnText}>Pay ${total} →</Text>
-                    )}
-                  </TouchableOpacity>
+                  {canPay ? (
+                    <TouchableOpacity
+                      style={styles.confirmBtn}
+                      onPress={handlePay}
+                      activeOpacity={0.85}
+                    >
+                      <LinearGradient
+                        colors={["#FF3366", "#FF6B35"]}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                        style={styles.confirmGrad}
+                      >
+                        <Text style={styles.confirmBtnText}>Pay {totalST.toLocaleString()} ST →</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.confirmBtn, { backgroundColor: "#6366F1" }]}
+                      onPress={() => { setShowConfirm(false); setShowBuyST(true); }}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.confirmBtnText}>Buy Spark Tokens</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Buy ST modal ── */}
+      <Modal visible={showBuyST} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 24 }]}>
+            <View style={[styles.handle, { backgroundColor: colors.border }]} />
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>Buy Spark Tokens 🔥</Text>
+            <Text style={[styles.buySub, { color: colors.mutedForeground }]}>
+              You need {needMore > 0 ? `${needMore.toLocaleString()} more ST` : "ST"} to book this session.
+              {"\n"}Payment via PayPal — tokens added instantly.
+            </Text>
+
+            {ST_PACKAGES.map((pkg) => (
+              <TouchableOpacity
+                key={pkg.tokens}
+                style={[
+                  styles.pkgRow,
+                  {
+                    backgroundColor: pkg.highlight ? "#FF336612" : colors.background,
+                    borderColor: pkg.highlight ? "#FF3366" : colors.border,
+                  },
+                ]}
+                onPress={() => handleBuyST(pkg)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.pkgIcon}>{pkg.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.pkgTokens, { color: colors.foreground }]}>
+                    {pkg.tokens.toLocaleString()} ST
+                    {pkg.highlight ? <Text style={styles.pkgPopular}>  ⭐ Popular</Text> : null}
+                  </Text>
+                  <Text style={[styles.pkgSub, { color: colors.mutedForeground }]}>{pkg.label}</Text>
+                </View>
+                <LinearGradient
+                  colors={["#FF3366", "#FF6B35"]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={styles.pkgBtn}
+                >
+                  <Text style={styles.pkgBtnText}>€{pkg.eur}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={[styles.closeBuyBtn, { borderColor: colors.border }]}
+              onPress={() => setShowBuyST(false)}
+            >
+              <Text style={[styles.closeBuyText, { color: colors.mutedForeground }]}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -322,17 +397,19 @@ function SectionHeader({ title, colors }: { title: string; colors: any }) {
   return <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{title}</Text>;
 }
 
-function PriceRow({ label, value, colors, muted, bold }: {
-  label: string; value: string; colors: any; muted?: boolean; bold?: boolean;
+function PriceRow({ label, value, colors, muted, bold, accent }: {
+  label: string; value: string; colors: any; muted?: boolean; bold?: boolean; accent?: boolean;
 }) {
   return (
     <View style={styles.priceRow}>
-      <Text style={[styles.priceRowLabel, { color: muted ? colors.mutedForeground : colors.foreground, fontFamily: bold ? "Inter_700Bold" : "Inter_400Regular" }]}>
-        {label}
-      </Text>
-      <Text style={[styles.priceRowValue, { color: muted ? colors.mutedForeground : colors.foreground, fontFamily: bold ? "Inter_700Bold" : "Inter_600SemiBold" }]}>
-        {value}
-      </Text>
+      <Text style={[styles.priceRowLabel, {
+        color: muted ? colors.mutedForeground : colors.foreground,
+        fontFamily: bold ? "Inter_700Bold" : "Inter_400Regular",
+      }]}>{label}</Text>
+      <Text style={[styles.priceRowValue, {
+        color: accent ? "#FF3366" : muted ? colors.mutedForeground : colors.foreground,
+        fontFamily: bold ? "Inter_700Bold" : "Inter_600SemiBold",
+      }]}>{value}</Text>
     </View>
   );
 }
@@ -340,147 +417,134 @@ function PriceRow({ label, value, colors, muted, bold }: {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row", alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 16, paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerTitle: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  walletBadge: {
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 20, borderWidth: 1,
+  },
+  walletBadgeText: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#FF3366" },
+
+  stBanner: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    marginHorizontal: 16, marginTop: 14,
+    padding: 12, borderRadius: 14, borderWidth: 1,
+  },
+  stBannerIcon: { fontSize: 24 },
+  stBannerTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  stBannerSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  topUpBtn: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 20, borderWidth: 1, borderColor: "#FF3366",
+  },
+  topUpBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FF3366" },
+
   coachSummary: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
+    flexDirection: "row", alignItems: "center", gap: 14,
+    marginHorizontal: 16, marginTop: 16, padding: 14,
+    borderRadius: 16, borderWidth: 1,
   },
   coachAvatar: { width: 56, height: 56, borderRadius: 28 },
   coachSummaryInfo: { flex: 1, gap: 2 },
   coachSummaryName: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
   coachSummaryTitle: { fontSize: 13, fontFamily: "Inter_500Medium" },
   sessionSummary: { fontSize: 12, fontFamily: "Inter_400Regular" },
+
   sectionTitle: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", marginLeft: 16, marginTop: 24, marginBottom: 10 },
   dayPicker: { paddingHorizontal: 16, gap: 8 },
   dayBtn: {
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    minWidth: 58,
-    gap: 2,
+    alignItems: "center", paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: 14, borderWidth: 1.5, minWidth: 58, gap: 2,
   },
   dayBtnShort: { fontSize: 11, fontFamily: "Inter_500Medium" },
-  dayBtnNum: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  dayBtnNum:   { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold" },
   dayBtnMonth: { fontSize: 10, fontFamily: "Inter_400Regular" },
-  timeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  timeBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1.5,
-  },
+  timeGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, gap: 8 },
+  timeBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5 },
   timeBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
-  priceBox: {
-    marginHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    gap: 10,
-  },
+
+  priceBox: { marginHorizontal: 16, borderRadius: 16, borderWidth: 1, padding: 16, gap: 10 },
   priceRow: { flexDirection: "row", justifyContent: "space-between" },
   priceRowLabel: { fontSize: 14 },
   priceRowValue: { fontSize: 14 },
   divider: { height: 1 },
-  payNote: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
+
+  warnBox: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    marginHorizontal: 16, marginTop: 12,
+    padding: 12, borderRadius: 12, borderWidth: 1,
   },
-  payNoteText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  warnText: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+
   footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    paddingHorizontal: 16, paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   payBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    paddingVertical: 15,
-    borderRadius: 28,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, paddingVertical: 15, borderRadius: 28,
   },
+  payBtnFire: { fontSize: 20 },
   payBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    justifyContent: "flex-end",
-  },
-  modalSheet: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    gap: 16,
-  },
+
+  /* Modals */
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
+  modalSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, gap: 14 },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 6 },
   modalTitle: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", textAlign: "center" },
-  modalSummary: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    gap: 4,
-    alignItems: "center",
-  },
-  modalCoach: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  modalSummary: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 4, alignItems: "center" },
+  modalCoach:   { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
   modalSession: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  modalTotal: { fontSize: 26, fontWeight: "700", fontFamily: "Inter_700Bold", marginTop: 4 },
-  stripeNote: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
+  modalSTRow:   { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+  modalSTFire:  { fontSize: 24 },
+  modalSTAmount:{ fontSize: 28, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  modalBalance: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  stNote: {
+    flexDirection: "row", alignItems: "flex-start", gap: 8,
+    padding: 12, borderRadius: 12, borderWidth: 1,
   },
-  stripeNoteText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  stNoteText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
   modalBtns: { flexDirection: "row", gap: 10 },
   cancelBtn: {
-    flex: 1,
-    paddingVertical: 13,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    alignItems: "center",
+    flex: 1, paddingVertical: 13, borderRadius: 22,
+    borderWidth: 1.5, alignItems: "center",
   },
   cancelBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  confirmBtn: {
-    flex: 2,
-    paddingVertical: 13,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  confirmBtn: { flex: 2, borderRadius: 22, overflow: "hidden" },
+  confirmGrad: { paddingVertical: 13, alignItems: "center", justifyContent: "center" },
   confirmBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
+
   successBox: { alignItems: "center", gap: 12, paddingVertical: 8 },
   successIcon: { width: 88, height: 88, borderRadius: 44, justifyContent: "center", alignItems: "center" },
   successTitle: { fontSize: 22, fontWeight: "700", fontFamily: "Inter_700Bold" },
-  successSub: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 21 },
-  successNote: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
+  successSub:   { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 21 },
+  successST: {
+    paddingHorizontal: 16, paddingVertical: 8,
+    borderRadius: 20, borderWidth: 1,
+  },
+  successSTText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FF3366" },
+  successNote:  { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
   doneBtn: { marginTop: 8, paddingHorizontal: 40, paddingVertical: 13, borderRadius: 26 },
   doneBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
+
+  /* Buy ST sheet */
+  buySub: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 19 },
+  pkgRow: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    borderWidth: 1, borderRadius: 16, padding: 14,
+  },
+  pkgIcon: { fontSize: 26 },
+  pkgTokens: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  pkgPopular: { fontSize: 12, fontFamily: "Inter_500Medium", color: "#FF3366" },
+  pkgSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  pkgBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
+  pkgBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
+  closeBuyBtn: { paddingVertical: 13, borderRadius: 22, borderWidth: 1.5, alignItems: "center" },
+  closeBuyText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });
