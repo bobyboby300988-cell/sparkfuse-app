@@ -26,7 +26,9 @@ export interface Match {
 interface AppContextType {
   userProfile: UserProfile | null;
   isLoaded: boolean;
+  isSubscribed: boolean;
   setUserProfile: (p: UserProfile) => Promise<void>;
+  setSubscribed: () => Promise<void>;
   matches: Match[];
   addMatch: (profileId: string) => void;
   sendMessage: (profileId: string, text: string) => void;
@@ -41,6 +43,7 @@ const KEYS = {
   USER_PROFILE: "@spark/profile",
   MATCHES: "@spark/matches",
   SEEN: "@spark/seen",
+  SUBSCRIBED: "@spark/subscribed",
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -48,18 +51,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [seenProfiles, setSeenProfiles] = useState<string[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isSubscribed, setIsSubscribedState] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
-        const [profileRaw, matchesRaw, seenRaw] = await Promise.all([
+        const [profileRaw, matchesRaw, seenRaw, subscribedRaw] = await Promise.all([
           AsyncStorage.getItem(KEYS.USER_PROFILE),
           AsyncStorage.getItem(KEYS.MATCHES),
           AsyncStorage.getItem(KEYS.SEEN),
+          AsyncStorage.getItem(KEYS.SUBSCRIBED),
         ]);
         if (profileRaw) setUserProfileState(JSON.parse(profileRaw));
         if (matchesRaw) setMatches(JSON.parse(matchesRaw));
         if (seenRaw) setSeenProfiles(JSON.parse(seenRaw));
+        if (subscribedRaw === "true") setIsSubscribedState(true);
       } catch {
         // ignore storage errors
       } finally {
@@ -74,13 +80,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(p));
   };
 
+  const setSubscribed = async () => {
+    setIsSubscribedState(true);
+    await AsyncStorage.setItem(KEYS.SUBSCRIBED, "true");
+  };
+
   const addMatch = (profileId: string) => {
     setMatches((prev) => {
       if (prev.find((m) => m.profileId === profileId)) return prev;
-      const updated = [
-        ...prev,
-        { profileId, matchedAt: Date.now(), messages: [] },
-      ];
+      const updated = [...prev, { profileId, matchedAt: Date.now(), messages: [] }];
       AsyncStorage.setItem(KEYS.MATCHES, JSON.stringify(updated));
       return updated;
     });
@@ -136,7 +144,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       value={{
         userProfile,
         isLoaded,
+        isSubscribed,
         setUserProfile,
+        setSubscribed,
         matches,
         addMatch,
         sendMessage,

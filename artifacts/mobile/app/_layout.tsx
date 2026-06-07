@@ -20,23 +20,35 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
-  const { userProfile, isLoaded } = useApp();
+  const { userProfile, isLoaded, isSubscribed } = useApp();
   const segments = useSegments();
 
   useEffect(() => {
     if (!isLoaded) return;
+
     const inOnboarding = segments[0] === "onboarding";
+    const inPaywall = segments[0] === "paywall";
+
     if (!userProfile && !inOnboarding) {
       router.replace("/onboarding");
     } else if (userProfile && inOnboarding) {
+      if (!isSubscribed) {
+        router.replace("/paywall");
+      } else {
+        router.replace("/");
+      }
+    } else if (userProfile && !isSubscribed && !inPaywall) {
+      router.replace("/paywall");
+    } else if (userProfile && isSubscribed && inPaywall) {
       router.replace("/");
     }
-  }, [isLoaded, userProfile, segments]);
+  }, [isLoaded, userProfile, isSubscribed, segments]);
 
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      <Stack.Screen name="paywall" options={{ headerShown: false }} />
       <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="call/[id]" options={{ headerShown: false, presentation: "fullScreenModal" }} />
       <Stack.Screen name="coach/[id]" options={{ headerShown: false }} />

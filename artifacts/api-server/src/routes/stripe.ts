@@ -59,4 +59,41 @@ router.post('/stripe/checkout-session', async (req, res) => {
   }
 });
 
+// Create a Stripe Subscription Checkout (€1/month)
+router.post('/stripe/subscription-checkout', async (req, res) => {
+  try {
+    const { successUrl, cancelUrl } = req.body as {
+      successUrl: string;
+      cancelUrl: string;
+    };
+
+    const stripe = getStripeClient();
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'eur',
+            unit_amount: 100, // €1.00
+            product_data: {
+              name: 'Spark Premium',
+              description: 'Full access to Spark — matches, chat, video calls & coaching.',
+            },
+            recurring: { interval: 'month' },
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    });
+
+    res.json({ url: session.url });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to create subscription checkout');
+    res.status(500).json({ error: err.message ?? 'Subscription checkout failed' });
+  }
+});
+
 export default router;
