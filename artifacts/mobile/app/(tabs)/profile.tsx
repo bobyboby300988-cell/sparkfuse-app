@@ -25,7 +25,7 @@ const PRICE_OPTIONS = [1, 2, 3, 5, 10];
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { userProfile, setUserProfile, matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings } = useApp();
+  const { userProfile, setUserProfile, matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
 
   const [editing, setEditing] = useState(false);
@@ -209,6 +209,56 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* Wallet — visible to every user */}
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.creatorTitleRow}>
+            <Text style={{ fontSize: 18 }}>💰</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>My Wallet</Text>
+          </View>
+        </View>
+
+        <View style={[styles.walletGrid, { borderColor: colors.border }]}>
+          <View style={[styles.walletCell, { borderRightColor: colors.border }]}>
+            <Text style={styles.walletCoin}>🪙</Text>
+            <Text style={[styles.walletValue, { color: colors.foreground }]}>{coinBalance}</Text>
+            <Text style={[styles.walletLabel, { color: colors.mutedForeground }]}>Coins to spend</Text>
+          </View>
+          <View style={styles.walletCell}>
+            <Text style={styles.walletCoin}>🎁</Text>
+            <Text style={[styles.walletValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
+            <Text style={[styles.walletLabel, { color: colors.mutedForeground }]}>Gift balance</Text>
+          </View>
+        </View>
+
+        <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
+          Platform fee: 10% charged to sender + 10% deducted from your withdrawal.
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.earningsRow, { backgroundColor: colors.background, borderColor: colors.border }]}
+          onPress={() => {
+            if (earnings >= 1) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setWithdrawVisible(true);
+            } else {
+              Alert.alert("Not enough balance", "You need at least €1.00 to withdraw.");
+            }
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="arrow-up-circle-outline" size={18} color="#FF3366" />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.earningsLabel, { color: colors.mutedForeground }]}>Available to withdraw</Text>
+            <Text style={[styles.earningsValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
+          </View>
+          <View style={[styles.withdrawChip, { backgroundColor: earnings >= 1 ? "#FF3366" : colors.muted }]}>
+            <Ionicons name="arrow-up-outline" size={12} color="#fff" />
+            <Text style={styles.withdrawChipText}>Withdraw</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       {/* Creator Mode */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <View style={styles.sectionHeader}>
@@ -260,28 +310,6 @@ export default function ProfileScreen() {
               ))}
             </View>
 
-            <TouchableOpacity
-              style={[styles.earningsRow, { backgroundColor: colors.background, borderColor: colors.border }]}
-              onPress={() => {
-                if (earnings >= 1) {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  setWithdrawVisible(true);
-                } else {
-                  Alert.alert("Not enough balance", "You need at least €1.00 to withdraw.");
-                }
-              }}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="wallet-outline" size={18} color="#FF3366" />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.earningsLabel, { color: colors.mutedForeground }]}>Available to withdraw</Text>
-                <Text style={[styles.earningsValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
-              </View>
-              <View style={[styles.withdrawChip, { backgroundColor: earnings >= 1 ? "#FF3366" : colors.muted }]}>
-                <Ionicons name="arrow-up-outline" size={12} color="#fff" />
-                <Text style={styles.withdrawChipText}>Withdraw</Text>
-              </View>
-            </TouchableOpacity>
           </>
         ) : (
           <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
@@ -505,6 +533,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_600SemiBold",
   },
+  walletGrid: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+    marginBottom: 10,
+  },
+  walletCell: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 16,
+    gap: 4,
+    borderRightWidth: 1,
+  },
+  walletCoin: { fontSize: 26 },
+  walletValue: { fontSize: 22, fontFamily: "Inter_700Bold", lineHeight: 28 },
+  walletLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
   resetBtn: {
     flexDirection: "row",
     alignItems: "center",

@@ -51,6 +51,9 @@ interface AppContextType {
   earnings: number;
   addEarning: (amountEur: number) => void;
   clearEarnings: () => Promise<void>;
+  coinBalance: number;
+  addCoins: (amount: number) => void;
+  spendCoins: (amount: number) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -64,6 +67,7 @@ const KEYS = {
   CREATOR_MODE: "@spark/creator_mode",
   CREATOR_PRICE: "@spark/creator_price",
   EARNINGS: "@spark/earnings",
+  COINS: "@spark/coins",
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -77,11 +81,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [creatorMode, setCreatorModeState] = useState(false);
   const [creatorPrice, setCreatorPriceState] = useState(3);
   const [earnings, setEarnings] = useState(0);
+  const [coinBalance, setCoinBalance] = useState(0);
 
   useEffect(() => {
     async function load() {
       try {
-        const [profileRaw, matchesRaw, seenRaw, subscribedRaw, unlockedRaw, creatorModeRaw, creatorPriceRaw, earningsRaw] = await Promise.all([
+        const [profileRaw, matchesRaw, seenRaw, subscribedRaw, unlockedRaw, creatorModeRaw, creatorPriceRaw, earningsRaw, coinsRaw] = await Promise.all([
           AsyncStorage.getItem(KEYS.USER_PROFILE),
           AsyncStorage.getItem(KEYS.MATCHES),
           AsyncStorage.getItem(KEYS.SEEN),
@@ -90,6 +95,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.CREATOR_MODE),
           AsyncStorage.getItem(KEYS.CREATOR_PRICE),
           AsyncStorage.getItem(KEYS.EARNINGS),
+          AsyncStorage.getItem(KEYS.COINS),
         ]);
         if (profileRaw) setUserProfileState(JSON.parse(profileRaw));
         if (matchesRaw) setMatches(JSON.parse(matchesRaw));
@@ -99,6 +105,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (creatorModeRaw === "true") setCreatorModeState(true);
         if (creatorPriceRaw) setCreatorPriceState(Number(creatorPriceRaw));
         if (earningsRaw) setEarnings(parseFloat(earningsRaw));
+        if (coinsRaw) setCoinBalance(parseFloat(coinsRaw));
       } catch {
         // ignore storage errors
       } finally {
@@ -224,6 +231,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(KEYS.EARNINGS, "0");
   };
 
+  const addCoins = (amount: number) => {
+    setCoinBalance((prev) => {
+      const updated = parseFloat((prev + amount).toFixed(2));
+      AsyncStorage.setItem(KEYS.COINS, String(updated));
+      return updated;
+    });
+  };
+
+  const spendCoins = (amount: number) => {
+    setCoinBalance((prev) => {
+      const updated = parseFloat(Math.max(0, prev - amount).toFixed(2));
+      AsyncStorage.setItem(KEYS.COINS, String(updated));
+      return updated;
+    });
+  };
+
   const removeMatch = (profileId: string) => {
     setMatches((prev) => {
       const updated = prev.filter((m) => m.profileId !== profileId);
@@ -259,6 +282,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         earnings,
         addEarning,
         clearEarnings,
+        coinBalance,
+        addCoins,
+        spendCoins,
       }}
     >
       {children}

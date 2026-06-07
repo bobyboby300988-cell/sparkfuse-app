@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
+import GiftModal from "@/components/GiftModal";
 
 function formatTime(ts: number) {
   const d = new Date(ts);
@@ -169,6 +170,7 @@ export default function ChatScreen() {
   const { matches, sendMessage, sendMedia, sendVoice } = useApp();
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGiftModal, setShowGiftModal] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const recordingStart = useRef<number>(0);
@@ -500,6 +502,14 @@ export default function ChatScreen() {
             <Text style={{ fontSize: 20 }}>😊</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.mediaBtn, { backgroundColor: colors.card }]}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowGiftModal(true); }}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize: 20 }}>🎁</Text>
+          </TouchableOpacity>
+
           <TextInput
             ref={inputRef}
             style={[
@@ -546,6 +556,14 @@ export default function ChatScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {profile && (
+        <GiftModal
+          visible={showGiftModal}
+          onClose={() => setShowGiftModal(false)}
+          recipientName={profile.name}
+        />
+      )}
     </View>
   );
 }
