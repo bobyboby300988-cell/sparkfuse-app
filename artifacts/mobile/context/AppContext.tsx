@@ -13,6 +13,8 @@ export interface Message {
   text: string;
   fromMe: boolean;
   timestamp: number;
+  mediaUri?: string;
+  mediaType?: "image" | "video";
 }
 
 export interface Match {
@@ -28,6 +30,7 @@ interface AppContextType {
   matches: Match[];
   addMatch: (profileId: string) => void;
   sendMessage: (profileId: string, text: string) => void;
+  sendMedia: (profileId: string, uri: string, type: "image" | "video") => void;
   seenProfiles: string[];
   markSeen: (id: string) => void;
 }
@@ -88,11 +91,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const updated = prev.map((m) => {
         if (m.profileId !== profileId) return m;
         const newMsg: Message = {
-          id:
-            Date.now().toString() + Math.random().toString(36).substring(2, 9),
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
           text,
           fromMe: true,
           timestamp: Date.now(),
+        };
+        return { ...m, messages: [...m.messages, newMsg] };
+      });
+      AsyncStorage.setItem(KEYS.MATCHES, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const sendMedia = (profileId: string, uri: string, type: "image" | "video") => {
+    setMatches((prev) => {
+      const updated = prev.map((m) => {
+        if (m.profileId !== profileId) return m;
+        const newMsg: Message = {
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+          text: "",
+          fromMe: true,
+          timestamp: Date.now(),
+          mediaUri: uri,
+          mediaType: type,
         };
         return { ...m, messages: [...m.messages, newMsg] };
       });
@@ -119,6 +140,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         matches,
         addMatch,
         sendMessage,
+        sendMedia,
         seenProfiles,
         markSeen,
       }}
