@@ -41,6 +41,7 @@ interface AppContextType {
   sendVoice: (profileId: string, uri: string, duration: number) => void;
   seenProfiles: string[];
   markSeen: (id: string) => void;
+  removeMatch: (profileId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -166,6 +167,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const removeMatch = (profileId: string) => {
+    setMatches((prev) => {
+      const updated = prev.filter((m) => m.profileId !== profileId);
+      AsyncStorage.setItem(KEYS.MATCHES, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -183,6 +192,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sendVoice,
         seenProfiles,
         markSeen,
+        removeMatch,
       }}
     >
       {children}
