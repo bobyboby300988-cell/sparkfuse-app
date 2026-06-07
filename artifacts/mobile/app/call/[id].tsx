@@ -5,20 +5,22 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
-  Image,
   Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import WebView from "react-native-webview";
 import { MOCK_PROFILES } from "@/data/profiles";
+import { getOrCreateRoom } from "@/lib/daily";
+
+type CallPhase = "connecting" | "ready" | "error";
 
 function formatDuration(seconds: number) {
-  const m = Math.floor(seconds / 60)
-    .toString()
-    .padStart(2, "0");
+  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
   const s = (seconds % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
 }
@@ -27,19 +29,20 @@ export default function CallScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
 
-  const profile = useMemo(
-    () => MOCK_PROFILES.find((p) => p.id === id),
-    [id]
-  );
+  const profile = useMemo(() => MOCK_PROFILES.find((p) => p.id === id), [id]);
 
-  const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOff, setIsCameraOff] = useState(false);
-  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
-  const [callState, setCallState] = useState<"connecting" | "connected">("connecting");
+  const [phase, setPhase] = useState<CallPhase>("connecting");
+  const [roomUrl, setRoomUrl] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
   const [duration, setDuration] = useState(0);
+  const [showControls, setShowControls] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const connectingDots = useRef(new Animated.Value(0)).current;
+  const controlsOpacity = useRef(new Animated.Value(1)).current;
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const apiKey = process.env.EXPO_PUBLIC_DAILY_API_KEY;
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -49,49 +52,53 @@ export default function CallScreen() {
       ])
     );
     pulse.start();
-
-    const connectTimer = setTimeout(() => {
-      setCallState("connected");
-      pulse.stop();
-      pulseAnim.setValue(1);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }, 2500);
-
-    return () => {
-      pulse.stop();
-      clearTimeout(connectTimer);
-    };
+    return () => pulse.stop();
   }, []);
 
   useEffect(() => {
-    if (callState !== "connected") return;
+    if (!apiKey) {
+      setPhase("error");
+      setErrorMsg("Daily.co API key not configured.");
+      return;
+    }
+
+    getOrCreateRoom(id ?? "default")
+      .then((room) => {
+        setRoomUrl(room.url);
+        setPhase("ready");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      })
+      .catch((err) => {
+        setPhase("error");
+        setErrorMsg(err.message ?? "Could not start video call.");
+      });
+  }, [id, apiKey]);
+
+  useEffect(() => {
+    if (phase !== "ready") return;
     const interval = setInterval(() => setDuration((d) => d + 1), 1000);
     return () => clearInterval(interval);
-  }, [callState]);
+  }, [phase]);
+
+  const showControlsTemporarily = () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setShowControls(true);
+    Animated.timing(controlsOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    hideTimer.current = setTimeout(() => {
+      Animated.timing(controlsOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start(() =>
+        setShowControls(false)
+      );
+    }, 4000);
+  };
 
   const handleEndCall = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     router.back();
   };
 
-  const toggleMute = () => {
-    setIsMuted((v) => !v);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const toggleCamera = () => {
-    setIsCameraOff((v) => !v);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const toggleSpeaker = () => {
-    setIsSpeakerOn((v) => !v);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
   if (!profile) {
     return (
-      <View style={[styles.container, { backgroundColor: "#0D0B12" }]}>
+      <View style={[styles.container, { backgroundColor: "#0D0B12", justifyContent: "center", alignItems: "center" }]}>
         <Text style={{ color: "#fff" }}>Profile not found</Text>
       </View>
     );
@@ -99,119 +106,94 @@ export default function CallScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Full-screen partner "video" background */}
-      <Image
-        source={profile.photo}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
-      <BlurView
-        intensity={callState === "connecting" ? 60 : 20}
-        tint="dark"
-        style={StyleSheet.absoluteFill}
-      />
+      {/* ── Connecting / Error state ── */}
+      {phase !== "ready" && (
+        <>
+          <Image source={profile.photo} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
 
-      {/* Top info */}
-      <View style={[styles.topBar, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.callerName}>{profile.name}</Text>
-        {callState === "connecting" ? (
-          <Text style={styles.callStatus}>Connecting…</Text>
-        ) : (
-          <Text style={styles.callTimer}>{formatDuration(duration)}</Text>
-        )}
-      </View>
-
-      {/* Connecting pulse avatar */}
-      {callState === "connecting" && (
-        <View style={styles.connectingCenter}>
-          <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
-          <Image source={profile.photo} style={styles.connectingAvatar} resizeMode="cover" />
-        </View>
-      )}
-
-      {/* Own camera preview (corner) */}
-      {callState === "connected" && !isCameraOff && (
-        <View
-          style={[
-            styles.selfPreview,
-            { top: insets.top + 80, right: 16 },
-          ]}
-        >
-          <View style={styles.selfPreviewInner}>
-            <Ionicons name="person" size={32} color="#ffffff88" />
-            <Text style={styles.selfPreviewLabel}>You</Text>
+          <View style={[styles.topBar, { paddingTop: insets.top + 16 }]}>
+            <Text style={styles.callerName}>{profile.name}</Text>
+            <Text style={styles.callStatus}>
+              {phase === "connecting" ? "Starting video call…" : "Could not connect"}
+            </Text>
           </View>
-        </View>
-      )}
 
-      {callState === "connected" && isCameraOff && (
-        <View style={[styles.selfPreview, { top: insets.top + 80, right: 16 }]}>
-          <View style={[styles.selfPreviewInner, { backgroundColor: "#1A1826" }]}>
-            <Ionicons name="videocam-off" size={24} color="#9A93B3" />
+          {phase === "connecting" && (
+            <View style={styles.center}>
+              <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
+              <Image source={profile.photo} style={styles.connectingAvatar} contentFit="cover" />
+            </View>
+          )}
+
+          {phase === "error" && (
+            <View style={styles.center}>
+              <Ionicons name="warning-outline" size={48} color="#FF3366" />
+              <Text style={styles.errorText}>{errorMsg}</Text>
+              {!apiKey && (
+                <Text style={styles.errorHint}>
+                  Add your Daily.co API key as{"\n"}EXPO_PUBLIC_DAILY_API_KEY
+                </Text>
+              )}
+            </View>
+          )}
+
+          <View style={[styles.controls, { paddingBottom: insets.bottom + 28 }]}>
+            <TouchableOpacity style={styles.endCallBtn} onPress={handleEndCall} activeOpacity={0.8}>
+              <Ionicons name="call" size={28} color="#fff" style={{ transform: [{ rotate: "135deg" }] }} />
+            </TouchableOpacity>
           </View>
-        </View>
+        </>
       )}
 
-      {/* Controls */}
-      <View style={[styles.controls, { paddingBottom: insets.bottom + 28 }]}>
-        <ControlButton
-          icon={isMuted ? "mic-off" : "mic"}
-          label={isMuted ? "Unmute" : "Mute"}
-          active={isMuted}
-          onPress={toggleMute}
-        />
-        <ControlButton
-          icon={isCameraOff ? "videocam-off" : "videocam"}
-          label={isCameraOff ? "Start video" : "Stop video"}
-          active={isCameraOff}
-          onPress={toggleCamera}
-        />
-        <ControlButton
-          icon={isSpeakerOn ? "volume-high" : "volume-mute"}
-          label="Speaker"
-          active={!isSpeakerOn}
-          onPress={toggleSpeaker}
-        />
+      {/* ── Live call ── */}
+      {phase === "ready" && roomUrl && (
+        <>
+          <WebView
+            source={{ uri: roomUrl }}
+            style={styles.webview}
+            mediaPlaybackRequiresUserAction={false}
+            allowsInlineMediaPlayback
+            javaScriptEnabled
+            domStorageEnabled
+            originWhitelist={["*"]}
+            onTouchStart={showControlsTemporarily}
+            mediaCapturePermissionGrantType={
+              Platform.OS === "ios" ? "grantIfSameHostElsePrompt" : undefined
+            }
+          />
 
-        {/* End call */}
-        <TouchableOpacity
-          style={styles.endCallBtn}
-          onPress={handleEndCall}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="call" size={28} color="#fff" style={{ transform: [{ rotate: "135deg" }] }} />
-        </TouchableOpacity>
-      </View>
+          {/* Floating controls overlay */}
+          {showControls && (
+            <Animated.View
+              style={[styles.floatingControls, { opacity: controlsOpacity, paddingBottom: insets.bottom + 20 }]}
+              pointerEvents="box-none"
+            >
+              {/* Timer */}
+              <View style={styles.timerPill}>
+                <View style={styles.liveIndicator} />
+                <Text style={styles.timerText}>{formatDuration(duration)}</Text>
+              </View>
+
+              {/* End call */}
+              <TouchableOpacity
+                style={styles.endCallBtn}
+                onPress={handleEndCall}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="call" size={28} color="#fff" style={{ transform: [{ rotate: "135deg" }] }} />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+        </>
+      )}
     </View>
   );
 }
 
-function ControlButton({
-  icon,
-  label,
-  active,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity style={styles.controlBtnWrap} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.controlBtn, active && styles.controlBtnActive]}>
-        <Ionicons name={icon} size={24} color={active ? "#FF3366" : "#ffffff"} />
-      </View>
-      <Text style={styles.controlLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0D0B12",
-  },
+  container: { flex: 1, backgroundColor: "#0D0B12" },
+  webview: { flex: 1 },
   topBar: {
     alignItems: "center",
     paddingHorizontal: 24,
@@ -231,16 +213,11 @@ const styles = StyleSheet.create({
     color: "#ffffffaa",
     fontFamily: "Inter_400Regular",
   },
-  callTimer: {
-    fontSize: 18,
-    color: "#22C55E",
-    fontFamily: "Inter_500Medium",
-    fontWeight: "600",
-  },
-  connectingCenter: {
+  center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    gap: 16,
   },
   pulseRing: {
     position: "absolute",
@@ -258,53 +235,52 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#FF3366",
   },
-  selfPreview: {
-    position: "absolute",
-    width: 90,
-    height: 130,
-    borderRadius: 14,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "#ffffff30",
-  },
-  selfPreviewInner: {
-    flex: 1,
-    backgroundColor: "#241F35",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 4,
-  },
-  selfPreviewLabel: {
-    color: "#ffffffaa",
-    fontSize: 11,
+  errorText: {
+    color: "#fff",
+    fontSize: 15,
     fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    paddingHorizontal: 32,
+  },
+  errorHint: {
+    color: "#9A93B3",
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    marginTop: 8,
+    lineHeight: 20,
   },
   controls: {
+    alignItems: "center",
+    paddingTop: 12,
+  },
+  floatingControls: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    gap: 16,
+  },
+  timerPill: {
     flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "flex-end",
-    paddingHorizontal: 16,
-    gap: 20,
-  },
-  controlBtnWrap: {
     alignItems: "center",
-    gap: 8,
+    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
   },
-  controlBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    justifyContent: "center",
-    alignItems: "center",
+  liveIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#22C55E",
   },
-  controlBtnActive: {
-    backgroundColor: "rgba(255,255,255,0.95)",
-  },
-  controlLabel: {
-    color: "#ffffffcc",
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
+  timerText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
   },
   endCallBtn: {
     width: 68,
