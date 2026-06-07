@@ -2,68 +2,61 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useRef } from "react";
+import * as WebBrowser from "expo-web-browser";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useApp } from "@/context/AppContext";
 
-const { width: W, height: H } = Dimensions.get("window");
+const { width: W } = Dimensions.get("window");
+
+const API_BASE = "https://match-maker-dumitru8830.replit.app/api";
+const APP_DOMAIN = "https://match-maker-dumitru8830.replit.app";
 
 const KEYWORDS = [
-  { label: "Love",           icon: "❤️",  color: "#FF3366" },
-  { label: "Pleasure",       icon: "🔥",  color: "#FF6B35" },
-  { label: "Business",       icon: "💼",  color: "#6366F1" },
-  { label: "Video Calls",    icon: "📹",  color: "#22C55E" },
-  { label: "Socialization",  icon: "🌍",  color: "#F59E0B" },
+  { label: "Love",          icon: "❤️", color: "#FF3366" },
+  { label: "Pleasure",      icon: "🔥", color: "#FF6B35" },
+  { label: "Business",      icon: "💼", color: "#818CF8" },
+  { label: "Video Calls",   icon: "📹", color: "#22C55E" },
+  { label: "Socialization", icon: "🌍", color: "#F59E0B" },
 ];
 
-function KeywordPill({
-  label,
-  icon,
-  color,
-  delay,
-}: {
-  label: string;
-  icon: string;
-  color: string;
-  delay: number;
-}) {
+const BENEFITS = [
+  { icon: "infinite-outline",       label: "Unlimited swipes & matches" },
+  { icon: "chatbubbles-outline",    label: "Chat, voice & media sharing" },
+  { icon: "videocam-outline",       label: "Live video calls" },
+  { icon: "briefcase-outline",      label: "Dating & business coaches" },
+  { icon: "lock-open-outline",      label: "Exclusive creator content" },
+  { icon: "ban-outline",            label: "No ads. No restrictions. Ever." },
+];
+
+function Pill({ label, icon, color, delay }: { label: string; icon: string; color: string; delay: number }) {
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(24)).current;
+  const ty = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     Animated.sequence([
       Animated.delay(delay),
       Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          tension: 80,
-          friction: 10,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
+        Animated.timing(opacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.spring(ty, { toValue: 0, tension: 80, friction: 10, useNativeDriver: true }),
       ]),
     ]).start();
   }, []);
 
   return (
-    <Animated.View
-      style={[
-        styles.pill,
-        { opacity, transform: [{ translateY }], borderColor: color + "55", backgroundColor: color + "18" },
-      ]}
-    >
+    <Animated.View style={[styles.pill, { opacity, transform: [{ translateY: ty }], borderColor: color + "55", backgroundColor: color + "18" }]}>
       <Text style={styles.pillIcon}>{icon}</Text>
       <Text style={[styles.pillText, { color }]}>{label}</Text>
     </Animated.View>
@@ -72,231 +65,389 @@ function KeywordPill({
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
+  const { setSubscribed } = useApp();
+  const [loadingStripe, setLoadingStripe] = useState(false);
+  const [loadingPayPal, setLoadingPayPal] = useState(false);
 
-  const logoScale = useRef(new Animated.Value(0.6)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  const taglineOpacity = useRef(new Animated.Value(0)).current;
-  const btnOpacity = useRef(new Animated.Value(0)).current;
-  const btnTranslateY = useRef(new Animated.Value(30)).current;
-  const glowScale = useRef(new Animated.Value(1)).current;
+  const logoScale = useRef(new Animated.Value(0.7)).current;
+  const glowAnim = useRef(new Animated.Value(1)).current;
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardTY = useRef(new Animated.Value(40)).current;
 
   useEffect(() => {
-    // Logo entrance
     Animated.parallel([
-      Animated.spring(logoScale, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
+      Animated.spring(logoScale, { toValue: 1, tension: 55, friction: 8, useNativeDriver: true }),
       Animated.timing(logoOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
     ]).start();
 
-    // Tagline
     Animated.sequence([
-      Animated.delay(500),
-      Animated.timing(taglineOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
-    ]).start();
-
-    // Button
-    Animated.sequence([
-      Animated.delay(1100),
+      Animated.delay(800),
       Animated.parallel([
-        Animated.spring(btnTranslateY, { toValue: 0, tension: 80, friction: 10, useNativeDriver: true }),
-        Animated.timing(btnOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(cardOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.spring(cardTY, { toValue: 0, tension: 70, friction: 10, useNativeDriver: true }),
       ]),
     ]).start();
 
-    // Glow pulse loop
     Animated.loop(
       Animated.sequence([
-        Animated.timing(glowScale, { toValue: 1.18, duration: 1800, useNativeDriver: true }),
-        Animated.timing(glowScale, { toValue: 1, duration: 1800, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 1.2, duration: 2000, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
       ])
     ).start();
   }, []);
 
+  const handleStripe = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setLoadingStripe(true);
+    try {
+      const res = await fetch(`${API_BASE}/stripe/subscription-checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          successUrl: `${APP_DOMAIN}/success`,
+          cancelUrl: `${APP_DOMAIN}/cancel`,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Checkout failed");
+      const { url } = await res.json();
+      setLoadingStripe(false);
+      await WebBrowser.openBrowserAsync(url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });
+      await setSubscribed();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/onboarding");
+    } catch (err: any) {
+      setLoadingStripe(false);
+      Alert.alert("Error", err.message ?? "Something went wrong. Try again.");
+    }
+  };
+
+  const handlePayPal = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setLoadingPayPal(true);
+    const paypalUrl =
+      "https://www.paypal.com/cgi-bin/webscr?" +
+      "cmd=_xclick&business=dumitru8830%40gmail.com" +
+      "&amount=1.00&currency_code=EUR&item_name=Spark+Premium+%E2%80%94+1+month";
+    try {
+      setLoadingPayPal(false);
+      await WebBrowser.openBrowserAsync(paypalUrl, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });
+      await setSubscribed();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/onboarding");
+    } catch (err: any) {
+      setLoadingPayPal(false);
+      Alert.alert("Error", err.message ?? "Something went wrong. Try again.");
+    }
+  };
+
+  const anyLoading = loadingStripe || loadingPayPal;
+  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
+  const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 16);
+
   return (
-    <LinearGradient
-      colors={["#0D0D1A", "#1A0A14", "#0D0D1A"]}
-      style={[styles.container, { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) }]}
-    >
-      {/* Background glow */}
-      <Animated.View
-        style={[styles.glow, { transform: [{ scale: glowScale }] }]}
-        pointerEvents="none"
-      />
+    <LinearGradient colors={["#0D0D1A", "#15080F", "#0D0D1A"]} style={styles.root}>
+      {/* Glow blob */}
+      <Animated.View style={[styles.glow, { transform: [{ scale: glowAnim }] }]} pointerEvents="none" />
 
-      {/* Logo block */}
-      <Animated.View
-        style={[styles.logoBlock, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: botPad + 12 }]}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
       >
-        <View style={styles.flameWrap}>
-          <Ionicons name="flame" size={72} color="#FF3366" />
-        </View>
-        <Text style={styles.appName}>SPARK</Text>
-        <Text style={styles.appSub}>Connect. Explore. Thrive.</Text>
-      </Animated.View>
+        {/* ── Logo ── */}
+        <Animated.View style={[styles.logoBlock, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
+          <View style={styles.flameRing}>
+            <Ionicons name="flame" size={64} color="#FF3366" />
+          </View>
+          <Text style={styles.appName}>SPARK</Text>
+          <Text style={styles.appSub}>Connect. Explore. Thrive.</Text>
+        </Animated.View>
 
-      {/* Keywords */}
-      <Animated.View style={[styles.keywordsBlock, { opacity: taglineOpacity }]}>
-        <Text style={styles.keywordsTitle}>Everything in one place</Text>
-        <View style={styles.pillsRow}>
-          {KEYWORDS.map((kw, i) => (
-            <KeywordPill
-              key={kw.label}
-              label={kw.label}
-              icon={kw.icon}
-              color={kw.color}
-              delay={600 + i * 120}
-            />
-          ))}
+        {/* ── Keyword pills ── */}
+        <View style={styles.pillsSection}>
+          <Text style={styles.pillsTitle}>Everything in one place</Text>
+          <View style={styles.pillsRow}>
+            {KEYWORDS.map((kw, i) => (
+              <Pill key={kw.label} label={kw.label} icon={kw.icon} color={kw.color} delay={400 + i * 100} />
+            ))}
+          </View>
         </View>
-      </Animated.View>
 
-      {/* CTA */}
-      <Animated.View
-        style={[
-          styles.ctaBlock,
-          {
-            opacity: btnOpacity,
-            transform: [{ translateY: btnTranslateY }],
-            paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 24),
-          },
-        ]}
-      >
+        {/* ── Payment card ── */}
+        <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardTY }] }]}>
+
+          {/* Price badge */}
+          <View style={styles.priceBadge}>
+            <View style={styles.priceLeft}>
+              <Text style={styles.priceAmount}>€1</Text>
+              <View>
+                <Text style={styles.pricePer}>/ month</Text>
+                <Text style={styles.priceNote}>Cancel anytime</Text>
+              </View>
+            </View>
+            <View style={styles.noRestrTag}>
+              <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
+              <Text style={styles.noRestrText}>No restrictions</Text>
+            </View>
+          </View>
+
+          {/* Benefits list */}
+          <View style={styles.benefits}>
+            {BENEFITS.map((b) => (
+              <View key={b.label} style={styles.benefitRow}>
+                <View style={styles.benefitIcon}>
+                  <Ionicons name={b.icon as any} size={16} color="#FF3366" />
+                </View>
+                <Text style={styles.benefitLabel}>{b.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Stripe button */}
+          <TouchableOpacity
+            style={[styles.stripeBtn, anyLoading && { opacity: 0.6 }]}
+            onPress={handleStripe}
+            disabled={anyLoading}
+            activeOpacity={0.88}
+          >
+            <LinearGradient
+              colors={["#FF3366", "#FF6B35"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.stripeBtnInner}
+            >
+              {loadingStripe ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="card-outline" size={18} color="#fff" />
+                  <Text style={styles.stripeBtnText}>Pay €1 / month with Card</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.divRow}>
+            <View style={styles.divLine} />
+            <Text style={styles.divLabel}>or</Text>
+            <View style={styles.divLine} />
+          </View>
+
+          {/* PayPal button */}
+          <TouchableOpacity
+            style={[styles.paypalBtn, anyLoading && { opacity: 0.6 }]}
+            onPress={handlePayPal}
+            disabled={anyLoading}
+            activeOpacity={0.88}
+          >
+            {loadingPayPal ? (
+              <ActivityIndicator color="#003087" />
+            ) : (
+              <Text style={styles.paypalBtnText}>
+                <Text style={{ color: "#003087" }}>Pay</Text>
+                <Text style={{ color: "#009CDE" }}>Pal</Text>
+                <Text style={{ color: "#003087", fontSize: 14, fontFamily: "Inter_500Medium" }}>  · €1 / month</Text>
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          <Text style={styles.finePrint}>
+            €1 billed monthly · All features included · No restrictions{"\n"}Cancel anytime · By joining you agree to our Terms
+          </Text>
+        </Animated.View>
+
+        {/* Skip link */}
         <TouchableOpacity
-          style={styles.joinBtn}
-          activeOpacity={0.88}
+          style={styles.skipBtn}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            Haptics.selectionAsync();
             router.push("/onboarding");
           }}
+          activeOpacity={0.7}
         >
-          <LinearGradient
-            colors={["#FF3366", "#FF6B35"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.joinGradient}
-          >
-            <Ionicons name="flame" size={20} color="#fff" />
-            <Text style={styles.joinText}>Get Started — It's Free</Text>
-          </LinearGradient>
+          <Text style={styles.skipText}>Browse first →</Text>
         </TouchableOpacity>
-
-        <Text style={styles.legal}>
-          By continuing you agree to our Terms & Privacy Policy.
-        </Text>
-      </Animated.View>
+      </ScrollView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
+  root: { flex: 1 },
   glow: {
     position: "absolute",
-    top: H * 0.15,
-    width: W * 0.85,
-    height: W * 0.85,
-    borderRadius: W * 0.425,
-    backgroundColor: "rgba(255,51,102,0.12)",
+    top: "10%",
     alignSelf: "center",
+    width: W * 0.8,
+    height: W * 0.8,
+    borderRadius: W * 0.4,
+    backgroundColor: "rgba(255,51,102,0.10)",
   },
-  logoBlock: {
+  scroll: {
     alignItems: "center",
-    marginTop: H * 0.1,
-    gap: 12,
+    paddingHorizontal: 20,
+    gap: 28,
   },
-  flameWrap: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(255,51,102,0.15)",
+
+  /* Logo */
+  logoBlock: { alignItems: "center", gap: 10 },
+  flameRing: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    backgroundColor: "rgba(255,51,102,0.14)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,51,102,0.35)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(255,51,102,0.3)",
   },
   appName: {
-    fontSize: 52,
+    fontSize: 46,
     fontFamily: "Inter_700Bold",
-    fontWeight: "900",
-    color: "#FFFFFF",
+    color: "#fff",
     letterSpacing: 10,
   },
   appSub: {
-    fontSize: 15,
+    fontSize: 12,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.45)",
-    letterSpacing: 2,
-    textTransform: "uppercase",
-  },
-  keywordsBlock: {
-    alignItems: "center",
-    gap: 16,
-    paddingHorizontal: 24,
-  },
-  keywordsTitle: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
     color: "rgba(255,255,255,0.35)",
+    letterSpacing: 2.5,
+    textTransform: "uppercase",
+  },
+
+  /* Pills */
+  pillsSection: { alignItems: "center", gap: 12 },
+  pillsTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    color: "rgba(255,255,255,0.3)",
     textTransform: "uppercase",
     letterSpacing: 2,
   },
-  pillsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 10,
-  },
+  pillsRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8 },
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
   },
-  pillIcon: {
-    fontSize: 16,
-  },
-  pillText: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-  },
-  ctaBlock: {
+  pillIcon: { fontSize: 14 },
+  pillText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+
+  /* Payment card */
+  card: {
     width: "100%",
-    paddingHorizontal: 24,
-    gap: 12,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,51,102,0.25)",
+    borderRadius: 24,
+    padding: 22,
+    gap: 16,
+  },
+
+  /* Price badge */
+  priceBadge: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255,51,102,0.12)",
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,51,102,0.3)",
   },
-  joinBtn: {
+  priceLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  priceAmount: { fontSize: 48, fontFamily: "Inter_700Bold", color: "#FF3366", lineHeight: 52 },
+  pricePer: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  priceNote: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.4)", marginTop: 2 },
+  noRestrTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(34,197,94,0.12)",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(34,197,94,0.3)",
+  },
+  noRestrText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#22C55E" },
+
+  /* Benefits */
+  benefits: { gap: 10 },
+  benefitRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  benefitIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,51,102,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  benefitLabel: { fontSize: 14, fontFamily: "Inter_500Medium", color: "#E0DCF0", flex: 1 },
+
+  /* Stripe btn */
+  stripeBtn: {
     width: "100%",
-    borderRadius: 32,
+    borderRadius: 28,
     overflow: "hidden",
     shadowColor: "#FF3366",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 10,
   },
-  joinGradient: {
+  stripeBtnInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    paddingVertical: 20,
+    gap: 8,
+    paddingVertical: 17,
   },
-  joinText: {
-    color: "#fff",
-    fontSize: 17,
-    fontFamily: "Inter_700Bold",
+  stripeBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+
+  /* Divider */
+  divRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  divLine: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.08)" },
+  divLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.3)" },
+
+  /* PayPal btn */
+  paypalBtn: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFC439",
+    paddingVertical: 15,
+    borderRadius: 28,
+    shadowColor: "#FFC439",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  legal: {
+  paypalBtnText: { fontSize: 19, fontFamily: "Inter_700Bold" },
+
+  /* Fine print */
+  finePrint: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
     color: "rgba(255,255,255,0.25)",
     textAlign: "center",
+    lineHeight: 16,
+  },
+
+  /* Skip */
+  skipBtn: { paddingVertical: 8 },
+  skipText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.3)",
+    textDecorationLine: "underline",
   },
 });
