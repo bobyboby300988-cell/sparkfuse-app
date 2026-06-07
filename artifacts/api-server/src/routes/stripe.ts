@@ -162,14 +162,21 @@ router.post('/stripe/withdraw', async (req, res) => {
       return;
     }
 
+    const PLATFORM_FEE_RATE = 0.10;
+    const fee = parseFloat((amount * PLATFORM_FEE_RATE).toFixed(2));
+    const netAmount = parseFloat((amount - fee).toFixed(2));
+
     // In production: use Stripe Connect to transfer to connected account
-    // stripe.transfers.create({ amount: amount * 100, currency: 'eur', destination: connectedAccountId })
-    logger.info({ amount, method }, 'Creator withdrawal processed');
+    // stripe.transfers.create({ amount: netAmount * 100, currency: 'eur', destination: connectedAccountId })
+    logger.info({ grossAmount: amount, fee, netAmount, method }, 'Creator withdrawal processed');
 
     const eta = method === 'paypal' ? '24 hours' : '3-5 business days';
     res.json({
       success: true,
-      message: `Withdrawal of €${amount.toFixed(2)} via ${method === 'paypal' ? 'PayPal' : 'bank transfer'} initiated. Funds arrive in ${eta}.`,
+      grossAmount: amount,
+      fee,
+      netAmount,
+      message: `€${netAmount.toFixed(2)} sent via ${method === 'paypal' ? 'PayPal' : 'bank transfer'}. Arrives in ${eta}.`,
       referenceId: `WD-${Date.now()}`,
     });
   } catch (err: any) {

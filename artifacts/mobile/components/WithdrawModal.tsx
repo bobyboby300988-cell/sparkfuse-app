@@ -35,8 +35,17 @@ export default function WithdrawModal({ visible, onClose }: Props) {
   const [accountHolder, setAccountHolder] = useState("");
   const [paypalEmail, setPaypalEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState<{ message: string; ref: string } | null>(null);
+  const [success, setSuccess] = useState<{
+    message: string;
+    ref: string;
+    gross: number;
+    fee: number;
+    net: number;
+  } | null>(null);
 
+  const PLATFORM_FEE = 0.10;
+  const fee = parseFloat((earnings * PLATFORM_FEE).toFixed(2));
+  const netAmount = parseFloat((earnings - fee).toFixed(2));
   const canWithdraw = earnings >= 1;
 
   async function handleWithdraw() {
@@ -71,7 +80,13 @@ export default function WithdrawModal({ visible, onClose }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Withdrawal failed");
       await clearEarnings();
-      setSuccess({ message: data.message, ref: data.referenceId });
+      setSuccess({
+        message: data.message,
+        ref: data.referenceId,
+        gross: data.grossAmount ?? earnings,
+        fee: data.fee ?? fee,
+        net: data.netAmount ?? netAmount,
+      });
     } catch (err: any) {
       Alert.alert("Error", err.message ?? "Withdrawal failed. Try again.");
     } finally {
@@ -113,6 +128,24 @@ export default function WithdrawModal({ visible, onClose }: Props) {
               </View>
               <Text style={[styles.successTitle, { color: colors.foreground }]}>Withdrawal Sent!</Text>
               <Text style={[styles.successMsg, { color: colors.mutedForeground }]}>{success.message}</Text>
+
+              {/* Fee breakdown */}
+              <View style={[styles.breakdownBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <View style={styles.breakdownRow}>
+                  <Text style={[styles.breakdownLabel, { color: colors.mutedForeground }]}>Gross earnings</Text>
+                  <Text style={[styles.breakdownValue, { color: colors.foreground }]}>€{success.gross.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={[styles.breakdownLabel, { color: colors.mutedForeground }]}>Platform fee (10%)</Text>
+                  <Text style={[styles.breakdownValue, { color: "#EF4444" }]}>−€{success.fee.toFixed(2)}</Text>
+                </View>
+                <View style={[styles.breakdownDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.breakdownRow}>
+                  <Text style={[styles.breakdownLabelBold, { color: colors.foreground }]}>You receive</Text>
+                  <Text style={[styles.breakdownValueBold, { color: "#22C55E" }]}>€{success.net.toFixed(2)}</Text>
+                </View>
+              </View>
+
               <View style={[styles.refRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
                 <Ionicons name="receipt-outline" size={16} color={colors.mutedForeground} />
                 <Text style={[styles.refText, { color: colors.mutedForeground }]}>{success.ref}</Text>
@@ -222,6 +255,25 @@ export default function WithdrawModal({ visible, onClose }: Props) {
                 </>
               )}
 
+              {/* Fee summary */}
+              {canWithdraw && (
+                <View style={[styles.feeSummary, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <View style={styles.feeRow}>
+                    <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Gross earnings</Text>
+                    <Text style={[styles.feeValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.feeRow}>
+                    <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Platform fee (10%)</Text>
+                    <Text style={[styles.feeValue, { color: "#EF4444" }]}>−€{fee.toFixed(2)}</Text>
+                  </View>
+                  <View style={[styles.feeDivider, { backgroundColor: colors.border }]} />
+                  <View style={styles.feeRow}>
+                    <Text style={[styles.feeLabelBold, { color: colors.foreground }]}>You receive</Text>
+                    <Text style={[styles.feeValueBold, { color: "#22C55E" }]}>€{netAmount.toFixed(2)}</Text>
+                  </View>
+                </View>
+              )}
+
               {/* Withdraw button */}
               <TouchableOpacity
                 style={[
@@ -238,7 +290,7 @@ export default function WithdrawModal({ visible, onClose }: Props) {
                   <>
                     <Ionicons name="arrow-up-circle-outline" size={18} color="#fff" />
                     <Text style={styles.withdrawBtnText}>
-                      Withdraw €{earnings.toFixed(2)}
+                      Withdraw · receive €{netAmount.toFixed(2)}
                     </Text>
                   </>
                 )}
@@ -353,6 +405,71 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     marginBottom: 20,
     lineHeight: 18,
+  },
+  feeSummary: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+    marginBottom: 16,
+  },
+  feeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  feeLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+  },
+  feeValue: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  feeLabelBold: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+  },
+  feeValueBold: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+  },
+  feeDivider: {
+    height: 1,
+    marginVertical: 4,
+  },
+  breakdownBox: {
+    width: "100%",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+    marginBottom: 20,
+  },
+  breakdownRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  breakdownLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+  },
+  breakdownValue: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  breakdownLabelBold: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+  },
+  breakdownValueBold: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+  },
+  breakdownDivider: {
+    height: 1,
+    marginVertical: 4,
   },
   withdrawBtn: {
     flexDirection: "row",
