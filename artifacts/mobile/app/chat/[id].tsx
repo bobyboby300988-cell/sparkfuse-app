@@ -9,7 +9,9 @@ import {
   ActionSheetIOS,
   Alert,
   FlatList,
+  Keyboard,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -137,15 +139,40 @@ const voiceStyles = StyleSheet.create({
   dur: { fontSize: 11, fontFamily: "Inter_400Regular" },
 });
 
+const EMOJI_CATEGORIES = [
+  {
+    label: "😄 Smileys",
+    emojis: ["😀","😂","🥹","😍","🥰","😘","😜","🤩","😏","🙃","😎","🤭","😇","🥳","🤗","😋","😛","😝","🫦","🙈","😬","😴","🤤","😤","🫡"],
+  },
+  {
+    label: "❤️ Love",
+    emojis: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","💖","💗","💓","💞","💕","💌","💝","💘","🫶","❣️","💟","😻","💑","👫","💋","🫂","🥂"],
+  },
+  {
+    label: "🔥 Spicy",
+    emojis: ["🔥","💥","✨","⚡","🌶️","🍑","🍒","🫠","😈","👿","💦","🌊","🎉","🎊","🍾","🥵","😮‍💨","😩","🫣","🤫","🫦","👅","💅","🕯️","🌹"],
+  },
+  {
+    label: "👋 Gestures",
+    emojis: ["👋","🤙","👌","🤌","🫰","✌️","🤞","🫵","☝️","👆","👇","👍","👎","🙌","👏","🤝","💪","🦵","🦶","🤲","🫶","✋","🖐️","🤚","🖖"],
+  },
+  {
+    label: "🎵 Fun",
+    emojis: ["🎵","🎶","🎸","🥂","🍷","🍸","🍹","🎲","🎯","🎳","🃏","🎭","💃","🕺","🎤","🎧","🎨","📸","🌅","🌙","⭐","🌟","💫","☀️","🌈"],
+  },
+];
+
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { matches, sendMessage, sendMedia, sendVoice } = useApp();
   const [inputText, setInputText] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const recordingStart = useRef<number>(0);
+  const inputRef = useRef<TextInput>(null);
 
   const profile = useMemo(() => ALL_PROFILES.find((p) => p.id === id), [id]);
   const match = useMemo(() => matches.find((m) => m.profileId === id), [matches, id]);
@@ -159,6 +186,21 @@ export default function ChatScreen() {
     if (!text || !id) return;
     sendMessage(id, text);
     setInputText("");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const toggleEmojiPicker = () => {
+    if (!showEmojiPicker) {
+      Keyboard.dismiss();
+      setShowEmojiPicker(true);
+    } else {
+      setShowEmojiPicker(false);
+      setTimeout(() => inputRef.current?.focus(), 80);
+    }
+  };
+
+  const onEmojiPress = (emoji: string) => {
+    setInputText((prev) => prev + emoji);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -406,6 +448,31 @@ export default function ChatScreen() {
           </View>
         )}
 
+        {/* Emoji picker panel */}
+        {showEmojiPicker && (
+          <View style={[styles.emojiPanel, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {EMOJI_CATEGORIES.map((cat) => (
+                <View key={cat.label} style={styles.emojiCat}>
+                  <Text style={[styles.emojiCatLabel, { color: colors.mutedForeground }]}>{cat.label}</Text>
+                  <View style={styles.emojiGrid}>
+                    {cat.emojis.map((emoji) => (
+                      <TouchableOpacity
+                        key={emoji}
+                        style={styles.emojiBtn}
+                        onPress={() => onEmojiPress(emoji)}
+                        activeOpacity={0.6}
+                      >
+                        <Text style={styles.emojiChar}>{emoji}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Input bar */}
         <View
           style={[
@@ -425,7 +492,16 @@ export default function ChatScreen() {
             <Ionicons name="image" size={22} color={colors.primary} />
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.mediaBtn, { backgroundColor: showEmojiPicker ? colors.primary : colors.card }]}
+            onPress={toggleEmojiPicker}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize: 20 }}>😊</Text>
+          </TouchableOpacity>
+
           <TextInput
+            ref={inputRef}
             style={[
               styles.input,
               {
@@ -438,6 +514,7 @@ export default function ChatScreen() {
             placeholderTextColor={colors.mutedForeground}
             value={inputText}
             onChangeText={setInputText}
+            onFocus={() => setShowEmojiPicker(false)}
             multiline
             maxLength={500}
           />
@@ -587,4 +664,22 @@ const styles = StyleSheet.create({
   micBtnPressed: {
     transform: [{ scale: 1.15 }],
   },
+  emojiPanel: {
+    height: 260,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+  },
+  emojiCat: { marginBottom: 12 },
+  emojiCatLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 6,
+    marginLeft: 4,
+  },
+  emojiGrid: { flexDirection: "row", flexWrap: "wrap" },
+  emojiBtn: { width: "12.5%", aspectRatio: 1, alignItems: "center", justifyContent: "center" },
+  emojiChar: { fontSize: 26 },
 });
