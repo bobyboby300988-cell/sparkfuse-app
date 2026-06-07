@@ -16,6 +16,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "flame", selected: "flame.fill" }} />
         <Label>Discover</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="explore">
+        <Icon sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }} />
+        <Label>Explore</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="matches">
         <Icon sf={{ default: "heart", selected: "heart.fill" }} />
         <Label>Matches</Label>
@@ -81,6 +85,18 @@ function ClassicTabLayout() {
               <SymbolView name="flame.fill" tintColor={color} size={24} />
             ) : (
               <Ionicons name="flame" size={24} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          title: "Explore",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="square.grid.2x2.fill" tintColor={color} size={22} />
+            ) : (
+              <Ionicons name="grid" size={22} color={color} />
             ),
         }}
       />
