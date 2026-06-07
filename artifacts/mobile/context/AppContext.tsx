@@ -14,7 +14,8 @@ export interface Message {
   fromMe: boolean;
   timestamp: number;
   mediaUri?: string;
-  mediaType?: "image" | "video";
+  mediaType?: "image" | "video" | "voice";
+  voiceDuration?: number;
 }
 
 export interface Match {
@@ -33,6 +34,7 @@ interface AppContextType {
   addMatch: (profileId: string) => void;
   sendMessage: (profileId: string, text: string) => void;
   sendMedia: (profileId: string, uri: string, type: "image" | "video") => void;
+  sendVoice: (profileId: string, uri: string, duration: number) => void;
   seenProfiles: string[];
   markSeen: (id: string) => void;
 }
@@ -130,6 +132,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const sendVoice = (profileId: string, uri: string, duration: number) => {
+    setMatches((prev) => {
+      const updated = prev.map((m) => {
+        if (m.profileId !== profileId) return m;
+        const newMsg: Message = {
+          id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+          text: "",
+          fromMe: true,
+          timestamp: Date.now(),
+          mediaUri: uri,
+          mediaType: "voice",
+          voiceDuration: duration,
+        };
+        return { ...m, messages: [...m.messages, newMsg] };
+      });
+      AsyncStorage.setItem(KEYS.MATCHES, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const markSeen = (id: string) => {
     setSeenProfiles((prev) => {
       if (prev.includes(id)) return prev;
@@ -151,6 +173,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addMatch,
         sendMessage,
         sendMedia,
+        sendVoice,
         seenProfiles,
         markSeen,
       }}

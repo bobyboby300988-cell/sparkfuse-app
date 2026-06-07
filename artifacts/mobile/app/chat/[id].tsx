@@ -3,7 +3,8 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import { Audio } from "expo-av";
+import React, { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import {
   ActionSheetIOS,
   Alert,
@@ -14,6 +15,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Pressable,
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,12 +28,124 @@ function formatTime(ts: number) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatDuration(seconds: number) {
+  const s = Math.floor(seconds);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function VoiceBubble({
+  uri,
+  duration,
+  fromMe,
+  colors,
+}: {
+  uri: string;
+  duration: number;
+  fromMe: boolean;
+  colors: ReturnType<typeof useColors>;
+}) {
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      soundRef.current?.unloadAsync();
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  const togglePlay = async () => {
+    if (playing) {
+      await soundRef.current?.pauseAsync();
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      setPlaying(false);
+      return;
+    }
+    try {
+      if (!soundRef.current) {
+        const { sound } = await Audio.Sound.createAsync(
+          { uri },
+          { shouldPlay: true },
+          (status) => {
+            if (status.isLoaded && status.didJustFinish) {
+              setPlaying(false);
+              setProgress(0);
+              if (intervalRef.current) clearInterval(intervalRef.current);
+            }
+          }
+        );
+        soundRef.current = sound;
+      } else {
+        await soundRef.current.playAsync();
+      }
+      setPlaying(true);
+      const start = Date.now() - progress * duration * 1000;
+      intervalRef.current = setInterval(() => {
+        const elapsed = (Date.now() - start) / 1000;
+        setProgress(Math.min(elapsed / duration, 1));
+      }, 100);
+    } catch {
+      Alert.alert("Error", "Could not play voice message.");
+    }
+  };
+
+  const bg = fromMe ? colors.primary : colors.card;
+  const iconColor = fromMe ? "#fff" : colors.primary;
+  const textColor = fromMe ? "#fff" : colors.foreground;
+  const trackColor = fromMe ? "rgba(255,255,255,0.3)" : colors.border;
+  const fillColor = fromMe ? "rgba(255,255,255,0.85)" : colors.primary;
+
+  return (
+    <View style={[voiceStyles.container, { backgroundColor: bg }]}>
+      <TouchableOpacity onPress={togglePlay} activeOpacity={0.7} style={voiceStyles.playBtn}>
+        <Ionicons name={playing ? "pause" : "play"} size={20} color={iconColor} />
+      </TouchableOpacity>
+      <View style={voiceStyles.trackWrap}>
+        <View style={[voiceStyles.track, { backgroundColor: trackColor }]}>
+          <View style={[voiceStyles.fill, { backgroundColor: fillColor, width: `${progress * 100}%` }]} />
+        </View>
+        <Text style={[voiceStyles.dur, { color: textColor }]}>{formatDuration(duration)}</Text>
+      </View>
+    </View>
+  );
+}
+
+const voiceStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 22,
+    minWidth: 180,
+    maxWidth: 260,
+  },
+  playBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  trackWrap: { flex: 1, gap: 4 },
+  track: { height: 3, borderRadius: 2, overflow: "hidden", width: "100%" },
+  fill: { height: 3, borderRadius: 2 },
+  dur: { fontSize: 11, fontFamily: "Inter_400Regular" },
+});
+
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { matches, sendMessage, sendMedia } = useApp();
+  const { matches, sendMessage, sendMedia, sendVoice } = useApp();
   const [inputText, setInputText] = useState("");
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const recordingStart = useRef<number>(0);
 
   const profile = useMemo(() => MOCK_PROFILES.find((p) => p.id === id), [id]);
   const match = useMemo(() => matches.find((m) => m.profileId === id), [matches, id]);
@@ -54,9 +168,10 @@ export default function ChatScreen() {
 
   const pickMedia = async (type: "image" | "video") => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: type === "image"
-        ? ImagePicker.MediaTypeOptions.Images
-        : ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes:
+        type === "image"
+          ? ImagePicker.MediaTypeOptions.Images
+          : ImagePicker.MediaTypeOptions.Videos,
       quality: 0.85,
       allowsMultipleSelection: false,
     });
@@ -84,11 +199,66 @@ export default function ChatScreen() {
     }
   };
 
+  const startRecording = useCallback(async () => {
+    try {
+      const { granted } = await Audio.requestPermissionsAsync();
+      if (!granted) {
+        Alert.alert("Permission needed", "Allow microphone access to send voice messages.");
+        return;
+      }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const rec = new Audio.Recording();
+      await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await rec.startAsync();
+      recordingStart.current = Date.now();
+      setRecording(rec);
+      setIsRecording(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    } catch {
+      Alert.alert("Error", "Could not start recording.");
+    }
+  }, []);
+
+  const stopRecording = useCallback(async () => {
+    if (!recording || !id) return;
+    try {
+      await recording.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      const uri = recording.getURI();
+      const duration = (Date.now() - recordingStart.current) / 1000;
+      setRecording(null);
+      setIsRecording(false);
+      if (uri && duration > 0.5) {
+        sendVoice(id, uri, duration);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      setRecording(null);
+      setIsRecording(false);
+    }
+  }, [recording, id, sendVoice]);
+
+  const cancelRecording = useCallback(async () => {
+    if (!recording) return;
+    try {
+      await recording.stopAndUnloadAsync();
+    } catch {}
+    setRecording(null);
+    setIsRecording(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  }, [recording]);
+
   const bottomInset = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const showMic = inputText.trim().length === 0;
 
   if (!profile) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" },
+        ]}
+      >
         <Text style={{ color: colors.foreground }}>Profile not found</Text>
       </View>
     );
@@ -142,7 +312,11 @@ export default function ChatScreen() {
         {/* Messages */}
         {reversedMessages.length === 0 ? (
           <View style={styles.emptyChat}>
-            <Image source={profile.photo} style={styles.emptyChatAvatar} contentFit="cover" />
+            <Image
+              source={profile.photo}
+              style={styles.emptyChatAvatar}
+              contentFit="cover"
+            />
             <Text style={[styles.emptyChatName, { color: colors.foreground }]}>{profile.name}</Text>
             <Text style={[styles.emptyChatHint, { color: colors.mutedForeground }]}>
               You matched! Say something to start the conversation.
@@ -164,7 +338,14 @@ export default function ChatScreen() {
                   item.fromMe ? styles.bubbleWrapMe : styles.bubbleWrapThem,
                 ]}
               >
-                {item.mediaUri ? (
+                {item.mediaType === "voice" && item.mediaUri ? (
+                  <VoiceBubble
+                    uri={item.mediaUri}
+                    duration={item.voiceDuration ?? 1}
+                    fromMe={item.fromMe}
+                    colors={colors}
+                  />
+                ) : item.mediaUri ? (
                   <View style={[styles.mediaBubble, item.fromMe && { alignSelf: "flex-end" }]}>
                     {item.mediaType === "image" ? (
                       <Image
@@ -173,9 +354,17 @@ export default function ChatScreen() {
                         contentFit="cover"
                       />
                     ) : (
-                      <View style={[styles.mediaImage, styles.videoPlaceholder, { backgroundColor: colors.card }]}>
+                      <View
+                        style={[
+                          styles.mediaImage,
+                          styles.videoPlaceholder,
+                          { backgroundColor: colors.card },
+                        ]}
+                      >
                         <Ionicons name="play-circle" size={48} color={colors.primary} />
-                        <Text style={[styles.videoLabel, { color: colors.mutedForeground }]}>Video</Text>
+                        <Text style={[styles.videoLabel, { color: colors.mutedForeground }]}>
+                          Video
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -188,7 +377,12 @@ export default function ChatScreen() {
                         : [styles.bubbleThem, { backgroundColor: colors.card }],
                     ]}
                   >
-                    <Text style={[styles.bubbleText, { color: item.fromMe ? "#FFFFFF" : colors.foreground }]}>
+                    <Text
+                      style={[
+                        styles.bubbleText,
+                        { color: item.fromMe ? "#FFFFFF" : colors.foreground },
+                      ]}
+                    >
                       {item.text}
                     </Text>
                   </View>
@@ -199,6 +393,17 @@ export default function ChatScreen() {
               </View>
             )}
           />
+        )}
+
+        {/* Recording indicator */}
+        {isRecording && (
+          <View style={[styles.recordingBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            <View style={styles.recordingDot} />
+            <Text style={[styles.recordingText, { color: colors.foreground }]}>Recording… release to send</Text>
+            <TouchableOpacity onPress={cancelRecording} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={[styles.cancelText, { color: colors.primary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Input bar */}
@@ -237,17 +442,31 @@ export default function ChatScreen() {
             maxLength={500}
           />
 
-          <TouchableOpacity
-            style={[
-              styles.sendBtn,
-              { backgroundColor: inputText.trim().length > 0 ? colors.primary : colors.muted },
-            ]}
-            onPress={handleSend}
-            disabled={inputText.trim().length === 0}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="send" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
+          {showMic ? (
+            <Pressable
+              onPressIn={startRecording}
+              onPressOut={stopRecording}
+              style={({ pressed }) => [
+                styles.micBtn,
+                { backgroundColor: isRecording ? "#FF3366" : colors.primary },
+                pressed && styles.micBtnPressed,
+              ]}
+            >
+              <Ionicons name={isRecording ? "radio-button-on" : "mic"} size={20} color="#fff" />
+            </Pressable>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.sendBtn,
+                { backgroundColor: inputText.trim().length > 0 ? colors.primary : colors.muted },
+              ]}
+              onPress={handleSend}
+              disabled={inputText.trim().length === 0}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="send" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -285,7 +504,12 @@ const styles = StyleSheet.create({
   },
   emptyChatAvatar: { width: 88, height: 88, borderRadius: 44, marginBottom: 4 },
   emptyChatName: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold" },
-  emptyChatHint: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 21 },
+  emptyChatHint: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 21,
+  },
   messageList: { paddingHorizontal: 16, paddingVertical: 16, gap: 4 },
   bubbleWrap: { marginVertical: 3 },
   bubbleWrapMe: { alignItems: "flex-end" },
@@ -298,7 +522,28 @@ const styles = StyleSheet.create({
   mediaImage: { width: 220, height: 220, borderRadius: 16 },
   videoPlaceholder: { justifyContent: "center", alignItems: "center", gap: 6 },
   videoLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  timeText: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2, marginHorizontal: 4 },
+  timeText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
+    marginHorizontal: 4,
+  },
+  recordingBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+  },
+  recordingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FF3366",
+  },
+  recordingText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular" },
+  cancelText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -331,5 +576,15 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     justifyContent: "center",
     alignItems: "center",
+  },
+  micBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  micBtnPressed: {
+    transform: [{ scale: 1.15 }],
   },
 });
