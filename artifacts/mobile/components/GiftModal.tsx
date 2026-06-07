@@ -73,6 +73,63 @@ const ST_PACKAGES = [
 
 const FEE = 0.10;
 
+/* ── Per-tier animation config ── */
+const TIER_CFG: Record<string, { floatDur: number; floatH: number; breathAmt: number; breathDur: number; shimmerInterval: number; particleCount: number; swayDeg: number; glowSpeed: number }> = {
+  Sweet:    { floatDur: 1500, floatH:  8, breathAmt: 1.02, breathDur: 2200, shimmerInterval: 4200, particleCount: 2, swayDeg: 0,  glowSpeed: 900 },
+  Romantic: { floatDur: 1200, floatH:  9, breathAmt: 1.03, breathDur: 1800, shimmerInterval: 3400, particleCount: 2, swayDeg: 0,  glowSpeed: 750 },
+  Flirty:   { floatDur: 1000, floatH: 11, breathAmt: 1.04, breathDur: 1400, shimmerInterval: 2800, particleCount: 3, swayDeg: 6,  glowSpeed: 600 },
+  Spicy:    { floatDur:  800, floatH: 13, breathAmt: 1.06, breathDur: 1000, shimmerInterval: 2000, particleCount: 4, swayDeg: 10, glowSpeed: 450 },
+  Erotic:   { floatDur:  620, floatH: 15, breathAmt: 1.08, breathDur:  700, shimmerInterval: 1400, particleCount: 5, swayDeg: 14, glowSpeed: 300 },
+};
+
+const RANK_LABEL: Record<string, { text: string; color: string } | undefined> = {
+  Sweet: undefined, Romantic: undefined,
+  Flirty:  { text: "🌶️ HOT",       color: "#FF6B35" },
+  Spicy:   { text: "🔥 RARE",      color: "#FF1744" },
+  Erotic:  { text: "⚡ LEGENDARY", color: "#C77DFF" },
+};
+
+/* ── Single floating particle ── */
+function Particle({ color }: { color: string }) {
+  const y   = useRef(new Animated.Value(0)).current;
+  const op  = useRef(new Animated.Value(0)).current;
+  const x   = useRef(new Animated.Value((Math.random() - 0.5) * 70)).current;
+
+  useEffect(() => {
+    const run = () => {
+      y.setValue(0);
+      op.setValue(0);
+      x.setValue((Math.random() - 0.5) * 70);
+      Animated.parallel([
+        Animated.timing(y,  { toValue: -55, duration: 1900 + Math.random() * 600, useNativeDriver: true }),
+        Animated.sequence([
+          Animated.timing(op, { toValue: 0.85, duration: 350, useNativeDriver: true }),
+          Animated.timing(op, { toValue: 0,    duration: 1100, useNativeDriver: true }),
+        ]),
+      ]).start(() => setTimeout(run, 400 + Math.random() * 1800));
+    };
+    const t = setTimeout(run, Math.random() * 2000);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        bottom: 10,
+        left: "50%",
+        width: 5,
+        height: 5,
+        borderRadius: 3,
+        backgroundColor: color,
+        transform: [{ translateX: x }, { translateY: y }],
+        opacity: op,
+      }}
+      pointerEvents="none"
+    />
+  );
+}
+
 /* ══ Animated gift card ══ */
 function GiftCard({
   gift, selected, canAfford, onPress,
@@ -82,116 +139,184 @@ function GiftCard({
   canAfford: boolean;
   onPress: () => void;
 }) {
-  const floatAnim  = useRef(new Animated.Value(0)).current;
-  const scaleAnim  = useRef(new Animated.Value(1)).current;
-  const glowAnim   = useRef(new Animated.Value(0)).current;
-  const shakeAnim  = useRef(new Animated.Value(0)).current;
-  const selectAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
-  const pulseAnim  = useRef(new Animated.Value(1)).current;
+  const cfg = TIER_CFG[gift.tier];
 
-  /* Float — unique speed per gift */
+  const floatY     = useRef(new Animated.Value(0)).current;
+  const breathS    = useRef(new Animated.Value(1)).current;
+  const shimmerX   = useRef(new Animated.Value(-160)).current;
+  const swayR      = useRef(new Animated.Value(0)).current;
+  const pressS     = useRef(new Animated.Value(1)).current;
+  const shakeX     = useRef(new Animated.Value(0)).current;
+  const selectS    = useRef(new Animated.Value(selected ? 1 : 0)).current;
+  const glowOp     = useRef(new Animated.Value(0)).current;
+  const cardEntryS = useRef(new Animated.Value(0.7)).current;
+  const cardEntryO = useRef(new Animated.Value(0)).current;
+
+  /* Card entry pop */
   useEffect(() => {
-    const dur = 1100 + (gift.tokens % 9) * 130;
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, { toValue: -10, duration: dur, useNativeDriver: true }),
-        Animated.timing(floatAnim, { toValue:   0, duration: dur, useNativeDriver: true }),
-      ])
-    );
+    const delay = (gift.tokens % 17) * 28;
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.spring(cardEntryS, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 14 }),
+        Animated.timing(cardEntryO, { toValue: 1, duration: 280, useNativeDriver: true }),
+      ]).start();
+    }, delay);
+  }, []);
+
+  /* Float */
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(floatY, { toValue: -cfg.floatH, duration: cfg.floatDur, useNativeDriver: true }),
+      Animated.timing(floatY, { toValue: 0,           duration: cfg.floatDur, useNativeDriver: true }),
+    ]));
     loop.start();
     return () => loop.stop();
   }, []);
 
-  /* Erotic tier: also pulse the emoji scale */
+  /* Breath */
   useEffect(() => {
-    if (gift.tier === "Erotic" || gift.tier === "Spicy") {
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.12, duration: 700, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1.0,  duration: 700, useNativeDriver: true }),
-        ])
-      );
-      loop.start();
-      return () => loop.stop();
-    }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(breathS, { toValue: cfg.breathAmt, duration: cfg.breathDur, useNativeDriver: true }),
+      Animated.timing(breathS, { toValue: 1,             duration: cfg.breathDur, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
   }, []);
 
-  /* Glow pulse on select */
+  /* Shimmer sweep */
+  useEffect(() => {
+    const run = () => {
+      shimmerX.setValue(-160);
+      Animated.timing(shimmerX, { toValue: 220, duration: 680, useNativeDriver: true }).start(() => {
+        setTimeout(run, cfg.shimmerInterval);
+      });
+    };
+    const t = setTimeout(run, (gift.tokens * 37) % cfg.shimmerInterval);
+    return () => clearTimeout(t);
+  }, []);
+
+  /* Emoji sway (Flirty → Erotic) */
+  useEffect(() => {
+    if (cfg.swayDeg === 0) return;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(swayR, { toValue:  1, duration: 520, useNativeDriver: true }),
+      Animated.timing(swayR, { toValue: -1, duration: 520, useNativeDriver: true }),
+      Animated.timing(swayR, { toValue:  0, duration: 260, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  /* Glow on select */
   useEffect(() => {
     if (selected) {
-      Animated.spring(selectAnim, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 12 }).start();
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(glowAnim, { toValue: 1,   duration: 750, useNativeDriver: true }),
-          Animated.timing(glowAnim, { toValue: 0.3, duration: 750, useNativeDriver: true }),
-        ])
-      );
+      Animated.spring(selectS, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 12 }).start();
+      const loop = Animated.loop(Animated.sequence([
+        Animated.timing(glowOp, { toValue: 1,   duration: cfg.glowSpeed, useNativeDriver: true }),
+        Animated.timing(glowOp, { toValue: 0.3, duration: cfg.glowSpeed, useNativeDriver: true }),
+      ]));
       loop.start();
       return () => loop.stop();
     } else {
-      Animated.spring(selectAnim, { toValue: 0, useNativeDriver: true, speed: 14 }).start();
-      glowAnim.setValue(0);
+      Animated.spring(selectS, { toValue: 0, useNativeDriver: true, speed: 14 }).start();
+      glowOp.setValue(0);
     }
   }, [selected]);
 
   function handlePress() {
     if (!canAfford) {
       Animated.sequence([
-        Animated.timing(shakeAnim, { toValue:  8, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -8, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue:  5, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue:  0, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeX, { toValue:  9, duration: 45, useNativeDriver: true }),
+        Animated.timing(shakeX, { toValue: -9, duration: 45, useNativeDriver: true }),
+        Animated.timing(shakeX, { toValue:  6, duration: 45, useNativeDriver: true }),
+        Animated.timing(shakeX, { toValue: -6, duration: 45, useNativeDriver: true }),
+        Animated.timing(shakeX, { toValue:  0, duration: 45, useNativeDriver: true }),
       ]).start();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       onPress();
       return;
     }
     Animated.sequence([
-      Animated.spring(scaleAnim, { toValue: 0.90, useNativeDriver: true, speed: 28, bounciness: 0 }),
-      Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true, speed: 16, bounciness: 18 }),
+      Animated.spring(pressS, { toValue: 0.87, useNativeDriver: true, speed: 30, bounciness: 0 }),
+      Animated.spring(pressS, { toValue: 1,    useNativeDriver: true, speed: 16, bounciness: 20 }),
     ]).start();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onPress();
   }
 
-  const cardScale = selectAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
-  const glowOp    = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] });
-  const fee       = Math.round(gift.tokens * FEE);
-  const total     = gift.tokens + fee;
+  const emojiRot = swayR.interpolate({ inputRange: [-1, 1], outputRange: [`-${cfg.swayDeg}deg`, `${cfg.swayDeg}deg`] });
+  const glowOpInterp = glowOp.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] });
+  const fee   = Math.round(gift.tokens * FEE);
+  const total = gift.tokens + fee;
+  const rank  = RANK_LABEL[gift.tier];
 
   return (
-    <TouchableOpacity activeOpacity={1} onPress={handlePress} style={styles.giftCardWrap}>
+    <TouchableOpacity
+      activeOpacity={1}
+      onPress={handlePress}
+      style={[styles.giftCardWrap, { opacity: canAfford ? 1 : 0.28 }]}
+    >
       <Animated.View style={{
         transform: [
-          { scale: Animated.multiply(scaleAnim, cardScale) },
-          { translateX: shakeAnim },
+          { scale: Animated.multiply(Animated.multiply(pressS, breathS), cardEntryS) },
+          { translateX: shakeX },
         ],
-        opacity: canAfford ? 1 : 0.35,
+        opacity: cardEntryO,
       }}>
-        {/* Glow ring */}
+        {/* Outer glow ring */}
         {selected && (
           <Animated.View style={[
             styles.glowRing,
-            { borderColor: gift.glow, shadowColor: gift.grad[1], opacity: glowOp },
+            { borderColor: gift.glow, shadowColor: gift.grad[1], shadowRadius: 18, opacity: glowOpInterp },
           ]} />
         )}
 
         <LinearGradient
-          colors={selected ? gift.grad : ["#1A1A2E", "#24243E"]}
+          colors={selected ? gift.grad : ["#141428", "#1E1E38"]}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={[styles.giftCard, { borderColor: selected ? gift.grad[0] : "#ffffff10", borderWidth: selected ? 2 : 1 }]}
+          style={[styles.giftCard, {
+            borderColor: selected ? gift.grad[0] : gift.tierColor + "22",
+            borderWidth: selected ? 2 : 1,
+          }]}
         >
-          {/* Tier badge */}
-          <View style={[styles.tierBadge, { backgroundColor: gift.tierColor + "30", borderColor: gift.tierColor + "60" }]}>
+          {/* ── Shimmer sweep overlay ── */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFillObject,
+              { overflow: "hidden", borderRadius: 18, transform: [{ translateX: shimmerX }] },
+            ]}
+          >
+            <LinearGradient
+              colors={["transparent", "rgba(255,255,255,0.14)", "rgba(255,255,255,0.07)", "transparent"]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={{ width: 90, height: "100%", transform: [{ rotate: "18deg" }] }}
+            />
+          </Animated.View>
+
+          {/* ── Particles ── */}
+          {Array.from({ length: cfg.particleCount }).map((_, i) => (
+            <Particle key={i} color={gift.grad[0]} />
+          ))}
+
+          {/* ── Rank badge (HOT / RARE / LEGENDARY) ── */}
+          {rank && (
+            <View style={[styles.rankBadge, { backgroundColor: rank.color + "25", borderColor: rank.color + "60" }]}>
+              <Text style={[styles.rankBadgeText, { color: rank.color }]}>{rank.text}</Text>
+            </View>
+          )}
+
+          {/* ── Tier badge ── */}
+          <View style={[styles.tierBadge, { backgroundColor: gift.tierColor + "22", borderColor: gift.tierColor + "50" }]}>
             <Text style={[styles.tierBadgeText, { color: selected ? "#fff" : gift.tierColor }]}>
               {TIER_ICONS[gift.tier]} {gift.tier}
             </Text>
           </View>
 
-          {/* Floating + pulsing emoji */}
+          {/* ── Emoji — float + sway ── */}
           <Animated.Text style={[
             styles.giftEmoji,
-            { transform: [{ translateY: floatAnim }, { scale: pulseAnim }] },
+            { transform: [{ translateY: floatY }, { rotate: emojiRot }] },
           ]}>
             {gift.emoji}
           </Animated.Text>
@@ -202,12 +327,12 @@ function GiftCard({
           <Text style={[styles.giftCost, { color: selected ? "#fff" : gift.tierColor }]}>
             {total} ST
           </Text>
-          <Text style={[styles.giftDesc, { color: selected ? "rgba(255,255,255,0.65)" : "#555" }]} numberOfLines={1}>
+          <Text style={[styles.giftDesc, { color: selected ? "rgba(255,255,255,0.6)" : "#484860" }]} numberOfLines={1}>
             {gift.desc}
           </Text>
 
           {selected && (
-            <Animated.View style={[styles.checkBadge, { transform: [{ scale: selectAnim }] }]}>
+            <Animated.View style={[styles.checkBadge, { backgroundColor: gift.grad[1] + "cc", transform: [{ scale: selectS }] }]}>
               <Ionicons name="checkmark" size={10} color="#fff" />
             </Animated.View>
           )}
@@ -588,13 +713,19 @@ const styles = StyleSheet.create({
     alignItems: "center", gap: 2, overflow: "hidden",
   },
 
+  rankBadge: {
+    position: "absolute", top: 6, left: 6,
+    borderWidth: 1, borderRadius: 20, paddingHorizontal: 6, paddingVertical: 2,
+  },
+  rankBadgeText: { fontSize: 8, fontFamily: "Inter_700Bold" },
+
   tierBadge: {
     borderWidth: 1, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 2,
     marginBottom: 4, alignSelf: "center",
   },
   tierBadgeText: { fontSize: 9, fontFamily: "Inter_600SemiBold" },
 
-  giftEmoji: { fontSize: 36, marginBottom: 2 },
+  giftEmoji: { fontSize: 40, marginBottom: 2 },
   giftName:  { fontSize: 12, fontFamily: "Inter_700Bold", textAlign: "center" },
   giftCost:  { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   giftDesc:  { fontSize: 9,  fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 13 },
