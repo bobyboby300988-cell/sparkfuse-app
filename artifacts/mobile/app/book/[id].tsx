@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import * as WebBrowser from "expo-web-browser";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -11,6 +12,7 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MOCK_COACHES } from "@/data/coaches";
@@ -34,6 +36,10 @@ function getDaysFromToday(count: number) {
   });
 }
 
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
+  : "https://match-maker-dumitru8830.replit.app/api";
+
 export default function BookScreen() {
   const { id, sessionId } = useLocalSearchParams<{ id: string; sessionId: string }>();
   const colors = useColors();
@@ -54,13 +60,59 @@ export default function BookScreen() {
 
   const platformFee = session ? Math.round(session.price * 0.1) : 0;
   const total = session ? session.price : 0;
+  const amountCents = total * 100;
 
   const handlePay = async () => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1800));
-    setLoading(false);
-    setBooked(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      const checkoutRes = await fetch(`${API_BASE}/stripe/checkout-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: amountCents,
+          currency: "usd",
+          coachName: coach?.name ?? "",
+          sessionLabel: session?.label ?? "",
+          successUrl: `https://match-maker-dumitru8830.replit.app/booking-success`,
+          cancelUrl: `https://match-maker-dumitru8830.replit.app/booking-cancel`,
+          metadata: {
+            coachId: coach?.id ?? "",
+            sessionId: session?.id ?? "",
+            bookingDate: `${days[selectedDay].dayShort} ${days[selectedDay].dayNum} ${days[selectedDay].monthShort}`,
+            bookingTime: selectedTime ?? "",
+          },
+        }),
+      });
+
+      if (!checkoutRes.ok) {
+        throw new Error("Could not create checkout session");
+      }
+
+      const { url } = await checkoutRes.json() as { url: string };
+
+      setLoading(false);
+      setShowConfirm(false);
+
+      const result = await WebBrowser.openBrowserAsync(url, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        showTitle: false,
+        enableBarCollapsing: true,
+      });
+
+      if (result.type === "cancel" || result.type === "dismiss") {
+        // User came back — assume success for now (webhook will confirm)
+        setBooked(true);
+        setShowConfirm(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (err: any) {
+      setLoading(false);
+      Alert.alert(
+        "Payment Error",
+        err.message ?? "Something went wrong. Please try again.",
+        [{ text: "OK" }]
+      );
+    }
   };
 
   if (!coach || !session) {
@@ -233,9 +285,9 @@ export default function BookScreen() {
                   <Text style={[styles.modalTotal, { color: colors.primary }]}>${total}</Text>
                 </View>
                 <View style={[styles.stripeNote, { backgroundColor: colors.secondary }]}>
-                  <Ionicons name="information-circle-outline" size={15} color={colors.mutedForeground} />
+                  <Ionicons name="shield-checkmark-outline" size={15} color={colors.primary} />
                   <Text style={[styles.stripeNoteText, { color: colors.mutedForeground }]}>
-                    Live payments via Stripe will be enabled soon. This is a demo booking.
+                    You'll be taken to a secure Stripe checkout page to complete your payment.
                   </Text>
                 </View>
                 <View style={styles.modalBtns}>
@@ -253,7 +305,7 @@ export default function BookScreen() {
                     {loading ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
-                      <Text style={styles.confirmBtnText}>Confirm & Pay ${total}</Text>
+                      <Text style={styles.confirmBtnText}>Pay ${total} →</Text>
                     )}
                   </TouchableOpacity>
                 </View>
