@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { AppMode } from "@/context/AppContext";
 
 interface Mode {
@@ -14,6 +14,9 @@ const MODES: Mode[] = [
   { key: "dating",   label: "Dating",   emoji: "💕", color: "#FF3366" },
   { key: "naughty",  label: "Naughty",  emoji: "🔥", color: "#FF6B35" },
   { key: "business", label: "Business", emoji: "💼", color: "#0EA5E9" },
+  { key: "party",    label: "Party",    emoji: "🎉", color: "#A855F7" },
+  { key: "travel",   label: "Travel",   emoji: "✈️", color: "#14B8A6" },
+  { key: "social",   label: "Social",   emoji: "🤝", color: "#F59E0B" },
 ];
 
 interface Props {
@@ -23,7 +26,11 @@ interface Props {
 
 export function ModeSelector({ value, onChange }: Props) {
   return (
-    <View style={styles.row}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.row}
+    >
       {MODES.map((m) => {
         const active = value === m.key;
         return (
@@ -50,7 +57,7 @@ export function ModeSelector({ value, onChange }: Props) {
           </TouchableOpacity>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -62,12 +69,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   pill: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 5,
     paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: "transparent",

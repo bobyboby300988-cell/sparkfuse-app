@@ -27,9 +27,12 @@ const COLS = 3;
 const TILE = (W - 4) / COLS;
 
 const MODE_ACCENT: Record<string, string> = {
-  dating: "#FF3366",
-  naughty: "#FF6B35",
+  dating:   "#FF3366",
+  naughty:  "#FF6B35",
   business: "#0EA5E9",
+  party:    "#A855F7",
+  travel:   "#14B8A6",
+  social:   "#F59E0B",
 };
 
 function ProfileModal({
@@ -105,9 +108,23 @@ function ProfileModal({
             onPress={handleLike}
             activeOpacity={0.85}
           >
-            <Ionicons name={profile.mode === "business" ? "briefcase" : "heart"} size={24} color="#fff" />
+            <Ionicons
+              name={
+                profile.mode === "business" ? "briefcase" :
+                profile.mode === "party" ? "musical-notes" :
+                profile.mode === "travel" ? "airplane" :
+                profile.mode === "social" ? "people" :
+                "heart"
+              }
+              size={24} color="#fff"
+            />
             <Text style={modalStyles.likeBtnText}>
-              {alreadyMatched ? "Message" : profile.mode === "business" ? "Connect" : "Like"}
+              {alreadyMatched ? "Message" :
+               profile.mode === "business" ? "Connect" :
+               profile.mode === "party" ? "Join" :
+               profile.mode === "travel" ? "Explore" :
+               profile.mode === "social" ? "Meet" :
+               "Like"}
             </Text>
           </TouchableOpacity>
         </View>

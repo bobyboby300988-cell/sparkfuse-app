@@ -173,7 +173,145 @@ const BUSINESS: Profile[] = [
   },
 ];
 
-export const ALL_PROFILES: Profile[] = [...DATING, ...NAUGHTY, ...BUSINESS];
+// ─── Party ────────────────────────────────────────────────────────────────────
+const PARTY: Profile[] = [
+  {
+    id: "py1", name: "Luna", age: 24, mode: "party",
+    bio: "DJ on weekends, chaos coordinator on weekdays. If the playlist is mine, the night is yours. 🎧",
+    location: "Ibiza", interests: ["DJing", "Clubbing", "Festivals"],
+    photo: require("../assets/images/p1.png"), distance: 1, height: "5'5\"",
+    lat: 38.9067, lng: 1.4206,
+  },
+  {
+    id: "py2", name: "Rico", age: 27, mode: "party",
+    bio: "Event promoter who lives for the drop. Know every bouncer in every city. Come for the music, stay for the memories. 🎉",
+    location: "Berlin", interests: ["Techno", "Events", "Nightlife"],
+    photo: require("../assets/images/p2.png"), distance: 3, height: "6'0\"",
+    lat: 52.52, lng: 13.405,
+  },
+  {
+    id: "py3", name: "Mia", age: 26, mode: "party",
+    bio: "Professional festival-goer. My summer is already fully booked — but I saved a wristband for the right person. 🌈",
+    location: "Amsterdam", interests: ["Festivals", "Rave", "Road trips"],
+    photo: require("../assets/images/p3.png"), distance: 2, height: "5'6\"",
+    lat: 52.3676, lng: 4.9041,
+  },
+  {
+    id: "py4", name: "Jax", age: 29, mode: "party",
+    bio: "Bartender who makes cocktails look like art. Last call is just the beginning. Find me at the after-party. 🍸",
+    location: "London", interests: ["Mixology", "Parties", "Live music"],
+    photo: require("../assets/images/p4.png"), distance: 4, height: "6'1\"",
+    lat: 51.5074, lng: -0.1278,
+  },
+  {
+    id: "py5", name: "Zoe", age: 25, mode: "party",
+    bio: "Dancer and light-chaser. I'm the one who's always on the dance floor when everyone else is sitting down. 💃",
+    location: "Paris", interests: ["Dancing", "EDM", "Rooftop bars"],
+    photo: require("../assets/images/p5.png"), distance: 2, height: "5'7\"",
+    lat: 48.8566, lng: 2.3522,
+  },
+  {
+    id: "py6", name: "Nico", age: 28, mode: "party",
+    bio: "Comedian and karaoke champion. I'll make you laugh so hard you forget what you were worried about. 🎤",
+    location: "Barcelona", interests: ["Comedy", "Karaoke", "Bar crawls"],
+    photo: require("../assets/images/p6.png"), distance: 5, height: "5'11\"",
+    lat: 41.3851, lng: 2.1734,
+  },
+];
+
+// ─── Travel ───────────────────────────────────────────────────────────────────
+const TRAVEL: Profile[] = [
+  {
+    id: "tr1", name: "Isla", age: 28, mode: "travel",
+    bio: "68 countries, 1 carry-on. Digital nomad and sunrise chaser. Currently in Lisbon, next week: who knows? ✈️",
+    location: "Lisbon", interests: ["Backpacking", "Photography", "Street food"],
+    photo: require("../assets/images/p1.png"), distance: 2, height: "5'6\"",
+    lat: 38.7169, lng: -9.1399,
+  },
+  {
+    id: "tr2", name: "Marco", age: 31, mode: "travel",
+    bio: "Mountain climber and paraglider. I've seen the world from above — now looking for someone to share the view. 🏔️",
+    location: "Innsbruck", interests: ["Hiking", "Paragliding", "Adventure"],
+    photo: require("../assets/images/p2.png"), distance: 6, height: "6'2\"",
+    lat: 47.2682, lng: 11.3923,
+  },
+  {
+    id: "tr3", name: "Yuki", age: 26, mode: "travel",
+    bio: "Travel blogger and ramen researcher. I rate cities by their public transport and noodle quality. 🍜",
+    location: "Tokyo", interests: ["Food tourism", "Blogging", "Japan"],
+    photo: require("../assets/images/p3.png"), distance: 10, height: "5'4\"",
+    lat: 35.6762, lng: 139.6503,
+  },
+  {
+    id: "tr4", name: "Leo", age: 30, mode: "travel",
+    bio: "Sailing instructor and ocean lover. Life is better with salt water and a good compass. ⛵",
+    location: "Santorini", interests: ["Sailing", "Diving", "Islands"],
+    photo: require("../assets/images/p4.png"), distance: 5, height: "6'0\"",
+    lat: 36.3932, lng: 25.4615,
+  },
+  {
+    id: "tr5", name: "Sofia", age: 27, mode: "travel",
+    bio: "Volunteer traveller. I build schools in the morning and find hidden bars at night. The world is my home. 🌍",
+    location: "Cape Town", interests: ["Volunteering", "Safari", "Culture"],
+    photo: require("../assets/images/p5.png"), distance: 8, height: "5'5\"",
+    lat: -33.9249, lng: 18.4241,
+  },
+  {
+    id: "tr6", name: "Finn", age: 32, mode: "travel",
+    bio: "Road trip addict. I've driven across 12 countries with no fixed plan and zero regrets. Passenger seat is free. 🚗",
+    location: "Copenhagen", interests: ["Road trips", "Camping", "Van life"],
+    photo: require("../assets/images/p6.png"), distance: 7, height: "6'1\"",
+    lat: 55.6761, lng: 12.5683,
+  },
+];
+
+// ─── Social ───────────────────────────────────────────────────────────────────
+const SOCIAL: Profile[] = [
+  {
+    id: "so1", name: "Priya", age: 27, mode: "social",
+    bio: "Community organiser and TEDx speaker. I believe every stranger is a friend you haven't met yet. 🤝",
+    location: "London", interests: ["Community", "Public speaking", "Volunteering"],
+    photo: require("../assets/images/p1.png"), distance: 2, height: "5'5\"",
+    lat: 51.5074, lng: -0.1278,
+  },
+  {
+    id: "so2", name: "Tom", age: 29, mode: "social",
+    bio: "Board game champion and trivia night host. Looking for people to fill my table and my life with good conversation. 🎲",
+    location: "Brussels", interests: ["Board games", "Trivia", "Meetups"],
+    photo: require("../assets/images/p2.png"), distance: 4, height: "5'11\"",
+    lat: 50.8503, lng: 4.3517,
+  },
+  {
+    id: "so3", name: "Amara", age: 25, mode: "social",
+    bio: "Language exchange addict. Currently learning my 5th language. Let's meet for coffee and talk about everything. ☕",
+    location: "Paris", interests: ["Languages", "Cultural exchange", "Coffee"],
+    photo: require("../assets/images/p3.png"), distance: 1, height: "5'6\"",
+    lat: 48.8566, lng: 2.3522,
+  },
+  {
+    id: "so4", name: "Oliver", age: 33, mode: "social",
+    bio: "Urban gardener and neighbourhood activist. I grow tomatoes and friendships. Both need water and patience. 🌱",
+    location: "Amsterdam", interests: ["Gardening", "Sustainability", "Activism"],
+    photo: require("../assets/images/p4.png"), distance: 3, height: "6'0\"",
+    lat: 52.3676, lng: 4.9041,
+  },
+  {
+    id: "so5", name: "Chloe", age: 26, mode: "social",
+    bio: "Podcast host and storyteller. I've interviewed 200+ people about their lives — now I want to hear yours. 🎙️",
+    location: "Berlin", interests: ["Podcasting", "Storytelling", "Networking"],
+    photo: require("../assets/images/p5.png"), distance: 3, height: "5'7\"",
+    lat: 52.52, lng: 13.405,
+  },
+  {
+    id: "so6", name: "Mateo", age: 31, mode: "social",
+    bio: "Yoga teacher and meditation guide. Building calm in chaotic cities, one breath and one connection at a time. 🧘",
+    location: "Barcelona", interests: ["Yoga", "Meditation", "Wellness"],
+    photo: require("../assets/images/p6.png"), distance: 5, height: "5'10\"",
+    lat: 41.3851, lng: 2.1734,
+  },
+];
+
+export const ALL_PROFILES: Profile[] = [...DATING, ...NAUGHTY, ...BUSINESS, ...PARTY, ...TRAVEL, ...SOCIAL];
 
 export function getProfilesByMode(mode: AppMode): Profile[] {
   return ALL_PROFILES.filter((p) => p.mode === mode);

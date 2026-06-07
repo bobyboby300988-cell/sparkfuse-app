@@ -24,7 +24,7 @@ export interface Match {
   messages: Message[];
 }
 
-export type AppMode = "dating" | "naughty" | "business";
+export type AppMode = "dating" | "naughty" | "business" | "party" | "travel" | "social";
 
 interface AppContextType {
   userProfile: UserProfile | null;
