@@ -29,8 +29,10 @@ function RootLayoutNav() {
     const inOnboarding = segments[0] === "onboarding";
     const inPaywall = segments[0] === "paywall";
 
-    if (!userProfile && !inOnboarding) {
-      router.replace("/onboarding");
+    const inWelcome = segments[0] === "welcome";
+
+    if (!userProfile && !inOnboarding && !inWelcome) {
+      router.replace("/welcome");
     } else if (userProfile && inOnboarding) {
       if (!isSubscribed) {
         router.replace("/paywall");
@@ -47,6 +49,7 @@ function RootLayoutNav() {
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="welcome" options={{ headerShown: false, animation: "fade" }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="paywall" options={{ headerShown: false }} />
       <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
