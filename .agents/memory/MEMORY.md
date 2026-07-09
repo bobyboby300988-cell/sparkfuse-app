@@ -1,1 +1,2 @@
 - [Stripe Connect setup](stripe-connect-setup.md) — activation requires platform-profile acknowledgements + account links need real https URLs, not custom app schemes.
+- [Resend sandbox sending](resend-sandbox-email.md) — default test/sandbox from-address is onboarding@resend.dev, NOT resend.com; using resend.com 403s.
