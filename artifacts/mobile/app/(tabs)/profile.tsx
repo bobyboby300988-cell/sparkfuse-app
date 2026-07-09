@@ -270,10 +270,11 @@ export default function ProfileScreen() {
             value={isLive}
             onValueChange={(v) => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setIsLive(v);
               if (v) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                router.push("/live" as any);
+                router.push("/live/go-live" as any);
+              } else {
+                setIsLive(false);
               }
             }}
             trackColor={{ false: colors.muted, true: "#FF3366" }}
@@ -283,7 +284,7 @@ export default function ProfileScreen() {
         <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
           {isLive
             ? "You're live! Your profile shows a LIVE badge on Explore and in the Live tab."
-            : "Go live to appear with a LIVE badge on Explore and start streaming to earn Spark Tokens."}
+            : "Go live to broadcast your camera in real time — viewers can watch and send you gifts."}
         </Text>
       </View>
 

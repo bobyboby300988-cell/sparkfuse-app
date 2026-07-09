@@ -15,11 +15,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import WebView from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GiftModal from "@/components/GiftModal";
 import { CATEGORY_COLORS, LIVE_STREAMS, MOCK_CHAT, LiveStream } from "@/data/livestreams";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { useApp } from "@/context/AppContext";
+import { fetchLiveSession, LiveSession } from "@/lib/liveApi";
+import { createMeetingToken } from "@/lib/daily";
 
 const MODE_TO_CATEGORY: Record<string, LiveStream["category"]> = {
   dating: "Dating",
@@ -132,16 +135,41 @@ export default function LiveScreen() {
   const insets  = useSafeAreaInsets();
   const { coinBalance, spendCoins, addEarning } = useApp();
 
-  const stream = LIVE_STREAMS.find((s) => s.id === id) ?? streamFromProfile(id) ?? LIVE_STREAMS[0];
-  const grad   = CATEGORY_COLORS[stream.category] ?? ["#FF3366","#4A0000"];
+  const mockStream = LIVE_STREAMS.find((s) => s.id === id) ?? streamFromProfile(id) ?? LIVE_STREAMS[0];
+
+  /* Real broadcast lookup — if this id matches an active live session on the
+     server, we join the host's actual Daily.co room instead of the mock demo. */
+  const [realSession, setRealSession] = useState<LiveSession | null>(null);
+  const [realJoinUrl, setRealJoinUrl] = useState<string | null>(null);
+  const [realCheckDone, setRealCheckDone] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchLiveSession(id ?? "")
+      .then(async (session) => {
+        if (cancelled || !session) return;
+        setRealSession(session);
+        const token = await createMeetingToken(session.roomName, { isOwner: false, userName: "Viewer" });
+        if (!cancelled) setRealJoinUrl(`${session.roomUrl}?t=${token}`);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setRealCheckDone(true); });
+    return () => { cancelled = true; };
+  }, [id]);
+
+  const isRealLive = !!realSession;
+  const stream = isRealLive
+    ? { ...mockStream, name: realSession!.name, category: realSession!.category as LiveStream["category"], isVerified: false, badges: ["🔴 Live now"] }
+    : mockStream;
+  const grad = CATEGORY_COLORS[stream.category] ?? ["#FF3366","#4A0000"];
 
   const [messages,   setMessages]   = useState<ChatMsg[]>([]);
-  const [viewers,    setViewers]    = useState(stream.viewers);
+  const [viewers,    setViewers]    = useState(mockStream.viewers);
   const [reactions,  setReactions]  = useState<{ id: string; emoji: string; x: number }[]>([]);
   const [giftOpen,   setGiftOpen]   = useState(false);
   const [inputText,  setInputText]  = useState("");
   const [msgIdx,     setMsgIdx]     = useState(0);
-  const [tokens,     setTokens]     = useState(stream.tokens);
+  const [tokens,     setTokens]     = useState(mockStream.tokens);
   const [isLiked,    setIsLiked]    = useState(false);
 
   const listRef = useRef<FlatList>(null);
@@ -205,10 +233,23 @@ export default function LiveScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       {/* ── Full-screen "stream" background ── */}
-      <Image source={stream.avatar} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+      {isRealLive && realJoinUrl ? (
+        <WebView
+          source={{ uri: realJoinUrl }}
+          style={StyleSheet.absoluteFillObject}
+          mediaPlaybackRequiresUserAction={false}
+          allowsInlineMediaPlayback
+          javaScriptEnabled
+          domStorageEnabled
+          originWhitelist={["*"]}
+        />
+      ) : (
+        <Image source={mockStream.avatar} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+      )}
       <LinearGradient
         colors={["rgba(0,0,0,0.35)", "transparent", "rgba(0,0,0,0.85)"]}
         style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
       />
 
       {/* ── Floating reactions ── */}

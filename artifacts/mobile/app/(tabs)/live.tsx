@@ -14,6 +14,9 @@ import {
   View,
 } from "react-native";
 import { CATEGORY_COLORS, LIVE_STREAMS, LiveStream } from "@/data/livestreams";
+import { fetchActiveLiveSessions } from "@/lib/liveApi";
+
+type StreamCardItem = LiveStream & { isReal?: boolean };
 
 function LiveBadge() {
   const pulse = useRef(new Animated.Value(1)).current;
@@ -33,7 +36,7 @@ function LiveBadge() {
   );
 }
 
-function StreamCard({ item, onPress }: { item: LiveStream; onPress: () => void }) {
+function StreamCard({ item, onPress }: { item: StreamCardItem; onPress: () => void }) {
   const grad = CATEGORY_COLORS[item.category] ?? ["#333", "#111"];
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -54,7 +57,15 @@ function StreamCard({ item, onPress }: { item: LiveStream; onPress: () => void }
     >
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
         <View style={styles.card}>
-          <Image source={item.avatar} style={styles.cardImg} resizeMode="cover" />
+          {item.isReal ? (
+            <LinearGradient colors={grad} style={styles.cardImg} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+              <View style={styles.realPlaceholder}>
+                <Ionicons name="videocam" size={30} color="#ffffffcc" />
+              </View>
+            </LinearGradient>
+          ) : (
+            <Image source={item.avatar} style={styles.cardImg} resizeMode="cover" />
+          )}
           <LinearGradient
             colors={["transparent", "rgba(0,0,0,0.82)"]}
             style={StyleSheet.absoluteFill}
@@ -90,7 +101,7 @@ function StreamCard({ item, onPress }: { item: LiveStream; onPress: () => void }
           {/* Bottom info */}
           <View style={styles.cardBottom}>
             <Text style={styles.cardName}>
-              {item.name}, {item.age}
+              {item.name}{item.isReal ? "" : `, ${item.age}`}
               {item.isVerified ? "  ✓" : ""}
             </Text>
             <Text style={styles.cardTagline} numberOfLines={1}>{item.tagline}</Text>
@@ -107,7 +118,7 @@ function StreamCard({ item, onPress }: { item: LiveStream; onPress: () => void }
 
 export default function LiveTab() {
   const router = useRouter();
-  const [streams, setStreams] = useState(LIVE_STREAMS);
+  const [streams, setStreams] = useState<StreamCardItem[]>(LIVE_STREAMS);
 
   /* Fluctuate viewer counts */
   useEffect(() => {
@@ -120,6 +131,35 @@ export default function LiveTab() {
       );
     }, 3000);
     return () => clearInterval(t);
+  }, []);
+
+  /* Poll for real people currently broadcasting */
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      const sessions = await fetchActiveLiveSessions().catch(() => []);
+      if (cancelled) return;
+      setStreams((prev) => {
+        const mocks = prev.filter((s) => !s.isReal);
+        const real: StreamCardItem[] = sessions.map((s) => ({
+          id: s.id,
+          name: s.name,
+          age: 0,
+          avatar: LIVE_STREAMS[0].avatar,
+          tagline: "Broadcasting live right now",
+          category: (s.category as LiveStream["category"]) ?? "Dating",
+          viewers: 1,
+          tokens: 0,
+          isVerified: false,
+          badges: ["🔴 Live now"],
+          isReal: true,
+        }));
+        return [...real, ...mocks];
+      });
+    }
+    poll();
+    const t = setInterval(poll, 8000);
+    return () => { cancelled = true; clearInterval(t); };
   }, []);
 
   return (
@@ -183,6 +223,7 @@ const styles = StyleSheet.create({
     height: 260, backgroundColor: "#1A1A2E",
   },
   cardImg: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+  realPlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
 
   cardTop: {
     position: "absolute", top: 10, left: 10, right: 10,

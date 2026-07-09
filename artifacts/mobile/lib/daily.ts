@@ -48,3 +48,41 @@ export async function getOrCreateRoom(roomName: string): Promise<DailyRoom> {
 
   return createRes.json();
 }
+
+// Issues a meeting token that controls how a participant joins a room.
+// Broadcasters (isOwner) join with camera/mic on; viewers join muted with
+// their camera off so only the host is seen/heard, like a real live stream.
+export async function createMeetingToken(
+  roomName: string,
+  opts: { isOwner: boolean; userName?: string }
+): Promise<string> {
+  if (!DAILY_API_KEY) {
+    throw new Error("EXPO_PUBLIC_DAILY_API_KEY is not set");
+  }
+
+  const res = await fetch(`${DAILY_API_URL}/meeting-tokens`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${DAILY_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      properties: {
+        room_name: roomName,
+        is_owner: opts.isOwner,
+        user_name: opts.userName ?? (opts.isOwner ? "Host" : "Viewer"),
+        start_video_off: !opts.isOwner,
+        start_audio_off: !opts.isOwner,
+        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 6,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to create Daily meeting token: ${err}`);
+  }
+
+  const data = (await res.json()) as { token: string };
+  return data.token;
+}
