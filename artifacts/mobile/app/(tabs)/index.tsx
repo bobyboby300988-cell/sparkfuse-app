@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useCreateSwipe, useGetFeed } from "@workspace/api-client-react";
+import { useCreateSwipe, useGetFeed, useGetMyProfile, useUpsertMyProfile } from "@workspace/api-client-react";
 import { MatchModal } from "@/components/MatchModal";
 import { SwipeCard, type SwipeProfile } from "@/components/SwipeCard";
 import { useApp } from "@/context/AppContext";
@@ -29,12 +29,37 @@ export default function DiscoverScreen() {
   const [matchedProfile, setMatchedProfile] = useState<SwipeProfile | null>(null);
   const [matchModalVisible, setMatchModalVisible] = useState(false);
   const [dismissed, setDismissed] = useState<string[]>([]);
-  useLocation();
+  const { location } = useLocation();
+  const { data: myProfileData } = useGetMyProfile();
+  const upsertMyProfile = useUpsertMyProfile();
 
   const { data, isLoading, refetch } = useGetFeed();
   const createSwipe = useCreateSwipe();
 
-  const profiles: SwipeProfile[] = useMemo(() => {
+  useEffect(() => {
+    if (!location || !myProfileData?.profile) return;
+    const { latitude, longitude, name, age, bio, seeking, photoUrl } = myProfileData.profile;
+    const moved =
+      latitude == null ||
+      longitude == null ||
+      Math.abs(latitude - location.latitude) > 0.01 ||
+      Math.abs(longitude - location.longitude) > 0.01;
+    if (!moved) return;
+    upsertMyProfile.mutate({
+      data: {
+        name,
+        age,
+        bio,
+        seeking,
+        photoUrl,
+        latitude: location.latitude,
+        longitude: location.longitude,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, myProfileData?.profile]);
+
+  const profiles: (SwipeProfile & { distanceKm: number | null })[] = useMemo(() => {
     const list = data?.profiles ?? [];
     return list.map((p) => ({
       id: p.userId,
@@ -43,6 +68,7 @@ export default function DiscoverScreen() {
       bio: p.bio,
       location: "",
       interests: [],
+      distanceKm: p.distanceKm ?? null,
       photo: getPhotoUrl(p.photoUrl)
         ? { uri: getPhotoUrl(p.photoUrl) as string }
         : require("../../assets/images/p1.png"),
@@ -141,6 +167,13 @@ export default function DiscoverScreen() {
                 onSwipeLeft={handleSwipeLeft}
                 onSwipeRight={handleSwipeRight}
                 onSwipeSuperLike={handleSuperLike}
+                distanceLabel={
+                  profile.distanceKm == null
+                    ? undefined
+                    : profile.distanceKm < 1
+                      ? "Less than 1 km away"
+                      : `${Math.round(profile.distanceKm)} km away`
+                }
               />
             ))
             .reverse()

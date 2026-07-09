@@ -22,6 +22,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRequestUploadUrl, useUpsertMyProfile } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { useLocation } from "@/hooks/useLocation";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -48,6 +49,7 @@ export default function OnboardingScreen() {
 
   const requestUploadUrl = useRequestUploadUrl();
   const upsertMyProfile = useUpsertMyProfile();
+  const { location } = useLocation();
 
   const slideAnim = useRef(new Animated.Value(0)).current;
 
@@ -132,6 +134,8 @@ export default function OnboardingScreen() {
           bio: bio.trim(),
           seeking,
           photoUrl: objectPath,
+          latitude: location?.latitude ?? null,
+          longitude: location?.longitude ?? null,
         },
       });
       router.replace("/");

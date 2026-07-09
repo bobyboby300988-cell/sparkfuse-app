@@ -23,6 +23,9 @@ router.get("/profile", async (req: Request, res: Response) => {
             bio: row.bio,
             seeking: row.seeking,
             photoUrl: row.photoUrl,
+            latitude: row.latitude,
+            longitude: row.longitude,
+            distanceKm: null,
             createdAt: row.createdAt.toISOString(),
             updatedAt: row.updatedAt.toISOString(),
           }
@@ -43,14 +46,14 @@ router.put("/profile", async (req: Request, res: Response) => {
     return;
   }
 
-  const { name, age, bio, seeking, photoUrl } = parsed.data;
+  const { name, age, bio, seeking, photoUrl, latitude, longitude } = parsed.data;
 
   const [row] = await db
     .insert(profilesTable)
-    .values({ userId: req.user.id, name, age, bio, seeking, photoUrl })
+    .values({ userId: req.user.id, name, age, bio, seeking, photoUrl, latitude, longitude })
     .onConflictDoUpdate({
       target: profilesTable.userId,
-      set: { name, age, bio, seeking, photoUrl, updatedAt: new Date() },
+      set: { name, age, bio, seeking, photoUrl, latitude, longitude, updatedAt: new Date() },
     })
     .returning();
 
@@ -63,6 +66,9 @@ router.put("/profile", async (req: Request, res: Response) => {
         bio: row.bio,
         seeking: row.seeking,
         photoUrl: row.photoUrl,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        distanceKm: null,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
       },
