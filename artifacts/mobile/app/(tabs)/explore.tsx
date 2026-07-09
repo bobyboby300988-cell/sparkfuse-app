@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
-import { getProfilesByMode } from "@/data/allProfiles";
+import { ALL_PROFILES, getProfilesByMode } from "@/data/allProfiles";
 import type { Profile } from "@/data/allProfiles";
 import { LockedPhotoGrid } from "@/components/LockedPhotoGrid";
 import { ModeSelector } from "@/components/ModeSelector";
@@ -191,21 +191,49 @@ export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
   const { appMode, setAppMode } = useApp();
   const [selected, setSelected] = useState<Profile | null>(null);
+  const [liveOnly, setLiveOnly] = useState(false);
 
-  const profiles = getProfilesByMode(appMode);
+  const profiles = liveOnly
+    ? ALL_PROFILES.filter((p) => p.isLive)
+    : getProfilesByMode(appMode);
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>Explore</Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {profiles.length} people in {appMode} mode
-        </Text>
+        <View style={styles.headerTopRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.title, { color: colors.foreground }]}>Explore</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              {liveOnly
+                ? `${profiles.length} people live now`
+                : `${profiles.length} people in ${appMode} mode`}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[
+              styles.liveOnlyBtn,
+              {
+                backgroundColor: liveOnly ? "#FF3366" : colors.card,
+                borderColor: liveOnly ? "#FF3366" : colors.border,
+              },
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setLiveOnly((v) => !v);
+            }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="radio" size={14} color={liveOnly ? "#fff" : "#FF3366"} />
+            <Text style={[styles.liveOnlyBtnText, { color: liveOnly ? "#fff" : colors.foreground }]}>
+              Live
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ModeSelector value={appMode} onChange={setAppMode} />
+      {!liveOnly && <ModeSelector value={appMode} onChange={setAppMode} />}
 
       <FlatList
         data={profiles}
@@ -253,8 +281,16 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 24, paddingBottom: 4 },
+  headerTopRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   title: { fontSize: 32, fontWeight: "800", fontFamily: "Inter_700Bold", marginBottom: 2 },
   subtitle: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  liveOnlyBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    borderWidth: 1, borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 9,
+    marginTop: 4,
+  },
+  liveOnlyBtnText: { fontSize: 13, fontFamily: "Inter_700Bold" },
   row: { gap: 2, marginBottom: 2, paddingHorizontal: 2 },
   tile: {
     width: TILE, height: TILE * 1.25, borderRadius: 4,
