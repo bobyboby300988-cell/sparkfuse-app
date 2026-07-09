@@ -125,6 +125,9 @@ export const GetMyProfileResponse = zod.object({
   "bio": zod.string(),
   "seeking": zod.string(),
   "photoUrl": zod.string().nullable(),
+  "latitude": zod.number().nullable(),
+  "longitude": zod.number().nullable(),
+  "distanceKm": zod.number().nullish().describe('Distance from the requesting user, in kilometers. Only present on feed and match entries when both users have a saved location.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }),zod.null()])
@@ -144,7 +147,9 @@ export const UpsertMyProfileBody = zod.object({
   "age": zod.number().min(upsertMyProfileBodyAgeMin),
   "bio": zod.string(),
   "seeking": zod.string(),
-  "photoUrl": zod.string().nullable()
+  "photoUrl": zod.string().nullable(),
+  "latitude": zod.number().nullish(),
+  "longitude": zod.number().nullish()
 })
 
 export const UpsertMyProfileResponse = zod.object({
@@ -155,6 +160,9 @@ export const UpsertMyProfileResponse = zod.object({
   "bio": zod.string(),
   "seeking": zod.string(),
   "photoUrl": zod.string().nullable(),
+  "latitude": zod.number().nullable(),
+  "longitude": zod.number().nullable(),
+  "distanceKm": zod.number().nullish().describe('Distance from the requesting user, in kilometers. Only present on feed and match entries when both users have a saved location.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }),zod.null()])
@@ -172,6 +180,9 @@ export const GetFeedResponse = zod.object({
   "bio": zod.string(),
   "seeking": zod.string(),
   "photoUrl": zod.string().nullable(),
+  "latitude": zod.number().nullable(),
+  "longitude": zod.number().nullable(),
+  "distanceKm": zod.number().nullish().describe('Distance from the requesting user, in kilometers. Only present on feed and match entries when both users have a saved location.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }))
@@ -198,6 +209,9 @@ export const CreateSwipeResponse = zod.object({
   "bio": zod.string(),
   "seeking": zod.string(),
   "photoUrl": zod.string().nullable(),
+  "latitude": zod.number().nullable(),
+  "longitude": zod.number().nullable(),
+  "distanceKm": zod.number().nullish().describe('Distance from the requesting user, in kilometers. Only present on feed and match entries when both users have a saved location.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }),zod.null()]).optional()
@@ -215,6 +229,9 @@ export const GetMatchesResponse = zod.object({
   "bio": zod.string(),
   "seeking": zod.string(),
   "photoUrl": zod.string().nullable(),
+  "latitude": zod.number().nullable(),
+  "longitude": zod.number().nullable(),
+  "distanceKm": zod.number().nullish().describe('Distance from the requesting user, in kilometers. Only present on feed and match entries when both users have a saved location.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }))

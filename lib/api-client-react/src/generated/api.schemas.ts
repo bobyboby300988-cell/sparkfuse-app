@@ -71,6 +71,15 @@ export interface Profile {
   seeking: string;
   /** @nullable */
   photoUrl: string | null;
+  /** @nullable */
+  latitude: number | null;
+  /** @nullable */
+  longitude: number | null;
+  /**
+     * Distance from the requesting user, in kilometers. Only present on feed and match entries when both users have a saved location.
+     * @nullable
+     */
+  distanceKm?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -88,6 +97,10 @@ export interface UpsertProfileBody {
   seeking: string;
   /** @nullable */
   photoUrl: string | null;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
 }
 
 export interface FeedResponse {

@@ -371,7 +371,7 @@ components:
           type: string
     Profile:
       type: object
-      required: [userId, name, age, bio, seeking, photoUrl, createdAt, updatedAt]
+      required: [userId, name, age, bio, seeking, photoUrl, latitude, longitude, createdAt, updatedAt]
       properties:
         userId:
           type: string
@@ -385,6 +385,13 @@ components:
           type: string
         photoUrl:
           type: [string, 'null']
+        latitude:
+          type: [number, 'null']
+        longitude:
+          type: [number, 'null']
+        distanceKm:
+          description: Distance from the requesting user, in kilometers. Only present on feed and match entries when both users have a saved location.
+          type: [number, 'null']
         createdAt:
           type: string
         updatedAt:
@@ -413,6 +420,10 @@ components:
           type: string
         photoUrl:
           type: [string, 'null']
+        latitude:
+          type: [number, 'null']
+        longitude:
+          type: [number, 'null']
     FeedResponse:
       type: object
       required: [profiles]

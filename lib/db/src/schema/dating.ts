@@ -1,4 +1,4 @@
-import { integer, pgTable, primaryKey, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { doublePrecision, integer, pgTable, primaryKey, text, timestamp, varchar } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 
 export const profilesTable = pgTable("profiles", {
@@ -10,6 +10,8 @@ export const profilesTable = pgTable("profiles", {
   bio: text("bio").notNull().default(""),
   seeking: varchar("seeking").notNull().default(""),
   photoUrl: varchar("photo_url"),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

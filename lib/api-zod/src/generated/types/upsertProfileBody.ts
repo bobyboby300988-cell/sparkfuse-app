@@ -15,4 +15,8 @@ export interface UpsertProfileBody {
   seeking: string;
   /** @nullable */
   photoUrl: string | null;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
 }
