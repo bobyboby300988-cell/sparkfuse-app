@@ -119,7 +119,7 @@ router.post('/paypal/withdraw', async (req, res) => {
       grossAmount: amount,
       fee,
       netAmount,
-      message: `Withdrawal request received. €${netAmount.toFixed(2)} will be sent to your PayPal account (${payoutEmail}) shortly.`,
+      message: `Withdrawal request received. €${netAmount.toFixed(2)} will be sent to your PayPal account (${payoutEmail}) within 24 hours.`,
       referenceId,
     });
   } catch (err: any) {

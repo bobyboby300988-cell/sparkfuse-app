@@ -42,6 +42,7 @@ export default function WithdrawModal({ visible, onClose }: Props) {
     gross: number;
     fee: number;
     net: number;
+    method: "stripe" | "paypal";
   } | null>(null);
 
   const PLATFORM_FEE = 0.10;
@@ -123,6 +124,7 @@ export default function WithdrawModal({ visible, onClose }: Props) {
         gross: data.grossAmount ?? earnings,
         fee: data.fee ?? fee,
         net: data.netAmount ?? netAmount,
+        method: "stripe",
       });
     } catch (err: any) {
       Alert.alert("Error", err.message ?? "Withdrawal failed. Try again.");
@@ -156,6 +158,7 @@ export default function WithdrawModal({ visible, onClose }: Props) {
         gross: data.grossAmount ?? earnings,
         fee: data.fee ?? fee,
         net: data.netAmount ?? netAmount,
+        method: "paypal",
       });
     } catch (err: any) {
       Alert.alert("Error", err.message ?? "Withdrawal failed. Try again.");
@@ -200,7 +203,9 @@ export default function WithdrawModal({ visible, onClose }: Props) {
               <View style={[styles.successIcon, { backgroundColor: "#E8FFF3" }]}>
                 <Ionicons name="checkmark-circle" size={56} color="#22C55E" />
               </View>
-              <Text style={[styles.successTitle, { color: colors.foreground }]}>Withdrawal Sent!</Text>
+              <Text style={[styles.successTitle, { color: colors.foreground }]}>
+                {success.method === "paypal" ? "Withdrawal Requested!" : "Withdrawal Sent!"}
+              </Text>
               <Text style={[styles.successMsg, { color: colors.mutedForeground }]}>{success.message}</Text>
 
               <View style={[styles.breakdownBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
@@ -329,7 +334,7 @@ export default function WithdrawModal({ visible, onClose }: Props) {
                     Get paid via PayPal
                   </Text>
                   <Text style={[styles.verifyMsg, { color: colors.mutedForeground }]}>
-                    Enter the PayPal email you want your payout sent to.
+                    Enter the PayPal email you want your payout sent to. Payouts are sent manually and arrive within 24 hours.
                   </Text>
                   <TextInput
                     style={[
