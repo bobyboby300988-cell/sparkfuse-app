@@ -7,6 +7,9 @@ import {
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useGetMyProfile } from "@workspace/api-client-react";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { ClerkProvider, useAuth } from "@clerk/expo";
+import { tokenCache } from "@clerk/expo/token-cache";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
@@ -15,23 +18,29 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
-import { AuthProvider, useAuth } from "@/lib/auth";
 import "@/lib/api";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
+const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY as string;
+
 function RootLayoutNav() {
   const { isSubscribed } = useApp();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isSignedIn, isLoaded: authLoaded, getToken } = useAuth();
+  const isAuthenticated = !!isSignedIn;
   const { data: profileData, isLoading: profileLoading } = useGetMyProfile({
     query: { enabled: isAuthenticated, queryKey: ["myProfile"] },
   });
   const segments = useSegments();
 
+  useEffect(() => {
+    setAuthTokenGetter(() => getToken());
+  }, [getToken]);
+
   const hasProfile = !!profileData?.profile;
-  const isLoaded = !authLoading && (!isAuthenticated || !profileLoading);
+  const isLoaded = authLoaded && (!isAuthenticated || !profileLoading);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -39,8 +48,10 @@ function RootLayoutNav() {
     const inOnboarding = segments[0] === "onboarding";
     const inPaywall = segments[0] === "paywall";
     const inWelcome = segments[0] === "welcome";
+    const inSignIn = segments[0] === "sign-in";
+    const inSignUp = segments[0] === "sign-up";
 
-    if ((!isAuthenticated || !hasProfile) && !inOnboarding && !inWelcome) {
+    if ((!isAuthenticated || !hasProfile) && !inOnboarding && !inWelcome && !inSignIn && !inSignUp) {
       router.replace("/welcome");
     } else if (isAuthenticated && hasProfile && inOnboarding) {
       if (!isSubscribed) {
@@ -59,6 +70,8 @@ function RootLayoutNav() {
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="welcome" options={{ headerShown: false, animation: "fade" }} />
+      <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+      <Stack.Screen name="sign-up" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="paywall" options={{ headerShown: false }} />
       <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
@@ -86,10 +99,10 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <SafeAreaProvider>
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
+      <SafeAreaProvider>
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
             <AppProvider>
               <GestureHandlerRootView style={{ flex: 1 }}>
                 <KeyboardProvider>
@@ -97,9 +110,9 @@ export default function RootLayout() {
                 </KeyboardProvider>
               </GestureHandlerRootView>
             </AppProvider>
-          </AuthProvider>
-        </QueryClientProvider>
-      </ErrorBoundary>
-    </SafeAreaProvider>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </SafeAreaProvider>
+    </ClerkProvider>
   );
 }

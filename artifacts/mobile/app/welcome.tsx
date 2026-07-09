@@ -17,8 +17,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@clerk/expo";
 import { useApp } from "@/context/AppContext";
-import { useAuth } from "@/lib/auth";
 import { buildPayPalCheckoutUrl } from "@/config/payments";
 
 const { width: W } = Dimensions.get("window");
@@ -68,7 +68,10 @@ function Pill({ label, icon, color, delay }: { label: string; icon: string; colo
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const { setSubscribed } = useApp();
-  const { isAuthenticated, isLoading: authLoading, login } = useAuth();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
+  const isAuthenticated = !!isSignedIn;
+  const authLoading = !authLoaded;
+  const login = async () => router.push("/sign-in");
   const [loadingStripe, setLoadingStripe] = useState(false);
   const [loadingPayPal, setLoadingPayPal] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);

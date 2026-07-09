@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { and, eq, inArray, notInArray, or } from "drizzle-orm";
 import { db, matchesTable, profilesTable, swipesTable } from "@workspace/db";
 import { GetFeedResponse, GetMatchesResponse, CreateSwipeBody, CreateSwipeResponse } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -45,24 +46,21 @@ function toApiProfile(
   };
 }
 
-router.get("/feed", async (req: Request, res: Response) => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+router.get("/feed", requireAuth, async (req: Request, res: Response) => {
+  const userId = req.dbUser!.id;
 
   const [myProfile] = await db
     .select({ latitude: profilesTable.latitude, longitude: profilesTable.longitude })
     .from(profilesTable)
-    .where(eq(profilesTable.userId, req.user.id));
+    .where(eq(profilesTable.userId, userId));
 
   const swiped = await db
     .select({ targetId: swipesTable.targetId })
     .from(swipesTable)
-    .where(eq(swipesTable.swiperId, req.user.id));
+    .where(eq(swipesTable.swiperId, userId));
   const swipedIds = swiped.map((s) => s.targetId);
 
-  const excludeIds = [req.user.id, ...swipedIds];
+  const excludeIds = [userId, ...swipedIds];
 
   const rows = await db
     .select()
@@ -81,11 +79,8 @@ router.get("/feed", async (req: Request, res: Response) => {
   res.json(GetFeedResponse.parse({ profiles }));
 });
 
-router.post("/swipe", async (req: Request, res: Response) => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+router.post("/swipe", requireAuth, async (req: Request, res: Response) => {
+  const userId = req.dbUser!.id;
 
   const parsed = CreateSwipeBody.safeParse(req.body);
   if (!parsed.success) {
@@ -97,7 +92,7 @@ router.post("/swipe", async (req: Request, res: Response) => {
 
   await db
     .insert(swipesTable)
-    .values({ swiperId: req.user.id, targetId: targetUserId, direction })
+    .values({ swiperId: userId, targetId: targetUserId, direction })
     .onConflictDoUpdate({
       target: [swipesTable.swiperId, swipesTable.targetId],
       set: { direction, createdAt: new Date() },
@@ -113,14 +108,14 @@ router.post("/swipe", async (req: Request, res: Response) => {
       .where(
         and(
           eq(swipesTable.swiperId, targetUserId),
-          eq(swipesTable.targetId, req.user.id),
+          eq(swipesTable.targetId, userId),
           inArray(swipesTable.direction, ["like", "superlike"]),
         ),
       );
 
     if (reciprocal) {
       matched = true;
-      const [userAId, userBId] = [req.user.id, targetUserId].sort();
+      const [userAId, userBId] = [userId, targetUserId].sort();
       await db
         .insert(matchesTable)
         .values({ userAId, userBId })
@@ -129,7 +124,7 @@ router.post("/swipe", async (req: Request, res: Response) => {
       const [myProfile] = await db
         .select({ latitude: profilesTable.latitude, longitude: profilesTable.longitude })
         .from(profilesTable)
-        .where(eq(profilesTable.userId, req.user.id));
+        .where(eq(profilesTable.userId, userId));
 
       const [profileRow] = await db
         .select()
@@ -142,18 +137,15 @@ router.post("/swipe", async (req: Request, res: Response) => {
   res.json(CreateSwipeResponse.parse({ matched, match: matchProfile }));
 });
 
-router.get("/matches", async (req: Request, res: Response) => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+router.get("/matches", requireAuth, async (req: Request, res: Response) => {
+  const userId = req.dbUser!.id;
 
   const rows = await db
     .select()
     .from(matchesTable)
-    .where(or(eq(matchesTable.userAId, req.user.id), eq(matchesTable.userBId, req.user.id)));
+    .where(or(eq(matchesTable.userAId, userId), eq(matchesTable.userBId, userId)));
 
-  const otherIds = rows.map((r) => (r.userAId === req.user!.id ? r.userBId : r.userAId));
+  const otherIds = rows.map((r) => (r.userAId === userId ? r.userBId : r.userAId));
   if (otherIds.length === 0) {
     res.json(GetMatchesResponse.parse({ matches: [] }));
     return;
@@ -162,7 +154,7 @@ router.get("/matches", async (req: Request, res: Response) => {
   const [myProfile] = await db
     .select({ latitude: profilesTable.latitude, longitude: profilesTable.longitude })
     .from(profilesTable)
-    .where(eq(profilesTable.userId, req.user.id));
+    .where(eq(profilesTable.userId, userId));
 
   const profileRows = await db.select().from(profilesTable).where(inArray(profilesTable.userId, otherIds));
 

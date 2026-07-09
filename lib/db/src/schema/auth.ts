@@ -1,20 +1,8 @@
-import { sql } from "drizzle-orm";
-import { index, jsonb, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { timestamp, pgTable, varchar } from "drizzle-orm/pg-core";
 
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
-export const sessionsTable = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)],
-);
-
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+// Users are keyed by their Clerk user id (JIT-provisioned on first authenticated request).
 export const usersTable = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey(),
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),

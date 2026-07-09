@@ -2,16 +2,13 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { eq } from "drizzle-orm";
 import { db, profilesTable } from "@workspace/db";
 import { GetMyProfileResponse, UpsertMyProfileBody, UpsertMyProfileResponse } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-router.get("/profile", async (req: Request, res: Response) => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  const [row] = await db.select().from(profilesTable).where(eq(profilesTable.userId, req.user.id));
+router.get("/profile", requireAuth, async (req: Request, res: Response) => {
+  const userId = req.dbUser!.id;
+  const [row] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
 
   res.json(
     GetMyProfileResponse.parse({
@@ -34,11 +31,8 @@ router.get("/profile", async (req: Request, res: Response) => {
   );
 });
 
-router.put("/profile", async (req: Request, res: Response) => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+router.put("/profile", requireAuth, async (req: Request, res: Response) => {
+  const userId = req.dbUser!.id;
 
   const parsed = UpsertMyProfileBody.safeParse(req.body);
   if (!parsed.success) {
@@ -50,7 +44,7 @@ router.put("/profile", async (req: Request, res: Response) => {
 
   const [row] = await db
     .insert(profilesTable)
-    .values({ userId: req.user.id, name, age, bio, seeking, photoUrl, latitude, longitude })
+    .values({ userId, name, age, bio, seeking, photoUrl, latitude, longitude })
     .onConflictDoUpdate({
       target: profilesTable.userId,
       set: { name, age, bio, seeking, photoUrl, latitude, longitude, updatedAt: new Date() },

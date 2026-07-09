@@ -1,7 +1,4 @@
-import * as SecureStore from "expo-secure-store";
-import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
-
-const AUTH_TOKEN_KEY = "auth_session_token";
+import { setBaseUrl } from "@workspace/api-client-react";
 
 export function getApiUrl(): string {
   if (process.env.EXPO_PUBLIC_DOMAIN) {
@@ -16,9 +13,4 @@ export function getPhotoUrl(photoUrl: string | null | undefined): string | null 
   return `${getApiUrl()}/api/storage${photoUrl}`;
 }
 
-export async function getAuthToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(AUTH_TOKEN_KEY);
-}
-
 setBaseUrl(getApiUrl());
-setAuthTokenGetter(() => SecureStore.getItemAsync(AUTH_TOKEN_KEY));
