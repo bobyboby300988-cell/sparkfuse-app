@@ -6,6 +6,7 @@ import {
   Alert,
   Animated,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -417,6 +418,13 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
 
   function handleBuy(pkg: typeof ST_PACKAGES[0]) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // React Native's Alert doesn't support custom multi-button choices on
+    // web, so the "choose a payment method" dialog never actually shows
+    // there — go straight to Stripe checkout on web instead of a picker.
+    if (Platform.OS === "web") {
+      completeBuy(pkg, "stripe");
+      return;
+    }
     Alert.alert(
       `Buy ${pkg.tokens} ST · €${pkg.eur}`,
       "Choose a payment method",
