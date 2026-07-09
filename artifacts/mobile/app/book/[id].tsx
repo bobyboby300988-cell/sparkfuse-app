@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MOCK_COACHES } from "@/data/coaches";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { buildPayPalCheckoutUrl } from "@/config/payments";
 
 const TIME_SLOTS = [
   "9:00 AM", "10:00 AM", "11:00 AM",
@@ -75,11 +76,10 @@ export default function BookScreen() {
 
   async function handleBuyST(pkg: typeof ST_PACKAGES[0]) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const url =
-      "https://www.paypal.com/cgi-bin/webscr?" +
-      "cmd=_xclick&business=dumitru8830%40gmail.com" +
-      `&amount=${pkg.eur}.00&currency_code=EUR` +
-      `&item_name=Spark+${pkg.tokens}+Tokens`;
+    const url = buildPayPalCheckoutUrl({
+      amountEur: pkg.eur,
+      itemName: `Spark ${pkg.tokens} Tokens`,
+    });
     await WebBrowser.openBrowserAsync(url, {
       presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
     });

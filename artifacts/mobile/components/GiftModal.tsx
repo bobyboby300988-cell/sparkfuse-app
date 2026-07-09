@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { useApp } from "@/context/AppContext";
+import { buildPayPalCheckoutUrl } from "@/config/payments";
 
 /* ─── 30 gift tiers — sweet → romantic → flirty → spicy → erotic ─── */
 const GIFTS = [
@@ -400,11 +401,10 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
 
   async function handleBuy(pkg: typeof ST_PACKAGES[0]) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const url =
-      "https://www.paypal.com/cgi-bin/webscr?" +
-      "cmd=_xclick&business=dumitru8830%40gmail.com" +
-      `&amount=${pkg.eur}.00&currency_code=EUR` +
-      `&item_name=Spark+${pkg.tokens}+Tokens`;
+    const url = buildPayPalCheckoutUrl({
+      amountEur: pkg.eur,
+      itemName: `Spark ${pkg.tokens} Tokens`,
+    });
     await WebBrowser.openBrowserAsync(url, {
       presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
     });

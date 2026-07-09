@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
+import { buildPayPalCheckoutUrl } from "@/config/payments";
 
 const { width: W } = Dimensions.get("window");
 
@@ -125,10 +126,10 @@ export default function WelcomeScreen() {
   const handlePayPal = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoadingPayPal(true);
-    const paypalUrl =
-      "https://www.paypal.com/cgi-bin/webscr?" +
-      "cmd=_xclick&business=dumitru8830%40gmail.com" +
-      "&amount=1.00&currency_code=EUR&item_name=Spark+Premium+%E2%80%94+1+month";
+    const paypalUrl = buildPayPalCheckoutUrl({
+      amountEur: 1,
+      itemName: "Spark Premium — 1 month",
+    });
     try {
       setLoadingPayPal(false);
       await WebBrowser.openBrowserAsync(paypalUrl, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });

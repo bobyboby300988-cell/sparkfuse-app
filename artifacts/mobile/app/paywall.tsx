@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
+import { buildPayPalCheckoutUrl } from "@/config/payments";
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
@@ -70,14 +71,11 @@ export default function PaywallScreen() {
     setLoadingPayPal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      // Direct PayPal payment link — sends €1 to dumitru8830@gmail.com
-      const paypalUrl =
-        "https://www.paypal.com/cgi-bin/webscr?" +
-        "cmd=_xclick" +
-        "&business=dumitru8830%40gmail.com" +
-        "&amount=1.00" +
-        "&currency_code=EUR" +
-        "&item_name=Spark+Premium+%E2%80%94+1+month";
+      // Direct PayPal payment link — sends €1 to the app's personal PayPal
+      const paypalUrl = buildPayPalCheckoutUrl({
+        amountEur: 1,
+        itemName: "Spark Premium — 1 month",
+      });
 
       setLoadingPayPal(false);
       await WebBrowser.openBrowserAsync(paypalUrl, {
