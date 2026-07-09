@@ -1,0 +1,1 @@
+- [Stripe Connect setup](stripe-connect-setup.md) — activation requires platform-profile acknowledgements + account links need real https URLs, not custom app schemes.

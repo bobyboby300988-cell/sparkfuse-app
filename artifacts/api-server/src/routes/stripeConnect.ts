@@ -4,24 +4,42 @@ import { logger } from '../lib/logger';
 
 const router: IRouter = Router();
 
+// Stripe account links require real https:// URLs (custom app schemes like
+// "mobile://" are rejected). We host tiny redirect pages here that bounce
+// the browser back into the app via its deep link scheme.
+function getPublicBaseUrl(): string {
+  const domains = process.env.REPLIT_DOMAINS;
+  const first = domains?.split(',')[0]?.trim();
+  if (!first) {
+    throw new Error('REPLIT_DOMAINS is not set; cannot build a public HTTPS redirect URL');
+  }
+  return `https://${first}`;
+}
+
+function redirectPage(deepLink: string): string {
+  return `<!doctype html><html><head><meta http-equiv="refresh" content="0;url=${deepLink}" /></head><body><script>window.location.replace(${JSON.stringify(deepLink)});</script>Redirecting back to the app…</body></html>`;
+}
+
+router.get('/stripe/connect/redirect/:kind', (req, res) => {
+  const { kind } = req.params;
+  const deepLink = kind === 'refresh' ? 'mobile://connect-refresh' : 'mobile://connect-return';
+  res.set('Content-Type', 'text/html').send(redirectPage(deepLink));
+});
+
 // Create (or reuse) a Stripe Connect Express account for a creator and
 // return a hosted onboarding link. The creator verifies their identity and
 // bank account directly with Stripe.
 router.post('/stripe/connect/onboard', async (req, res) => {
   try {
-    const { accountId, email, refreshUrl, returnUrl } = req.body as {
+    const { accountId, email } = req.body as {
       accountId?: string;
       email?: string;
-      refreshUrl: string;
-      returnUrl: string;
+      refreshUrl?: string;
+      returnUrl?: string;
     };
 
-    if (!refreshUrl || !returnUrl) {
-      res.status(400).json({ error: 'refreshUrl and returnUrl are required' });
-      return;
-    }
-
     const stripe = getStripeClient();
+    const baseUrl = getPublicBaseUrl();
 
     let id = accountId;
     if (!id) {
@@ -39,8 +57,8 @@ router.post('/stripe/connect/onboard', async (req, res) => {
 
     const accountLink = await stripe.accountLinks.create({
       account: id,
-      refresh_url: refreshUrl,
-      return_url: returnUrl,
+      refresh_url: `${baseUrl}/api/stripe/connect/redirect/refresh`,
+      return_url: `${baseUrl}/api/stripe/connect/redirect/return`,
       type: 'account_onboarding',
     });
 
