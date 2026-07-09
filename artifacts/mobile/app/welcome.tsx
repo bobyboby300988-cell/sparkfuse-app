@@ -69,6 +69,21 @@ export default function WelcomeScreen() {
   const { setSubscribed } = useApp();
   const [loadingStripe, setLoadingStripe] = useState(false);
   const [loadingPayPal, setLoadingPayPal] = useState(false);
+  const [ageVerified, setAgeVerified] = useState(false);
+  const [showUnderage, setShowUnderage] = useState(false);
+  const gateOpacity = useRef(new Animated.Value(1)).current;
+
+  const handleConfirmAdult = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Animated.timing(gateOpacity, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
+      setAgeVerified(true);
+    });
+  };
+
+  const handleDenyAdult = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    setShowUnderage(true);
+  };
 
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.7)).current;
@@ -271,6 +286,44 @@ export default function WelcomeScreen() {
           <Text style={styles.skipText}>Browse first →</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* ── Age gate ── */}
+      {!ageVerified && (
+        <Animated.View style={[styles.ageGate, { opacity: gateOpacity }]}>
+          {showUnderage ? (
+            <View style={styles.ageCard}>
+              <Ionicons name="alert-circle" size={44} color="#FF3366" />
+              <Text style={styles.ageTitle}>Sorry</Text>
+              <Text style={styles.ageBody}>
+                Spark is only available to adults 18 years or older. Please come back once you meet the age requirement.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.ageCard}>
+              <View style={styles.age18Badge}>
+                <Text style={styles.age18Text}>18+</Text>
+              </View>
+              <Text style={styles.ageTitle}>Adults Only</Text>
+              <Text style={styles.ageBody}>
+                Spark contains dating content intended for adults. You must be at least 18 years old to continue.
+              </Text>
+              <TouchableOpacity style={styles.ageConfirmBtn} onPress={handleConfirmAdult} activeOpacity={0.88}>
+                <LinearGradient
+                  colors={["#FF3366", "#FF6B35"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.ageConfirmBtnInner}
+                >
+                  <Text style={styles.ageConfirmText}>I am 18 or older</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.ageDenyBtn} onPress={handleDenyAdult} activeOpacity={0.7}>
+                <Text style={styles.ageDenyText}>I am under 18</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </Animated.View>
+      )}
     </LinearGradient>
   );
 }
@@ -449,6 +502,57 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     color: "rgba(255,255,255,0.3)",
+    textDecorationLine: "underline",
+  },
+
+  /* Age gate */
+  ageGate: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(5,5,10,0.97)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+  },
+  ageCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,51,102,0.3)",
+    borderRadius: 24,
+    padding: 28,
+    alignItems: "center",
+    gap: 10,
+  },
+  age18Badge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(255,51,102,0.14)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,51,102,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  age18Text: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#FF3366" },
+  ageTitle: { fontSize: 22, fontFamily: "Inter_700Bold", color: "#fff", marginTop: 4 },
+  ageBody: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.6)",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  ageConfirmBtn: { width: "100%", borderRadius: 26, overflow: "hidden" },
+  ageConfirmBtnInner: { paddingVertical: 15, alignItems: "center", justifyContent: "center" },
+  ageConfirmText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
+  ageDenyBtn: { paddingVertical: 10 },
+  ageDenyText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.35)",
     textDecorationLine: "underline",
   },
 });
