@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
+  Animated,
   Dimensions,
   FlatList,
   Modal,
@@ -34,6 +35,24 @@ const MODE_ACCENT: Record<string, string> = {
   travel:   "#14B8A6",
   social:   "#F59E0B",
 };
+
+function ExploreLiveBadge() {
+  const pulse = React.useRef(new Animated.Value(1)).current;
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.25, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1,    duration: 700, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return (
+    <View style={styles.liveBadgeWrap}>
+      <Animated.View style={[styles.liveDot, { transform: [{ scale: pulse }] }]} />
+      <Text style={styles.liveBadgeText}>LIVE</Text>
+    </View>
+  );
+}
 
 function ProfileModal({
   profile,
@@ -200,11 +219,20 @@ export default function ExploreScreen() {
             style={styles.tile}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setSelected(item);
+              if (item.isLive) {
+                router.push(`/live/${item.id}` as any);
+              } else {
+                setSelected(item);
+              }
             }}
             activeOpacity={0.88}
           >
             <Image source={item.photo} style={styles.tileImg} contentFit="cover" />
+            {item.isLive && (
+              <View style={styles.liveBadgeAnchor}>
+                <ExploreLiveBadge />
+              </View>
+            )}
             <View style={styles.tileOverlay}>
               <Text style={styles.tileName} numberOfLines={1}>{item.name}</Text>
               <Text style={styles.tileAge}>{item.age}</Text>
@@ -240,4 +268,12 @@ const styles = StyleSheet.create({
   },
   tileName: { color: "#fff", fontSize: 12, fontFamily: "Inter_600SemiBold" },
   tileAge: { color: "rgba(255,255,255,0.75)", fontSize: 11, fontFamily: "Inter_400Regular" },
+  liveBadgeAnchor: { position: "absolute", top: 6, left: 6 },
+  liveBadgeWrap: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "#FF000099", borderRadius: 20,
+    paddingHorizontal: 6, paddingVertical: 3,
+  },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#fff" },
+  liveBadgeText: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: 0.6 },
 });

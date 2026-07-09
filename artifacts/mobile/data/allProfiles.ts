@@ -20,12 +20,13 @@ export interface Profile {
   lng: number;
   mode: AppMode;
   lockedPhotos?: LockedPhoto[];
+  isLive?: boolean;
 }
 
 // ─── Dating (IDs kept as "1"–"6" for AsyncStorage backward-compat) ────────────
 const DATING: Profile[] = [
   {
-    id: "1", name: "Sophie", age: 24, mode: "dating",
+    id: "1", name: "Sophie", age: 24, mode: "dating", isLive: true,
     bio: "Coffee shop hopper and weekend hiker. Looking for someone to get lost with on a trail.",
     location: "Paris", interests: ["Hiking", "Coffee", "Photography"],
     photo: require("../assets/images/p1.png"), distance: 2, height: "5'6\"",
@@ -57,7 +58,7 @@ const DATING: Profile[] = [
     lat: 41.3851, lng: 2.1734,
   },
   {
-    id: "5", name: "Aria", age: 29, mode: "dating",
+    id: "5", name: "Aria", age: 29, mode: "dating", isLive: true,
     bio: "Medical resident who needs someone to remind me there is life outside the hospital.",
     location: "Berlin", interests: ["Medicine", "Yoga", "True Crime"],
     photo: require("../assets/images/p5.png"), distance: 4, height: "5'5\"",
@@ -75,7 +76,7 @@ const DATING: Profile[] = [
 // ─── Naughty ──────────────────────────────────────────────────────────────────
 const NAUGHTY: Profile[] = [
   {
-    id: "n1", name: "Scarlett", age: 25, mode: "naughty",
+    id: "n1", name: "Scarlett", age: 25, mode: "naughty", isLive: true,
     bio: "I kiss on the first date and I'm not sorry about it. Come find me — I'll be the one making everyone else look boring. 🔥",
     location: "Paris", interests: ["Late nights", "Skinny dipping", "Champagne"],
     photo: require("../assets/images/p3.png"), distance: 1, height: "5'6\"",
@@ -101,7 +102,7 @@ const NAUGHTY: Profile[] = [
     lat: 52.3676, lng: 4.9041,
   },
   {
-    id: "n4", name: "Remy", age: 28, mode: "naughty",
+    id: "n4", name: "Remy", age: 28, mode: "naughty", isLive: true,
     bio: "I cook, I flirt, and I use my hands very well. Come over — I'll feed you first and we'll figure out the rest. 🍷",
     location: "Lyon", interests: ["Seduction", "Cooking", "Hot tubs"],
     photo: require("../assets/images/p2.png"), distance: 5, height: "5'11\"",
@@ -137,7 +138,7 @@ const BUSINESS: Profile[] = [
     lat: 51.5074, lng: -0.1278,
   },
   {
-    id: "b2", name: "James", age: 35, mode: "business",
+    id: "b2", name: "James", age: 35, mode: "business", isLive: true,
     bio: "Angel investor and ex-McKinsey. Happy to share deal flow, intros, or just grab a coffee.",
     location: "Zürich", interests: ["Investing", "Startups", "Finance"],
     photo: require("../assets/images/p2.png"), distance: 8, height: "6'2\"",
@@ -176,7 +177,7 @@ const BUSINESS: Profile[] = [
 // ─── Party ────────────────────────────────────────────────────────────────────
 const PARTY: Profile[] = [
   {
-    id: "py1", name: "Luna", age: 24, mode: "party",
+    id: "py1", name: "Luna", age: 24, mode: "party", isLive: true,
     bio: "DJ on weekends, chaos coordinator on weekdays. If the playlist is mine, the night is yours. 🎧",
     location: "Ibiza", interests: ["DJing", "Clubbing", "Festivals"],
     photo: require("../assets/images/p1.png"), distance: 1, height: "5'5\"",
@@ -197,7 +198,7 @@ const PARTY: Profile[] = [
     lat: 52.3676, lng: 4.9041,
   },
   {
-    id: "py4", name: "Jax", age: 29, mode: "party",
+    id: "py4", name: "Jax", age: 29, mode: "party", isLive: true,
     bio: "Bartender who makes cocktails look like art. Last call is just the beginning. Find me at the after-party. 🍸",
     location: "London", interests: ["Mixology", "Parties", "Live music"],
     photo: require("../assets/images/p4.png"), distance: 4, height: "6'1\"",
@@ -222,7 +223,7 @@ const PARTY: Profile[] = [
 // ─── Travel ───────────────────────────────────────────────────────────────────
 const TRAVEL: Profile[] = [
   {
-    id: "tr1", name: "Isla", age: 28, mode: "travel",
+    id: "tr1", name: "Isla", age: 28, mode: "travel", isLive: true,
     bio: "68 countries, 1 carry-on. Digital nomad and sunrise chaser. Currently in Lisbon, next week: who knows? ✈️",
     location: "Lisbon", interests: ["Backpacking", "Photography", "Street food"],
     photo: require("../assets/images/p1.png"), distance: 2, height: "5'6\"",
@@ -268,7 +269,7 @@ const TRAVEL: Profile[] = [
 // ─── Social ───────────────────────────────────────────────────────────────────
 const SOCIAL: Profile[] = [
   {
-    id: "so1", name: "Priya", age: 27, mode: "social",
+    id: "so1", name: "Priya", age: 27, mode: "social", isLive: true,
     bio: "Community organiser and TEDx speaker. I believe every stranger is a friend you haven't met yet. 🤝",
     location: "London", interests: ["Community", "Public speaking", "Volunteering"],
     photo: require("../assets/images/p1.png"), distance: 2, height: "5'5\"",
@@ -289,7 +290,7 @@ const SOCIAL: Profile[] = [
     lat: 48.8566, lng: 2.3522,
   },
   {
-    id: "so4", name: "Oliver", age: 33, mode: "social",
+    id: "so4", name: "Oliver", age: 33, mode: "social", isLive: true,
     bio: "Urban gardener and neighbourhood activist. I grow tomatoes and friendships. Both need water and patience. 🌱",
     location: "Amsterdam", interests: ["Gardening", "Sustainability", "Activism"],
     photo: require("../assets/images/p4.png"), distance: 3, height: "6'0\"",

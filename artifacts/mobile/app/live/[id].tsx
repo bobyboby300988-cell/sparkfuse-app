@@ -17,8 +17,35 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GiftModal from "@/components/GiftModal";
-import { CATEGORY_COLORS, LIVE_STREAMS, MOCK_CHAT } from "@/data/livestreams";
+import { CATEGORY_COLORS, LIVE_STREAMS, MOCK_CHAT, LiveStream } from "@/data/livestreams";
+import { ALL_PROFILES } from "@/data/allProfiles";
 import { useApp } from "@/context/AppContext";
+
+const MODE_TO_CATEGORY: Record<string, LiveStream["category"]> = {
+  dating: "Dating",
+  naughty: "Naughty",
+  party: "Party",
+  social: "Social",
+  business: "Dating",
+  travel: "Social",
+};
+
+function streamFromProfile(profileId: string): LiveStream | null {
+  const profile = ALL_PROFILES.find((p) => p.id === profileId && p.isLive);
+  if (!profile) return null;
+  return {
+    id: profile.id,
+    name: profile.name,
+    age: profile.age,
+    avatar: profile.photo,
+    tagline: profile.bio.split(".")[0],
+    category: MODE_TO_CATEGORY[profile.mode] ?? "Dating",
+    viewers: 200 + (profile.id.length * 37) % 900,
+    tokens: 500 + (profile.id.length * 211) % 8000,
+    isVerified: true,
+    badges: ["🔥 Live now"],
+  };
+}
 
 /* ── floating reaction (hearts / emojis) ── */
 const REACTION_EMOJIS = ["❤️","💋","🔥","😍","💕","🌹","😈","🍑","👑","⚡"];
@@ -105,7 +132,7 @@ export default function LiveScreen() {
   const insets  = useSafeAreaInsets();
   const { coinBalance, spendCoins, addEarning } = useApp();
 
-  const stream = LIVE_STREAMS.find((s) => s.id === id) ?? LIVE_STREAMS[0];
+  const stream = LIVE_STREAMS.find((s) => s.id === id) ?? streamFromProfile(id) ?? LIVE_STREAMS[0];
   const grad   = CATEGORY_COLORS[stream.category] ?? ["#FF3366","#4A0000"];
 
   const [messages,   setMessages]   = useState<ChatMsg[]>([]);

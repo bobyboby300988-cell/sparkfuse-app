@@ -25,7 +25,7 @@ const PRICE_OPTIONS = [1, 2, 3, 5, 10];
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { userProfile, setUserProfile, matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance } = useApp();
+  const { userProfile, setUserProfile, matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, isLive, setIsLive } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
 
   const [editing, setEditing] = useState(false);
@@ -257,6 +257,34 @@ export default function ProfileScreen() {
             <Text style={styles.withdrawChipText}>Withdraw</Text>
           </View>
         </TouchableOpacity>
+      </View>
+
+      {/* Go Live */}
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.creatorTitleRow}>
+            <Text style={{ fontSize: 18 }}>🔴</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Go Live</Text>
+          </View>
+          <Switch
+            value={isLive}
+            onValueChange={(v) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setIsLive(v);
+              if (v) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                router.push("/live" as any);
+              }
+            }}
+            trackColor={{ false: colors.muted, true: "#FF3366" }}
+            thumbColor="#fff"
+          />
+        </View>
+        <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
+          {isLive
+            ? "You're live! Your profile shows a LIVE badge on Explore and in the Live tab."
+            : "Go live to appear with a LIVE badge on Explore and start streaming to earn Spark Tokens."}
+        </Text>
       </View>
 
       {/* Creator Mode */}

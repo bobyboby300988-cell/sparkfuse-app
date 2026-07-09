@@ -54,6 +54,8 @@ interface AppContextType {
   coinBalance: number;
   addCoins: (amount: number) => void;
   spendCoins: (amount: number) => void;
+  isLive: boolean;
+  setIsLive: (on: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -68,6 +70,7 @@ const KEYS = {
   CREATOR_PRICE: "@spark/creator_price",
   EARNINGS: "@spark/earnings",
   COINS: "@spark/coins",
+  IS_LIVE: "@spark/is_live",
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -82,11 +85,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [creatorPrice, setCreatorPriceState] = useState(3);
   const [earnings, setEarnings] = useState(0);
   const [coinBalance, setCoinBalance] = useState(0);
+  const [isLive, setIsLiveState] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
-        const [profileRaw, matchesRaw, seenRaw, subscribedRaw, unlockedRaw, creatorModeRaw, creatorPriceRaw, earningsRaw, coinsRaw] = await Promise.all([
+        const [profileRaw, matchesRaw, seenRaw, subscribedRaw, unlockedRaw, creatorModeRaw, creatorPriceRaw, earningsRaw, coinsRaw, isLiveRaw] = await Promise.all([
           AsyncStorage.getItem(KEYS.USER_PROFILE),
           AsyncStorage.getItem(KEYS.MATCHES),
           AsyncStorage.getItem(KEYS.SEEN),
@@ -96,6 +100,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.CREATOR_PRICE),
           AsyncStorage.getItem(KEYS.EARNINGS),
           AsyncStorage.getItem(KEYS.COINS),
+          AsyncStorage.getItem(KEYS.IS_LIVE),
         ]);
         if (profileRaw) setUserProfileState(JSON.parse(profileRaw));
         if (matchesRaw) setMatches(JSON.parse(matchesRaw));
@@ -106,6 +111,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (creatorPriceRaw) setCreatorPriceState(Number(creatorPriceRaw));
         if (earningsRaw) setEarnings(parseFloat(earningsRaw));
         if (coinsRaw) setCoinBalance(parseFloat(coinsRaw));
+        if (isLiveRaw === "true") setIsLiveState(true);
       } catch {
         // ignore storage errors
       } finally {
@@ -247,6 +253,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const setIsLive = async (on: boolean) => {
+    setIsLiveState(on);
+    await AsyncStorage.setItem(KEYS.IS_LIVE, on ? "true" : "false");
+  };
+
   const removeMatch = (profileId: string) => {
     setMatches((prev) => {
       const updated = prev.filter((m) => m.profileId !== profileId);
@@ -285,6 +296,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         coinBalance,
         addCoins,
         spendCoins,
+        isLive,
+        setIsLive,
       }}
     >
       {children}
