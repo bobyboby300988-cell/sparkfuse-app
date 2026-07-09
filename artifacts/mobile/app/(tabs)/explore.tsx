@@ -37,6 +37,10 @@ const MODE_ACCENT: Record<string, string> = {
   social:   "#F59E0B",
 };
 
+const GOLD = "#E8C468";
+const PURPLE_DEEP = "#4B1F63";
+const PURPLE_DARK = "#1A0B24";
+
 function ExploreLiveBadge() {
   const pulse = React.useRef(new Animated.Value(1)).current;
   React.useEffect(() => {
@@ -49,7 +53,7 @@ function ExploreLiveBadge() {
   }, []);
   return (
     <LinearGradient
-      colors={["#FF3366", "#FF6B35"]}
+      colors={[PURPLE_DEEP, GOLD]}
       start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
       style={styles.liveBadgeWrap}
     >
@@ -226,7 +230,7 @@ export default function ExploreScreen() {
           >
             {liveOnly ? (
               <LinearGradient
-                colors={["#FF3366", "#FF6B35"]}
+                colors={[PURPLE_DEEP, GOLD]}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 style={styles.liveOnlyBtn}
               >
@@ -234,8 +238,8 @@ export default function ExploreScreen() {
                 <Text style={[styles.liveOnlyBtnText, { color: "#fff" }]}>Live</Text>
               </LinearGradient>
             ) : (
-              <View style={[styles.liveOnlyBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: "#FF336640" }]}>
-                <Ionicons name="radio" size={14} color="#FF3366" />
+              <View style={[styles.liveOnlyBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: GOLD + "50" }]}>
+                <Ionicons name="radio" size={14} color={GOLD} />
                 <Text style={[styles.liveOnlyBtnText, { color: colors.foreground }]}>Live</Text>
               </View>
             )}
@@ -267,7 +271,7 @@ export default function ExploreScreen() {
           >
             <Image source={item.photo} style={styles.tileImg} contentFit="cover" />
             <LinearGradient
-              colors={["transparent", (MODE_ACCENT[item.mode] ?? "#FF3366") + "CC"]}
+              colors={["transparent", PURPLE_DARK + "E6"]}
               style={styles.tileOverlay}
             >
               <Text style={styles.tileName} numberOfLines={1}>{item.name}</Text>

@@ -260,7 +260,7 @@ export default function ProfileScreen() {
       </View>
 
       {/* Go Live */}
-      <View style={[styles.section, { backgroundColor: colors.card, borderWidth: 1.5, borderColor: isLive ? "#FF3366" : "#FF336633" }]}>
+      <View style={[styles.section, { backgroundColor: colors.card, borderWidth: 1.5, borderColor: isLive ? "#E8C468" : "#E8C46833" }]}>
         <View style={styles.sectionHeader}>
           <View style={styles.creatorTitleRow}>
             <Text style={{ fontSize: 18 }}>🔴</Text>

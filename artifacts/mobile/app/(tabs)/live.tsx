@@ -132,7 +132,7 @@ export default function LiveTab() {
           activeOpacity={0.85}
         >
           <LinearGradient
-            colors={["#FF3366", "#FF6B35"]}
+            colors={["#4B1F63", "#E8C468"]}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
             style={styles.goLiveGrad}
           >
@@ -190,10 +190,11 @@ const styles = StyleSheet.create({
   },
   liveBadgeWrap: {
     flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "#FF000099", borderRadius: 20,
+    backgroundColor: "#4B1F63CC", borderRadius: 20,
     paddingHorizontal: 8, paddingVertical: 4,
+    borderWidth: 1, borderColor: "#E8C468",
   },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#fff" },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#E8C468" },
   liveBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: 1 },
 
   viewerChip: {
@@ -220,5 +221,5 @@ const styles = StyleSheet.create({
   cardTagline: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.65)", marginTop: 2 },
   tokenRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5 },
   tokenIcon: { fontSize: 12 },
-  tokenCount: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#FF6B35" },
+  tokenCount: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#E8C468" },
 });
