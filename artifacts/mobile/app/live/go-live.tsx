@@ -113,7 +113,7 @@ export default function GoLiveScreen() {
           <Text style={styles.setupEmoji}>🔴</Text>
           <Text style={styles.setupTitle}>Go Live</Text>
           <Text style={styles.setupSub}>
-            Broadcast your real camera to viewers on Spark. They can watch and send you real gifts.
+            Broadcast your real camera to viewers on SparkFuse. They can watch and send you real gifts.
           </Text>
 
           <Text style={styles.categoryLabel}>Category</Text>

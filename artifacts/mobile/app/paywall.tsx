@@ -74,7 +74,7 @@ export default function PaywallScreen() {
       // Direct PayPal payment link — sends €1 to the app's personal PayPal
       const paypalUrl = buildPayPalCheckoutUrl({
         amountEur: 1,
-        itemName: "Spark Premium — 1 month",
+        itemName: "SparkFuse Premium — 1 month",
       });
 
       setLoadingPayPal(false);
@@ -106,7 +106,7 @@ export default function PaywallScreen() {
           <View style={styles.logoRing}>
             <Text style={styles.logoEmoji}>✦</Text>
           </View>
-          <Text style={styles.appName}>Spark</Text>
+          <Text style={styles.appName}>SparkFuse</Text>
           <Text style={styles.tagline}>Find your person.</Text>
           <Text style={styles.subtitle}>
             Get full access to every feature — for less than a coffee a month.

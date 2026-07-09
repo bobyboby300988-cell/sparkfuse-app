@@ -143,7 +143,7 @@ export default function WelcomeScreen() {
     setLoadingPayPal(true);
     const paypalUrl = buildPayPalCheckoutUrl({
       amountEur: 1,
-      itemName: "Spark Premium — 1 month",
+      itemName: "SparkFuse Premium — 1 month",
     });
     try {
       setLoadingPayPal(false);
@@ -176,7 +176,7 @@ export default function WelcomeScreen() {
           <View style={styles.flameRing}>
             <Ionicons name="flame" size={64} color="#FF3366" />
           </View>
-          <Text style={styles.appName}>SPARK</Text>
+          <Text style={styles.appName}>SPARKFUSE</Text>
           <Text style={styles.appSub}>Connect. Explore. Thrive.</Text>
         </Animated.View>
 
@@ -295,7 +295,7 @@ export default function WelcomeScreen() {
               <Ionicons name="alert-circle" size={44} color="#FF3366" />
               <Text style={styles.ageTitle}>Sorry</Text>
               <Text style={styles.ageBody}>
-                Spark is only available to adults 18 years or older. Please come back once you meet the age requirement.
+                SparkFuse is only available to adults 18 years or older. Please come back once you meet the age requirement.
               </Text>
             </View>
           ) : (
@@ -305,7 +305,7 @@ export default function WelcomeScreen() {
               </View>
               <Text style={styles.ageTitle}>Adults Only</Text>
               <Text style={styles.ageBody}>
-                Spark contains dating content intended for adults. You must be at least 18 years old to continue.
+                SparkFuse contains dating content intended for adults. You must be at least 18 years old to continue.
               </Text>
               <TouchableOpacity style={styles.ageConfirmBtn} onPress={handleConfirmAdult} activeOpacity={0.88}>
                 <LinearGradient

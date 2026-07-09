@@ -106,7 +106,7 @@ export default function OnboardingScreen() {
       >
         <View style={styles.logoRow}>
           <Ionicons name="flame" size={28} color={colors.primary} />
-          <Text style={[styles.logoText, { color: colors.primary }]}>Spark</Text>
+          <Text style={[styles.logoText, { color: colors.primary }]}>SparkFuse</Text>
         </View>
 
         <View style={styles.stepIndicator}>

@@ -95,7 +95,7 @@ export default function DiscoverScreen() {
         <View style={styles.logoRow}>
           <Ionicons name="flame" size={26} color={colors.primary} />
           <View>
-            <Text style={[styles.logoText, { color: colors.foreground }]}>Spark</Text>
+            <Text style={[styles.logoText, { color: colors.foreground }]}>SparkFuse</Text>
             <Text style={[styles.modeHint, { color: colors.mutedForeground }]}>
               {MODE_LABELS[appMode]}
             </Text>
