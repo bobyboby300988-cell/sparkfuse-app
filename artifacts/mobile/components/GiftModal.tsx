@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -64,15 +65,6 @@ const TIER_ICONS: Record<string, string> = {
   Sweet: "🍭", Romantic: "💜", Flirty: "🌶️", Spicy: "🔥", Erotic: "😈",
 };
 
-/* ─── ST packages ─── */
-const ST_PACKAGES = [
-  { tokens: 5,    eur: 0.5, icon: "🌹", label: "Micro",   hint: "5 Roses — try it for 50¢",           highlight: false },
-  { tokens: 10,   eur: 1,   icon: "💌", label: "Mini",    hint: "1 Love Letter or 2 Roses",            highlight: false },
-  { tokens: 50,   eur: 5,  icon: "💌", label: "Starter", hint: "50 Roses or a Kiss 💋",              highlight: false },
-  { tokens: 100,  eur: 10, icon: "💋", label: "Popular", hint: "1 Diamond or 2 Wines 🍷",             highlight: true  },
-  { tokens: 500,  eur: 50, icon: "🔥", label: "Spicy",   hint: "1 Lipstick or 5 Hot Peppers 🌶️",     highlight: false },
-  { tokens: 2000, eur: 200, icon: "😈", label: "Erotic",  hint: "1 Supernova or 2 Galaxies 🌌",        highlight: false },
-];
 
 const FEE = 0.10;
 
@@ -377,6 +369,7 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
   const [step,         setStep]         = useState<"buy" | "send">("send");
   const [selectedGift, setSelectedGift] = useState(GIFTS[0]);
   const [sent,         setSent]         = useState(false);
+  const [customAmount, setCustomAmount] = useState("");
 
   const successAnim = useRef(new Animated.Value(0)).current;
   const successRot  = useRef(new Animated.Value(0)).current;
@@ -401,39 +394,50 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
     ]).start();
   }
 
-  async function completeBuy(pkg: typeof ST_PACKAGES[0], method: "stripe" | "paypal") {
+  async function completeBuy(tokens: number, eur: number, method: "stripe" | "paypal") {
     try {
       const paid = method === "stripe"
-        ? await buyTokensWithStripe(pkg.tokens, pkg.eur)
-        : await buyTokensWithPayPal(pkg.tokens, pkg.eur);
+        ? await buyTokensWithStripe(tokens, eur)
+        : await buyTokensWithPayPal(tokens, eur);
       if (!paid) return;
-      addCoins(pkg.tokens);
+      addCoins(tokens);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Spark Tokens added! 🔥", `${pkg.tokens} ST added to your wallet!`);
+      Alert.alert("Spark Tokens added! 🔥", `${tokens} ST added to your wallet!`);
+      setCustomAmount("");
       setStep("send");
     } catch (err: any) {
       Alert.alert("Payment failed", err.message ?? "Something went wrong. Try again.");
     }
   }
 
-  function handleBuy(pkg: typeof ST_PACKAGES[0]) {
+  function handleBuy(tokens: number, eur: number) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // React Native's Alert doesn't support custom multi-button choices on
     // web, so the "choose a payment method" dialog never actually shows
     // there — go straight to Stripe checkout on web instead of a picker.
     if (Platform.OS === "web") {
-      completeBuy(pkg, "stripe");
+      completeBuy(tokens, eur, "stripe");
       return;
     }
     Alert.alert(
-      `Buy ${pkg.tokens} ST · €${pkg.eur}`,
+      `Buy ${tokens} ST · €${eur.toFixed(2)}`,
       "Choose a payment method",
       [
-        { text: "Card (Stripe)", onPress: () => completeBuy(pkg, "stripe") },
-        { text: "PayPal", onPress: () => completeBuy(pkg, "paypal") },
+        { text: "Card (Stripe)", onPress: () => completeBuy(tokens, eur, "stripe") },
+        { text: "PayPal", onPress: () => completeBuy(tokens, eur, "paypal") },
         { text: "Cancel", style: "cancel" },
       ]
     );
+  }
+
+  const MIN_TOKENS = 5; // €0.50 minimum, matches backend floor
+  const customTokens = Math.floor(Number(customAmount)) || 0;
+  const customEur = parseFloat((customTokens * 0.1).toFixed(2));
+  const customValid = customTokens >= MIN_TOKENS;
+
+  function handleBuyCustom() {
+    if (!customValid) return;
+    handleBuy(customTokens, customEur);
   }
 
   function handleSend() {
@@ -538,26 +542,49 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
                       <Text style={{ color: "#444" }}>1 ST = €0.10 · 20 gifts · 1 ST to 2,000 ST</Text>
                     </Text>
                   </View>
-                  <Text style={styles.sectionLabel}>Choose a package</Text>
-                  {ST_PACKAGES.map((pkg) => (
-                    <TouchableOpacity
-                      key={pkg.tokens}
-                      style={[styles.pkgRow, pkg.highlight && styles.pkgRowHL]}
-                      onPress={() => handleBuy(pkg)}
-                      activeOpacity={0.85}
+                  <Text style={styles.sectionLabel}>How many Spark Tokens?</Text>
+                  <View style={styles.customAmountRow}>
+                    <TextInput
+                      style={styles.customAmountInput}
+                      value={customAmount}
+                      onChangeText={(t) => setCustomAmount(t.replace(/[^0-9]/g, ""))}
+                      placeholder="e.g. 25"
+                      placeholderTextColor="#999"
+                      keyboardType="number-pad"
+                      inputMode="numeric"
+                    />
+                    <Text style={styles.customAmountUnit}>ST</Text>
+                  </View>
+                  <Text style={styles.customAmountEur}>
+                    = €{customTokens > 0 ? customEur.toFixed(2) : "0.00"}
+                    {customTokens > 0 && !customValid ? "  ·  min 5 ST (€0.50)" : ""}
+                  </Text>
+
+                  <View style={styles.quickChipsRow}>
+                    {[1, 2, 3, 4, 10, 20, 50, 100].map((n) => (
+                      <TouchableOpacity
+                        key={n}
+                        style={styles.quickChip}
+                        onPress={() => setCustomAmount(String(n))}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.quickChipText}>{n}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <TouchableOpacity onPress={handleBuyCustom} activeOpacity={0.85} disabled={!customValid}>
+                    <LinearGradient
+                      colors={customValid ? ["#FF3366","#FF6B35"] : ["#ddd","#ccc"]}
+                      start={{x:0,y:0}} end={{x:1,y:0}}
+                      style={styles.customBuyBtn}
                     >
-                      <Text style={styles.pkgIcon}>{pkg.icon}</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.pkgTokens}>
-                          {pkg.tokens} ST{pkg.highlight ? <Text style={styles.pkgPopular}>  ⭐ Popular</Text> : null}
-                        </Text>
-                        <Text style={styles.pkgHint}>{pkg.hint}</Text>
-                      </View>
-                      <LinearGradient colors={["#FF3366","#FF6B35"]} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.pkgBtn}>
-                        <Text style={styles.pkgBtnText}>€{pkg.eur}</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  ))}
+                      <Text style={styles.customBuyBtnText}>
+                        {customTokens > 0 ? `Buy ${customTokens} ST · €${customEur.toFixed(2)}` : "Enter an amount"}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+
                   <Text style={styles.buyNote}>Pay by card (Stripe) or PayPal · Tokens added instantly</Text>
                 </>
               ) : (
@@ -700,19 +727,28 @@ const styles = StyleSheet.create({
     textTransform: "uppercase", letterSpacing: 1, marginBottom: 12, color: "#444",
   },
 
-  pkgRow: {
-    flexDirection: "row", alignItems: "center", gap: 14,
-    borderWidth: 1, borderColor: "#ffffff10", borderRadius: 16,
-    padding: 14, marginBottom: 10, backgroundColor: "#14142A",
-  },
-  pkgRowHL: { backgroundColor: "#FF336610", borderColor: "#FF336635" },
-  pkgIcon: { fontSize: 26 },
-  pkgTokens: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
-  pkgPopular: { fontSize: 12, fontFamily: "Inter_500Medium", color: "#FF6B9D" },
-  pkgHint: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#444", marginTop: 2 },
-  pkgBtn: { paddingHorizontal: 15, paddingVertical: 9, borderRadius: 20 },
-  pkgBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
   buyNote: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", color: "#333", marginTop: 8 },
+
+  customAmountRow: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    borderWidth: 1, borderColor: "#ffffff18", borderRadius: 14,
+    backgroundColor: "#14142A", paddingHorizontal: 16, paddingVertical: 4,
+  },
+  customAmountInput: {
+    flex: 1, fontSize: 22, fontFamily: "Inter_700Bold", color: "#fff", paddingVertical: 12,
+  },
+  customAmountUnit: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FF6B9D" },
+  customAmountEur: { fontSize: 13, fontFamily: "Inter_500Medium", color: "#888", marginTop: 8, marginBottom: 14 },
+
+  quickChipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 },
+  quickChip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: "#ffffff10", borderWidth: 1, borderColor: "#ffffff18",
+  },
+  quickChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
+
+  customBuyBtn: { borderRadius: 16, paddingVertical: 15, alignItems: "center", marginBottom: 6 },
+  customBuyBtnText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
 
   /* Tier section header */
   tierHeader: {

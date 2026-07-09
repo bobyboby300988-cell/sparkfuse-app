@@ -11,6 +11,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -25,12 +26,7 @@ const TIME_SLOTS = [
   "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM",
 ];
 
-const ST_PACKAGES = [
-  { tokens: 500,  eur: 50,  icon: "💰", label: "Starter"  },
-  { tokens: 1000, eur: 100, icon: "⭐", label: "Popular", highlight: true },
-  { tokens: 2000, eur: 200, icon: "🔥", label: "Value"    },
-  { tokens: 5000, eur: 500, icon: "💎", label: "Premium"  },
-];
+const MIN_BUY_TOKENS = 5; // €0.50 minimum, matches backend floor
 
 function getDaysFromToday(count: number) {
   return Array.from({ length: count }, (_, i) => {
@@ -60,6 +56,7 @@ export default function BookScreen() {
   const [showConfirm,  setShowConfirm]  = useState(false);
   const [showBuyST,    setShowBuyST]    = useState(false);
   const [booked,       setBooked]       = useState(false);
+  const [buyAmount,    setBuyAmount]    = useState("");
 
   const totalST       = session ? session.tokenPrice : 0;
   const platformFee   = session ? Math.round(session.tokenPrice * 0.10) : 0;
@@ -74,39 +71,49 @@ export default function BookScreen() {
     setBooked(true);
   }
 
-  async function completeBuyST(pkg: typeof ST_PACKAGES[0], method: "stripe" | "paypal") {
+  async function completeBuyST(tokens: number, eur: number, method: "stripe" | "paypal") {
     try {
       const paid = method === "stripe"
-        ? await buyTokensWithStripe(pkg.tokens, pkg.eur)
-        : await buyTokensWithPayPal(pkg.tokens, pkg.eur);
+        ? await buyTokensWithStripe(tokens, eur)
+        : await buyTokensWithPayPal(tokens, eur);
       if (!paid) return;
-      addCoins(pkg.tokens);
+      addCoins(tokens);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Spark Tokens added! 🔥", `${pkg.tokens} ST are now in your wallet.`);
+      Alert.alert("Spark Tokens added! 🔥", `${tokens} ST are now in your wallet.`);
+      setBuyAmount("");
       setShowBuyST(false);
     } catch (err: any) {
       Alert.alert("Payment failed", err.message ?? "Something went wrong. Try again.");
     }
   }
 
-  function handleBuyST(pkg: typeof ST_PACKAGES[0]) {
+  function handleBuyST(tokens: number, eur: number) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // React Native's Alert doesn't support custom multi-button choices on
     // web, so the "choose a payment method" dialog never actually shows
     // there — go straight to Stripe checkout on web instead of a picker.
     if (Platform.OS === "web") {
-      completeBuyST(pkg, "stripe");
+      completeBuyST(tokens, eur, "stripe");
       return;
     }
     Alert.alert(
-      `Buy ${pkg.tokens} ST · €${pkg.eur}`,
+      `Buy ${tokens} ST · €${eur.toFixed(2)}`,
       "Choose a payment method",
       [
-        { text: "Card (Stripe)", onPress: () => completeBuyST(pkg, "stripe") },
-        { text: "PayPal", onPress: () => completeBuyST(pkg, "paypal") },
+        { text: "Card (Stripe)", onPress: () => completeBuyST(tokens, eur, "stripe") },
+        { text: "PayPal", onPress: () => completeBuyST(tokens, eur, "paypal") },
         { text: "Cancel", style: "cancel" },
       ]
     );
+  }
+
+  const buyTokens = Math.floor(Number(buyAmount)) || 0;
+  const buyEur    = parseFloat((buyTokens * 0.1).toFixed(2));
+  const buyValid  = buyTokens >= MIN_BUY_TOKENS;
+
+  function handleBuyCustom() {
+    if (!buyValid) return;
+    handleBuyST(buyTokens, buyEur);
   }
 
   if (!coach || !session) {
@@ -378,36 +385,47 @@ export default function BookScreen() {
               {"\n"}Pay by card (Stripe) or PayPal — tokens added instantly.
             </Text>
 
-            {ST_PACKAGES.map((pkg) => (
-              <TouchableOpacity
-                key={pkg.tokens}
-                style={[
-                  styles.pkgRow,
-                  {
-                    backgroundColor: pkg.highlight ? "#FF336612" : colors.background,
-                    borderColor: pkg.highlight ? "#FF3366" : colors.border,
-                  },
-                ]}
-                onPress={() => handleBuyST(pkg)}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.pkgIcon}>{pkg.icon}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.pkgTokens, { color: colors.foreground }]}>
-                    {pkg.tokens.toLocaleString()} ST
-                    {pkg.highlight ? <Text style={styles.pkgPopular}>  ⭐ Popular</Text> : null}
-                  </Text>
-                  <Text style={[styles.pkgSub, { color: colors.mutedForeground }]}>{pkg.label}</Text>
-                </View>
-                <LinearGradient
-                  colors={["#FF3366", "#FF6B35"]}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={styles.pkgBtn}
+            <View style={[styles.customAmountRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <TextInput
+                style={[styles.customAmountInput, { color: colors.foreground }]}
+                value={buyAmount}
+                onChangeText={(t) => setBuyAmount(t.replace(/[^0-9]/g, ""))}
+                placeholder="e.g. 25"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="number-pad"
+                inputMode="numeric"
+              />
+              <Text style={styles.customAmountUnit}>ST</Text>
+            </View>
+            <Text style={[styles.customAmountEur, { color: colors.mutedForeground }]}>
+              = €{buyTokens > 0 ? buyEur.toFixed(2) : "0.00"}
+              {buyTokens > 0 && !buyValid ? "  ·  min 5 ST (€0.50)" : ""}
+            </Text>
+
+            <View style={styles.quickChipsRow}>
+              {[1, 2, 3, 4, 10, 20, 50, 100].map((n) => (
+                <TouchableOpacity
+                  key={n}
+                  style={[styles.quickChip, { borderColor: colors.border }]}
+                  onPress={() => setBuyAmount(String(n))}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.pkgBtnText}>€{pkg.eur}</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            ))}
+                  <Text style={[styles.quickChipText, { color: colors.foreground }]}>{n}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity onPress={handleBuyCustom} activeOpacity={0.85} disabled={!buyValid}>
+              <LinearGradient
+                colors={buyValid ? ["#FF3366", "#FF6B35"] : ["#ddd", "#ccc"]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={styles.customBuyBtn}
+              >
+                <Text style={styles.customBuyBtnText}>
+                  {buyTokens > 0 ? `Buy ${buyTokens} ST · €${buyEur.toFixed(2)}` : "Enter an amount"}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.closeBuyBtn, { borderColor: colors.border }]}
@@ -570,16 +588,18 @@ const styles = StyleSheet.create({
 
   /* Buy ST sheet */
   buySub: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 19 },
-  pkgRow: {
-    flexDirection: "row", alignItems: "center", gap: 14,
-    borderWidth: 1, borderRadius: 16, padding: 14,
+  customAmountRow: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 4, marginTop: 14,
   },
-  pkgIcon: { fontSize: 26 },
-  pkgTokens: { fontSize: 15, fontFamily: "Inter_700Bold" },
-  pkgPopular: { fontSize: 12, fontFamily: "Inter_500Medium", color: "#FF3366" },
-  pkgSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
-  pkgBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
-  pkgBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
+  customAmountInput: { flex: 1, fontSize: 22, fontFamily: "Inter_700Bold", paddingVertical: 12 },
+  customAmountUnit: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FF3366" },
+  customAmountEur: { fontSize: 13, fontFamily: "Inter_500Medium", marginTop: 8, marginBottom: 14 },
+  quickChipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 },
+  quickChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  quickChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  customBuyBtn: { borderRadius: 16, paddingVertical: 15, alignItems: "center", marginBottom: 10 },
+  customBuyBtnText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
   closeBuyBtn: { paddingVertical: 13, borderRadius: 22, borderWidth: 1.5, alignItems: "center" },
   closeBuyText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });
