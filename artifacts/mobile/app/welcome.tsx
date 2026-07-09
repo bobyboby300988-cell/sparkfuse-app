@@ -22,8 +22,8 @@ import { buildPayPalCheckoutUrl } from "@/config/payments";
 
 const { width: W } = Dimensions.get("window");
 
-const API_BASE = "https://match-maker-dumitru8830.replit.app/api";
-const APP_DOMAIN = "https://match-maker-dumitru8830.replit.app";
+const API_BASE = "https://match-maker-2025ap.replit.app/api";
+const APP_DOMAIN = "https://match-maker-2025ap.replit.app";
 
 const KEYWORDS = [
   { label: "Love",          icon: "❤️", color: "#FF3366" },

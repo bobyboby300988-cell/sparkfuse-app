@@ -18,9 +18,9 @@ import { buildPayPalCheckoutUrl } from "@/config/payments";
 
 const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
-  : "https://match-maker-dumitru8830.replit.app/api";
+  : "https://match-maker-2025ap.replit.app/api";
 
-const APP_DOMAIN = "https://match-maker-dumitru8830.replit.app";
+const APP_DOMAIN = "https://match-maker-2025ap.replit.app";
 
 const PERKS = [
   { icon: "heart", label: "Unlimited swipes & matches" },
