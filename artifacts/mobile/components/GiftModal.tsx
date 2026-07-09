@@ -65,6 +65,8 @@ const TIER_ICONS: Record<string, string> = {
 
 /* ─── ST packages ─── */
 const ST_PACKAGES = [
+  { tokens: 5,    eur: 0.5, icon: "🌹", label: "Micro",   hint: "5 Roses — try it for 50¢",           highlight: false },
+  { tokens: 10,   eur: 1,   icon: "💌", label: "Mini",    hint: "1 Love Letter or 2 Roses",            highlight: false },
   { tokens: 50,   eur: 5,  icon: "💌", label: "Starter", hint: "50 Roses or a Kiss 💋",              highlight: false },
   { tokens: 100,  eur: 10, icon: "💋", label: "Popular", hint: "1 Diamond or 2 Wines 🍷",             highlight: true  },
   { tokens: 500,  eur: 50, icon: "🔥", label: "Spicy",   hint: "1 Lipstick or 5 Hot Peppers 🌶️",     highlight: false },

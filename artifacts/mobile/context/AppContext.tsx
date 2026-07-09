@@ -1,5 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { Alert, Platform } from "react-native";
+import { checkPendingWebTokenCheckout } from "@/config/payments";
 
 export interface UserProfile {
   name: string;
@@ -125,6 +127,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
     load();
+  }, []);
+
+  // On web, Stripe Checkout redirects back with a real page reload (no
+  // custom URL scheme like on native), so any pending token purchase has
+  // to be recovered from the URL after the app remounts.
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    checkPendingWebTokenCheckout()
+      .then((result) => {
+        if (!result) return;
+        setCoinBalance((prev) => {
+          const updated = parseFloat((prev + result.tokens).toFixed(2));
+          AsyncStorage.setItem(KEYS.COINS, String(updated));
+          return updated;
+        });
+        Alert.alert("Spark Tokens added! 🔥", `${result.tokens} ST added to your wallet!`);
+      })
+      .catch(() => {
+        // ignore — nothing to recover or verification failed
+      });
   }, []);
 
   const setUserProfile = async (p: UserProfile) => {
