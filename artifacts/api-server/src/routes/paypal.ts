@@ -2,6 +2,7 @@ import { Router, type IRouter } from 'express';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const paypal = require('@paypal/checkout-server-sdk') as any;
 import { logger } from '../lib/logger';
+import { sendOwnerNotificationEmail } from '../lib/email';
 
 const router: IRouter = Router();
 
@@ -113,6 +114,19 @@ router.post('/paypal/withdraw', async (req, res) => {
       { grossAmount: amount, fee, netAmount, payoutEmail, referenceId },
       'PayPal creator withdrawal requested — pending manual payout by platform owner'
     );
+
+    sendOwnerNotificationEmail(
+      `New PayPal withdrawal request — €${netAmount.toFixed(2)}`,
+      `<h2>New creator withdrawal request</h2>
+       <p><strong>Pay this creator via PayPal:</strong> ${payoutEmail}</p>
+       <ul>
+         <li>Gross earnings: €${amount.toFixed(2)}</li>
+         <li>Platform fee (10%): €${fee.toFixed(2)}</li>
+         <li><strong>Amount to send: €${netAmount.toFixed(2)}</strong></li>
+       </ul>
+       <p>Reference: ${referenceId}</p>
+       <p>Please send this amount to the creator's PayPal email above within 24 hours.</p>`
+    ).catch((err) => logger.error({ err }, 'Owner notification email failed'));
 
     res.json({
       success: true,
