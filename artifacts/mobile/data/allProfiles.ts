@@ -32,8 +32,8 @@ const DATING: Profile[] = [
     photo: require("../assets/images/p1.png"), distance: 2, height: "5'6\"",
     lat: 48.8566, lng: 2.3522,
     lockedPhotos: [
-      { id: "1_lp1", photo: require("../assets/images/p4.png"), priceEur: 2 },
-      { id: "1_lp2", photo: require("../assets/images/p5.png"), priceEur: 3 },
+      { id: "1_lp1", photo: require("../assets/images/p4.png"), priceEur: 0.2 },
+      { id: "1_lp2", photo: require("../assets/images/p5.png"), priceEur: 0.2 },
     ],
   },
   {
@@ -82,9 +82,9 @@ const NAUGHTY: Profile[] = [
     photo: require("../assets/images/p3.png"), distance: 1, height: "5'6\"",
     lat: 48.8566, lng: 2.3522,
     lockedPhotos: [
-      { id: "n1_lp1", photo: require("../assets/images/p1.png"), priceEur: 5 },
-      { id: "n1_lp2", photo: require("../assets/images/p2.png"), priceEur: 5 },
-      { id: "n1_lp3", photo: require("../assets/images/p6.png"), priceEur: 5 },
+      { id: "n1_lp1", photo: require("../assets/images/p1.png"), priceEur: 0.2 },
+      { id: "n1_lp2", photo: require("../assets/images/p2.png"), priceEur: 0.2 },
+      { id: "n1_lp3", photo: require("../assets/images/p6.png"), priceEur: 0.2 },
     ],
   },
   {
@@ -115,8 +115,8 @@ const NAUGHTY: Profile[] = [
     photo: require("../assets/images/p5.png"), distance: 4, height: "5'7\"",
     lat: 41.3851, lng: 2.1734,
     lockedPhotos: [
-      { id: "n5_lp1", photo: require("../assets/images/p3.png"), priceEur: 4 },
-      { id: "n5_lp2", photo: require("../assets/images/p4.png"), priceEur: 4 },
+      { id: "n5_lp1", photo: require("../assets/images/p3.png"), priceEur: 0.2 },
+      { id: "n5_lp2", photo: require("../assets/images/p4.png"), priceEur: 0.2 },
     ],
   },
   {

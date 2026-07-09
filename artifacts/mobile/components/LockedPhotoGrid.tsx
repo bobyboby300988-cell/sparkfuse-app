@@ -97,7 +97,7 @@ function UnlockModal({
 
           <View style={[modalSt.priceRow, { backgroundColor: colors.background }]}>
             <Ionicons name="pricetag" size={16} color="#FF3366" />
-            <Text style={[modalSt.price, { color: colors.foreground }]}>€{photo.priceEur}.00</Text>
+            <Text style={[modalSt.price, { color: colors.foreground }]}>€{photo.priceEur.toFixed(2)}</Text>
           </View>
 
           <TouchableOpacity
@@ -171,7 +171,7 @@ export function LockedPhotoGrid({ profileName, lockedPhotos }: Props) {
               {!isUnlocked && (
                 <View style={styles.lockedOverlay}>
                   <Ionicons name="lock-closed" size={22} color="#fff" />
-                  <Text style={styles.lockPrice}>€{lp.priceEur}</Text>
+                  <Text style={styles.lockPrice}>€{lp.priceEur.toFixed(2)}</Text>
                   <Text style={styles.lockTap}>Tap to unlock</Text>
                 </View>
               )}
