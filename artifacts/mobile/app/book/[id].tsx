@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MOCK_COACHES } from "@/data/coaches";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
-import { buyTokensWithStripe } from "@/config/payments";
+import { buyTokensWithStripe, buyTokensWithPayPal } from "@/config/payments";
 
 const TIME_SLOTS = [
   "9:00 AM", "10:00 AM", "11:00 AM",
@@ -73,10 +73,11 @@ export default function BookScreen() {
     setBooked(true);
   }
 
-  async function handleBuyST(pkg: typeof ST_PACKAGES[0]) {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  async function completeBuyST(pkg: typeof ST_PACKAGES[0], method: "stripe" | "paypal") {
     try {
-      const paid = await buyTokensWithStripe(pkg.tokens, pkg.eur);
+      const paid = method === "stripe"
+        ? await buyTokensWithStripe(pkg.tokens, pkg.eur)
+        : await buyTokensWithPayPal(pkg.tokens, pkg.eur);
       if (!paid) return;
       addCoins(pkg.tokens);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -85,6 +86,19 @@ export default function BookScreen() {
     } catch (err: any) {
       Alert.alert("Payment failed", err.message ?? "Something went wrong. Try again.");
     }
+  }
+
+  function handleBuyST(pkg: typeof ST_PACKAGES[0]) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      `Buy ${pkg.tokens} ST · €${pkg.eur}`,
+      "Choose a payment method",
+      [
+        { text: "Card (Stripe)", onPress: () => completeBuyST(pkg, "stripe") },
+        { text: "PayPal", onPress: () => completeBuyST(pkg, "paypal") },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
   }
 
   if (!coach || !session) {
@@ -353,7 +367,7 @@ export default function BookScreen() {
             <Text style={[styles.modalTitle, { color: colors.foreground }]}>Buy Spark Tokens 🔥</Text>
             <Text style={[styles.buySub, { color: colors.mutedForeground }]}>
               You need {needMore > 0 ? `${needMore.toLocaleString()} more ST` : "ST"} to book this session.
-              {"\n"}Payment via PayPal — tokens added instantly.
+              {"\n"}Pay by card (Stripe) or PayPal — tokens added instantly.
             </Text>
 
             {ST_PACKAGES.map((pkg) => (

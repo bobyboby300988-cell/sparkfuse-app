@@ -55,3 +55,17 @@ export async function buyTokensWithStripe(tokens: number, priceEur: number): Pro
   const data = (await verifyRes.json()) as { paymentStatus: string };
   return data.paymentStatus === "paid";
 }
+
+// Buys Spark Tokens via the personal PayPal direct-payment link. PayPal
+// doesn't give us a server-verifiable session like Stripe Checkout does, so
+// this resolves `true` as soon as the user returns from the PayPal browser.
+export async function buyTokensWithPayPal(tokens: number, priceEur: number): Promise<boolean> {
+  const url = buildPayPalCheckoutUrl({
+    amountEur: priceEur,
+    itemName: `Spark ${tokens} Tokens`,
+  });
+  await WebBrowser.openBrowserAsync(url, {
+    presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+  });
+  return true;
+}

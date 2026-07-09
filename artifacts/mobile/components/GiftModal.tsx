@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { useApp } from "@/context/AppContext";
-import { buyTokensWithStripe } from "@/config/payments";
+import { buyTokensWithStripe, buyTokensWithPayPal } from "@/config/payments";
 
 /* ─── 30 gift tiers — sweet → romantic → flirty → spicy → erotic ─── */
 const GIFTS = [
@@ -398,10 +398,11 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
     ]).start();
   }
 
-  async function handleBuy(pkg: typeof ST_PACKAGES[0]) {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  async function completeBuy(pkg: typeof ST_PACKAGES[0], method: "stripe" | "paypal") {
     try {
-      const paid = await buyTokensWithStripe(pkg.tokens, pkg.eur);
+      const paid = method === "stripe"
+        ? await buyTokensWithStripe(pkg.tokens, pkg.eur)
+        : await buyTokensWithPayPal(pkg.tokens, pkg.eur);
       if (!paid) return;
       addCoins(pkg.tokens);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -410,6 +411,19 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
     } catch (err: any) {
       Alert.alert("Payment failed", err.message ?? "Something went wrong. Try again.");
     }
+  }
+
+  function handleBuy(pkg: typeof ST_PACKAGES[0]) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      `Buy ${pkg.tokens} ST · €${pkg.eur}`,
+      "Choose a payment method",
+      [
+        { text: "Card (Stripe)", onPress: () => completeBuy(pkg, "stripe") },
+        { text: "PayPal", onPress: () => completeBuy(pkg, "paypal") },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
   }
 
   function handleSend() {
@@ -534,7 +548,7 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
                       </LinearGradient>
                     </TouchableOpacity>
                   ))}
-                  <Text style={styles.buyNote}>Payment via PayPal · Tokens added instantly</Text>
+                  <Text style={styles.buyNote}>Pay by card (Stripe) or PayPal · Tokens added instantly</Text>
                 </>
               ) : (
                 /* ═ Send Gift — sectioned by tier ═ */
