@@ -71,9 +71,9 @@ export default function PaywallScreen() {
     setLoadingPayPal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      // Direct PayPal payment link — sends €1 to the app's personal PayPal
+      // Direct PayPal payment link — sends €2 to the app's personal PayPal
       const paypalUrl = buildPayPalCheckoutUrl({
-        amountEur: 1,
+        amountEur: 2,
         itemName: "SparkFuse Premium — 1 month",
       });
 
@@ -115,7 +115,7 @@ export default function PaywallScreen() {
 
         {/* Price badge */}
         <View style={styles.priceBadge}>
-          <Text style={styles.priceAmount}>€1</Text>
+          <Text style={styles.priceAmount}>€2</Text>
           <View>
             <Text style={styles.pricePer}>per month</Text>
             <Text style={styles.priceCancel}>Cancel anytime</Text>
@@ -179,7 +179,7 @@ export default function PaywallScreen() {
 
         {/* Fine print */}
         <Text style={styles.finePrint}>
-          €1 billed monthly. Cancel anytime.{"\n"}By subscribing you agree to our Terms of Service.
+          €2 billed monthly. Cancel anytime.{"\n"}By subscribing you agree to our Terms of Service.
         </Text>
       </ScrollView>
     </View>

@@ -59,7 +59,7 @@ router.post('/stripe/checkout-session', async (req, res) => {
   }
 });
 
-// Create a Stripe Subscription Checkout (€1/month)
+// Create a Stripe Subscription Checkout (€2/month)
 router.post('/stripe/subscription-checkout', async (req, res) => {
   try {
     const { successUrl, cancelUrl } = req.body as {
@@ -74,7 +74,7 @@ router.post('/stripe/subscription-checkout', async (req, res) => {
         {
           price_data: {
             currency: 'eur',
-            unit_amount: 100, // €1.00
+            unit_amount: 200, // €2.00
             product_data: {
               name: 'Spark Premium',
               description: 'Full access to Spark — matches, chat, video calls & coaching.',

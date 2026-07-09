@@ -142,7 +142,7 @@ export default function WelcomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoadingPayPal(true);
     const paypalUrl = buildPayPalCheckoutUrl({
-      amountEur: 1,
+      amountEur: 2,
       itemName: "SparkFuse Premium — 1 month",
     });
     try {
@@ -196,7 +196,7 @@ export default function WelcomeScreen() {
           {/* Price badge */}
           <View style={styles.priceBadge}>
             <View style={styles.priceLeft}>
-              <Text style={styles.priceAmount}>€1</Text>
+              <Text style={styles.priceAmount}>€2</Text>
               <View>
                 <Text style={styles.pricePer}>/ month</Text>
                 <Text style={styles.priceNote}>Cancel anytime</Text>
@@ -238,7 +238,7 @@ export default function WelcomeScreen() {
               ) : (
                 <>
                   <Ionicons name="card-outline" size={18} color="#fff" />
-                  <Text style={styles.stripeBtnText}>Pay €1 / month with Card</Text>
+                  <Text style={styles.stripeBtnText}>Pay €2 / month with Card</Text>
                 </>
               )}
             </LinearGradient>
@@ -264,13 +264,13 @@ export default function WelcomeScreen() {
               <Text style={styles.paypalBtnText}>
                 <Text style={{ color: "#003087" }}>Pay</Text>
                 <Text style={{ color: "#009CDE" }}>Pal</Text>
-                <Text style={{ color: "#003087", fontSize: 14, fontFamily: "Inter_500Medium" }}>  · €1 / month</Text>
+                <Text style={{ color: "#003087", fontSize: 14, fontFamily: "Inter_500Medium" }}>  · €2 / month</Text>
               </Text>
             )}
           </TouchableOpacity>
 
           <Text style={styles.finePrint}>
-            €1 billed monthly · All features included · No restrictions{"\n"}Cancel anytime · By joining you agree to our Terms
+            €2 billed monthly · All features included · No restrictions{"\n"}Cancel anytime · By joining you agree to our Terms
           </Text>
         </Animated.View>
 
