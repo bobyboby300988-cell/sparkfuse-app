@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -47,10 +48,14 @@ function ExploreLiveBadge() {
     ).start();
   }, []);
   return (
-    <View style={styles.liveBadgeWrap}>
+    <LinearGradient
+      colors={["#FF3366", "#FF6B35"]}
+      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+      style={styles.liveBadgeWrap}
+    >
       <Animated.View style={[styles.liveDot, { transform: [{ scale: pulse }] }]} />
       <Text style={styles.liveBadgeText}>LIVE</Text>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -212,23 +217,28 @@ export default function ExploreScreen() {
             </Text>
           </View>
           <TouchableOpacity
-            style={[
-              styles.liveOnlyBtn,
-              {
-                backgroundColor: liveOnly ? "#FF3366" : colors.card,
-                borderColor: liveOnly ? "#FF3366" : colors.border,
-              },
-            ]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setLiveOnly((v) => !v);
             }}
             activeOpacity={0.85}
+            style={styles.liveOnlyBtnOuter}
           >
-            <Ionicons name="radio" size={14} color={liveOnly ? "#fff" : "#FF3366"} />
-            <Text style={[styles.liveOnlyBtnText, { color: liveOnly ? "#fff" : colors.foreground }]}>
-              Live
-            </Text>
+            {liveOnly ? (
+              <LinearGradient
+                colors={["#FF3366", "#FF6B35"]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={styles.liveOnlyBtn}
+              >
+                <Ionicons name="radio" size={14} color="#fff" />
+                <Text style={[styles.liveOnlyBtnText, { color: "#fff" }]}>Live</Text>
+              </LinearGradient>
+            ) : (
+              <View style={[styles.liveOnlyBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: "#FF336640" }]}>
+                <Ionicons name="radio" size={14} color="#FF3366" />
+                <Text style={[styles.liveOnlyBtnText, { color: colors.foreground }]}>Live</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -256,15 +266,18 @@ export default function ExploreScreen() {
             activeOpacity={0.88}
           >
             <Image source={item.photo} style={styles.tileImg} contentFit="cover" />
+            <LinearGradient
+              colors={["transparent", (MODE_ACCENT[item.mode] ?? "#FF3366") + "CC"]}
+              style={styles.tileOverlay}
+            >
+              <Text style={styles.tileName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.tileAge}>{item.age}</Text>
+            </LinearGradient>
             {item.isLive && (
               <View style={styles.liveBadgeAnchor}>
                 <ExploreLiveBadge />
               </View>
             )}
-            <View style={styles.tileOverlay}>
-              <Text style={styles.tileName} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.tileAge}>{item.age}</Text>
-            </View>
           </TouchableOpacity>
         )}
       />
@@ -284,23 +297,22 @@ const styles = StyleSheet.create({
   headerTopRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   title: { fontSize: 32, fontWeight: "800", fontFamily: "Inter_700Bold", marginBottom: 2 },
   subtitle: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  liveOnlyBtnOuter: { marginTop: 4 },
   liveOnlyBtn: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    borderWidth: 1, borderRadius: 20,
+    borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 9,
-    marginTop: 4,
   },
   liveOnlyBtnText: { fontSize: 13, fontFamily: "Inter_700Bold" },
   row: { gap: 2, marginBottom: 2, paddingHorizontal: 2 },
   tile: {
-    width: TILE, height: TILE * 1.25, borderRadius: 4,
+    width: TILE, height: TILE * 1.25, borderRadius: 10, margin: 1,
     overflow: "hidden", position: "relative",
   },
   tileImg: { width: "100%", height: "100%" },
   tileOverlay: {
     position: "absolute", bottom: 0, left: 0, right: 0,
-    paddingHorizontal: 6, paddingBottom: 6, paddingTop: 18,
-    backgroundColor: "rgba(0,0,0,0.42)",
+    paddingHorizontal: 7, paddingBottom: 7, paddingTop: 26,
   },
   tileName: { color: "#fff", fontSize: 12, fontFamily: "Inter_600SemiBold" },
   tileAge: { color: "rgba(255,255,255,0.75)", fontSize: 11, fontFamily: "Inter_400Regular" },
