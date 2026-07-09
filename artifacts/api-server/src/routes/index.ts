@@ -4,6 +4,10 @@ import stripeRouter from "./stripe";
 import stripeConnectRouter from "./stripeConnect";
 import paypalRouter from "./paypal";
 import liveRouter from "./live";
+import authRouter from "./auth";
+import storageRouter from "./storage";
+import profileRouter from "./profile";
+import matchingRouter from "./matching";
 
 const router: IRouter = Router();
 
@@ -12,5 +16,9 @@ router.use(stripeRouter);
 router.use(stripeConnectRouter);
 router.use(paypalRouter);
 router.use(liveRouter);
+router.use(authRouter);
+router.use(storageRouter);
+router.use(profileRouter);
+router.use(matchingRouter);
 
 export default router;

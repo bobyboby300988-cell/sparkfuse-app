@@ -15,9 +15,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useGetMatches } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
-import { ALL_PROFILES } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
+import { getPhotoUrl } from "@/lib/api";
 
 const { width: W } = Dimensions.get("window");
 const SWIPE_THRESHOLD = 60;
@@ -136,18 +137,26 @@ export default function MatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { matches, removeMatch } = useApp();
+  const { data } = useGetMatches();
 
   const matchData = useMemo(() => {
+    const serverMatches = data?.matches ?? [];
     return matches
       .map((m) => {
-        const profile = ALL_PROFILES.find((p) => p.id === m.profileId);
-        if (!profile) return null;
+        const serverProfile = serverMatches.find((p) => p.userId === m.profileId);
+        if (!serverProfile) return null;
+        const photoUrl = getPhotoUrl(serverProfile.photoUrl);
+        const profile = {
+          id: serverProfile.userId,
+          name: serverProfile.name,
+          photo: photoUrl ? { uri: photoUrl } : require("../../assets/images/p1.png"),
+        };
         const lastMsg = m.messages[m.messages.length - 1];
         return { match: m, profile, lastMsg };
       })
       .filter(Boolean)
       .sort((a, b) => b!.match.matchedAt - a!.match.matchedAt);
-  }, [matches]);
+  }, [matches, data]);
 
   const listItems = useMemo<ListItem[]>(() => {
     const result: ListItem[] = [];

@@ -5,20 +5,31 @@ import {
   Animated,
   Dimensions,
   Image,
+  ImageSourcePropType,
   PanResponder,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { Profile } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
+
+export interface SwipeProfile {
+  id: string;
+  name: string;
+  age: number;
+  bio: string;
+  location: string;
+  interests: string[];
+  photo: any;
+  height?: string;
+}
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.28;
 const CARD_HEIGHT = SCREEN_HEIGHT * 0.62;
 
 interface SwipeCardProps {
-  profile: Profile;
+  profile: SwipeProfile;
   isTop: boolean;
   cardIndex: number;
   onSwipeLeft: () => void;
@@ -127,7 +138,7 @@ export function SwipeCard({
       style={cardStyle}
       {...(isTop ? panResponder.panHandlers : {})}
     >
-      <Image source={profile.photo} style={styles.image} resizeMode="cover" />
+      <Image source={profile.photo as ImageSourcePropType} style={styles.image} resizeMode="cover" />
 
       <LinearGradient
         colors={["transparent", "rgba(0,0,0,0.92)"]}
@@ -170,7 +181,7 @@ export function SwipeCard({
           <Text style={styles.locationText}>
             {distanceLabel ?? `${profile.location}`}
           </Text>
-          <Text style={styles.heightText}>{profile.height}</Text>
+          {!!profile.height && <Text style={styles.heightText}>{profile.height}</Text>}
         </View>
 
         <Text style={styles.bio} numberOfLines={2}>

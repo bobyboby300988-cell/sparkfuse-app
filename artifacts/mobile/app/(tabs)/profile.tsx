@@ -15,18 +15,25 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useGetMyProfile, useUpsertMyProfile } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import WithdrawModal from "@/components/WithdrawModal";
 import { useColors } from "@/hooks/useColors";
+import { getPhotoUrl } from "@/lib/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image } from "expo-image";
 
 const PRICE_OPTIONS = [1, 2, 3, 5, 10];
 
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { userProfile, setUserProfile, matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, isLive, setIsLive } = useApp();
+  const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, isLive, setIsLive } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
+
+  const { data: profileData } = useGetMyProfile();
+  const userProfile = profileData?.profile ?? null;
+  const upsertProfile = useUpsertMyProfile();
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(userProfile?.name ?? "");
@@ -41,7 +48,15 @@ export default function ProfileScreen() {
 
   const handleSave = async () => {
     if (!userProfile) return;
-    await setUserProfile({ ...userProfile, name: editName.trim(), bio: editBio.trim() });
+    await upsertProfile.mutateAsync({
+      data: {
+        name: editName.trim(),
+        age: userProfile.age,
+        bio: editBio.trim(),
+        seeking: userProfile.seeking,
+        photoUrl: userProfile.photoUrl,
+      },
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setEditing(false);
   };
@@ -78,14 +93,22 @@ export default function ProfileScreen() {
     >
       {/* Photo / Avatar area */}
       <View style={[styles.photoSection, { paddingTop: topPadding + 24 }]}>
-        <LinearGradient
-          colors={[colors.primary, colors.accent]}
-          style={styles.avatarCircle}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <Text style={styles.initialText}>{initial}</Text>
-        </LinearGradient>
+        {getPhotoUrl(userProfile?.photoUrl) ? (
+          <Image
+            source={{ uri: getPhotoUrl(userProfile?.photoUrl) as string }}
+            style={styles.avatarCircle}
+            contentFit="cover"
+          />
+        ) : (
+          <LinearGradient
+            colors={[colors.primary, colors.accent]}
+            style={styles.avatarCircle}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.initialText}>{initial}</Text>
+          </LinearGradient>
+        )}
 
         <TouchableOpacity
           style={[styles.editPhotoBtn, { backgroundColor: colors.card, borderColor: colors.border }]}

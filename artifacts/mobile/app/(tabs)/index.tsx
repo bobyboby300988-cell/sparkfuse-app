@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   Platform,
   StyleSheet,
@@ -11,78 +12,84 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useCreateSwipe, useGetFeed } from "@workspace/api-client-react";
 import { MatchModal } from "@/components/MatchModal";
-import { ModeSelector } from "@/components/ModeSelector";
-import { SwipeCard } from "@/components/SwipeCard";
+import { SwipeCard, type SwipeProfile } from "@/components/SwipeCard";
 import { useApp } from "@/context/AppContext";
-import { getProfilesByMode } from "@/data/allProfiles";
-import type { Profile } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
 import { useLocation } from "@/hooks/useLocation";
-import { haversineKm, formatDistance } from "@/lib/distance";
+import { getPhotoUrl } from "@/lib/api";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-const MODE_LABELS: Record<string, string> = {
-  dating: "Find your person",
-  naughty: "Tonight's vibe",
-  business: "Grow your network",
-};
 
 export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { seenProfiles, markSeen, addMatch, appMode, setAppMode } = useApp();
-  const [matchedProfile, setMatchedProfile] = useState<Profile | null>(null);
+  const { addMatch } = useApp();
+  const [matchedProfile, setMatchedProfile] = useState<SwipeProfile | null>(null);
   const [matchModalVisible, setMatchModalVisible] = useState(false);
-  const { location } = useLocation();
+  const [dismissed, setDismissed] = useState<string[]>([]);
+  useLocation();
 
-  const profilesWithDistance = useMemo(() => {
-    return getProfilesByMode(appMode)
-      .map((p) => ({
-        ...p,
-        realKm: location
-          ? haversineKm(location.latitude, location.longitude, p.lat, p.lng)
-          : null,
-      }))
-      .sort((a, b) => {
-        if (a.realKm === null) return 1;
-        if (b.realKm === null) return -1;
-        return a.realKm - b.realKm;
-      });
-  }, [location, appMode]);
+  const { data, isLoading, refetch } = useGetFeed();
+  const createSwipe = useCreateSwipe();
 
-  const remaining = useMemo(
-    () => profilesWithDistance.filter((p) => !seenProfiles.includes(p.id)),
-    [seenProfiles, profilesWithDistance]
+  const profiles: SwipeProfile[] = useMemo(() => {
+    const list = data?.profiles ?? [];
+    return list.map((p) => ({
+      id: p.userId,
+      name: p.name,
+      age: p.age,
+      bio: p.bio,
+      location: "",
+      interests: [],
+      photo: getPhotoUrl(p.photoUrl)
+        ? { uri: getPhotoUrl(p.photoUrl) as string }
+        : require("../../assets/images/p1.png"),
+    }));
+  }, [data]);
+
+  const visible = useMemo(
+    () => profiles.filter((p) => !dismissed.includes(p.id)).slice(0, 2),
+    [profiles, dismissed]
   );
 
-  const visible = remaining.slice(0, 2);
+  const swipe = async (targetUserId: string, direction: "like" | "pass" | "superlike") => {
+    setDismissed((prev) => [...prev, targetUserId]);
+    try {
+      const res = await createSwipe.mutateAsync({
+        data: { targetUserId, direction },
+      });
+      if (res?.matched) {
+        const profile = profiles.find((p) => p.id === targetUserId) ?? null;
+        addMatch(targetUserId);
+        setMatchedProfile(profile);
+        setMatchModalVisible(true);
+      }
+    } catch {
+      // ignore swipe errors, profile stays dismissed locally
+    }
+    if (visible.length <= 2) {
+      refetch();
+    }
+  };
 
   const handleSwipeRight = () => {
     if (visible.length === 0) return;
-    const profile = visible[0];
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    markSeen(profile.id);
-    addMatch(profile.id);
-    setMatchedProfile(profile);
-    setMatchModalVisible(true);
+    swipe(visible[0].id, "like");
   };
 
   const handleSwipeLeft = () => {
     if (visible.length === 0) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    markSeen(visible[0].id);
+    swipe(visible[0].id, "pass");
   };
 
   const handleSuperLike = () => {
     if (visible.length === 0) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    const profile = visible[0];
-    markSeen(profile.id);
-    addMatch(profile.id);
-    setMatchedProfile(profile);
-    setMatchModalVisible(true);
+    swipe(visible[0].id, "superlike");
   };
 
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
@@ -97,7 +104,7 @@ export default function DiscoverScreen() {
           <View>
             <Text style={[styles.logoText, { color: colors.foreground }]}>SparkFuse</Text>
             <Text style={[styles.modeHint, { color: colors.mutedForeground }]}>
-              {MODE_LABELS[appMode]}
+              Find your person
             </Text>
           </View>
         </View>
@@ -109,12 +116,11 @@ export default function DiscoverScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Mode switcher */}
-      <ModeSelector value={appMode} onChange={setAppMode} />
-
       {/* Card Stack */}
       <View style={styles.cardArea}>
-        {visible.length === 0 ? (
+        {isLoading ? (
+          <ActivityIndicator size="large" color={colors.primary} />
+        ) : visible.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="heart-dislike-outline" size={56} color={colors.mutedForeground} />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
@@ -135,11 +141,6 @@ export default function DiscoverScreen() {
                 onSwipeLeft={handleSwipeLeft}
                 onSwipeRight={handleSwipeRight}
                 onSwipeSuperLike={handleSuperLike}
-                distanceLabel={
-                  profile.realKm !== null
-                    ? formatDistance(profile.realKm)
-                    : profile.location
-                }
               />
             ))
             .reverse()

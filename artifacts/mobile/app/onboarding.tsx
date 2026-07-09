@@ -2,8 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import { Image } from "expo-image";
 import React, { useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   KeyboardAvoidingView,
@@ -16,15 +20,16 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useApp } from "@/context/AppContext";
+import { useRequestUploadUrl, useUpsertMyProfile } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const STEPS = [
-  { id: 0, label: "What's your name?" },
-  { id: 1, label: "How old are you?" },
-  { id: 2, label: "Tell us about yourself" },
+  { id: 0, label: "Add a photo" },
+  { id: 1, label: "What's your name?" },
+  { id: 2, label: "How old are you?" },
+  { id: 3, label: "Tell us about yourself" },
 ];
 
 type Seeking = "men" | "women" | "everyone";
@@ -32,22 +37,28 @@ type Seeking = "men" | "women" | "everyone";
 export default function OnboardingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setUserProfile } = useApp();
 
   const [step, setStep] = useState(0);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [bio, setBio] = useState("");
   const [seeking, setSeeking] = useState<Seeking>("everyone");
+  const [submitting, setSubmitting] = useState(false);
+
+  const requestUploadUrl = useRequestUploadUrl();
+  const upsertMyProfile = useUpsertMyProfile();
 
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   const canAdvance =
     step === 0
-      ? name.trim().length >= 2
+      ? !!photoUri
       : step === 1
-        ? age.trim().length > 0 && Number(age) >= 18 && Number(age) <= 99
-        : bio.trim().length >= 10;
+        ? name.trim().length >= 2
+        : step === 2
+          ? age.trim().length > 0 && Number(age) >= 18 && Number(age) <= 99
+          : bio.trim().length >= 10;
 
   const animateForward = (onComplete: () => void) => {
     Animated.sequence([
@@ -64,6 +75,41 @@ export default function OnboardingScreen() {
     ]).start(onComplete);
   };
 
+  const handlePickPhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow photo library access to add a profile photo.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const uploadPhoto = async (): Promise<string> => {
+    const response = await fetch(photoUri!);
+    const blob = await response.blob();
+    const contentType = blob.type || "image/jpeg";
+    const data = await requestUploadUrl.mutateAsync({
+      data: { fileName: "profile-photo.jpg", contentType },
+    });
+    const putRes = await fetch(data.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: blob,
+    });
+    if (!putRes.ok) {
+      throw new Error("Failed to upload photo");
+    }
+    return data.objectPath;
+  };
+
   const handleNext = () => {
     if (!canAdvance) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -76,13 +122,24 @@ export default function OnboardingScreen() {
   };
 
   const handleDone = async () => {
-    await setUserProfile({
-      name: name.trim(),
-      age: Number(age),
-      bio: bio.trim(),
-      seeking,
-    });
-    router.replace("/");
+    setSubmitting(true);
+    try {
+      const objectPath = await uploadPhoto();
+      await upsertMyProfile.mutateAsync({
+        data: {
+          name: name.trim(),
+          age: Number(age),
+          bio: bio.trim(),
+          seeking,
+          photoUrl: objectPath,
+        },
+      });
+      router.replace("/");
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Failed to save your profile. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const seekingOptions: { label: string; value: Seeking }[] = [
@@ -144,6 +201,33 @@ export default function OnboardingScreen() {
             </Text>
 
             {step === 0 && (
+              <View style={styles.photoStep}>
+                <TouchableOpacity
+                  style={[
+                    styles.photoPicker,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: photoUri ? colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={handlePickPhoto}
+                  activeOpacity={0.85}
+                >
+                  {photoUri ? (
+                    <Image source={{ uri: photoUri }} style={styles.photoPreview} contentFit="cover" />
+                  ) : (
+                    <View style={styles.photoPlaceholder}>
+                      <Ionicons name="camera-outline" size={36} color={colors.mutedForeground} />
+                      <Text style={[styles.photoPlaceholderText, { color: colors.mutedForeground }]}>
+                        Tap to add a photo
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {step === 1 && (
               <TextInput
                 style={[
                   styles.input,
@@ -164,7 +248,7 @@ export default function OnboardingScreen() {
               />
             )}
 
-            {step === 1 && (
+            {step === 2 && (
               <>
                 <TextInput
                   style={[
@@ -193,7 +277,7 @@ export default function OnboardingScreen() {
               </>
             )}
 
-            {step === 2 && (
+            {step === 3 && (
               <>
                 <TextInput
                   style={[
@@ -269,26 +353,32 @@ export default function OnboardingScreen() {
             style={[
               styles.nextBtn,
               {
-                backgroundColor: canAdvance ? colors.primary : colors.muted,
+                backgroundColor: canAdvance && !submitting ? colors.primary : colors.muted,
               },
             ]}
             onPress={handleNext}
-            disabled={!canAdvance}
+            disabled={!canAdvance || submitting}
             activeOpacity={0.85}
           >
-            <Text
-              style={[
-                styles.nextBtnText,
-                { color: canAdvance ? "#FFFFFF" : colors.mutedForeground },
-              ]}
-            >
-              {step === STEPS.length - 1 ? "Get Started" : "Continue"}
-            </Text>
-            <Ionicons
-              name={step === STEPS.length - 1 ? "heart" : "arrow-forward"}
-              size={18}
-              color={canAdvance ? "#FFFFFF" : colors.mutedForeground}
-            />
+            {submitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Text
+                  style={[
+                    styles.nextBtnText,
+                    { color: canAdvance ? "#FFFFFF" : colors.mutedForeground },
+                  ]}
+                >
+                  {step === STEPS.length - 1 ? "Get Started" : "Continue"}
+                </Text>
+                <Ionicons
+                  name={step === STEPS.length - 1 ? "heart" : "arrow-forward"}
+                  size={18}
+                  color={canAdvance ? "#FFFFFF" : colors.mutedForeground}
+                />
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -330,6 +420,33 @@ const styles = StyleSheet.create({
   dot: {
     height: 8,
     borderRadius: 4,
+  },
+  photoStep: {
+    alignItems: "center",
+    marginTop: 12,
+  },
+  photoPicker: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 1.5,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoPreview: {
+    width: "100%",
+    height: "100%",
+  },
+  photoPlaceholder: {
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  photoPlaceholderText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
   },
   body: {
     paddingHorizontal: 24,

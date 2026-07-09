@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: Auth
+    description: Browser and mobile authentication endpoints.
+  - name: Profiles
+    description: Dating profile management.
+  - name: Matching
+    description: Feed, swiping, and matches.
 paths:
   /healthz:
     get:
@@ -24,7 +30,257 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/user:
+    get:
+      tags: [Auth]
+      operationId: getCurrentAuthUser
+      summary: Get the currently authenticated user
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Auth status resolved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+  /login:
+    get:
+      tags: [Auth]
+      operationId: beginBrowserLogin
+      summary: Start the browser OIDC login flow
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          description: Relative path to redirect to after login (must start with `/`). Defaults to `/`.
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to the OIDC authorization endpoint.
+  /callback:
+    get:
+      tags: [Auth]
+      operationId: handleBrowserLoginCallback
+      summary: Complete the browser OIDC login flow
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: iss
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+      responses:
+        '302':
+          description: Redirect to the `returnTo` path on success (defaults to `/`) or `/api/login` on failure.
+  /logout:
+    get:
+      tags: [Auth]
+      operationId: logoutBrowserSession
+      summary: Clear the session and begin OIDC logout
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '302':
+          description: Redirect to the OIDC provider logout URL.
+  /mobile-auth/token-exchange:
+    post:
+      tags: [Auth]
+      operationId: exchangeMobileAuthorizationCode
+      summary: Exchange a mobile OIDC code for a session token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileTokenExchangeRequest'
+      responses:
+        '200':
+          description: Session created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileTokenExchangeSuccess'
+        '400':
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Token did not contain usable claims.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Token exchange failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /mobile-auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logoutMobileSession
+      summary: Delete a mobile session token
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+      responses:
+        '200':
+          description: Logout processed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutSuccess'
+  /storage/uploads/request-url:
+    post:
+      tags: [Profiles]
+      operationId: requestUploadUrl
+      summary: Request a presigned upload URL for a photo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequestBody'
+      responses:
+        '200':
+          description: Presigned URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlRequestResponse'
+  /profile:
+    get:
+      tags: [Profiles]
+      operationId: getMyProfile
+      summary: Get the authenticated user's own profile
+      responses:
+        '200':
+          description: Profile found or null if not yet created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    put:
+      tags: [Profiles]
+      operationId: upsertMyProfile
+      summary: Create or update the authenticated user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertProfileBody'
+      responses:
+        '200':
+          description: Profile saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /feed:
+    get:
+      tags: [Matching]
+      operationId: getFeed
+      summary: Get real profiles to swipe on, excluding self and already-swiped
+      responses:
+        '200':
+          description: Feed of candidate profiles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedResponse'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /swipe:
+    post:
+      tags: [Matching]
+      operationId: createSwipe
+      summary: Record a swipe on another user; creates a match if mutual
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwipeInput'
+      responses:
+        '200':
+          description: Swipe recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SwipeResult'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /matches:
+    get:
+      tags: [Matching]
+      operationId: getMatches
+      summary: Get the authenticated user's matches
+      responses:
+        '200':
+          description: List of matches.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchesResponse'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
+  parameters:
+    AuthorizationSessionHeader:
+      name: Authorization
+      in: header
+      required: false
+      description: Opaque session token — `Bearer <sid>`.
+      schema:
+        type: string
+    SessionCookie:
+      name: sid
+      in: cookie
+      required: false
+      description: Browser session cookie.
+      schema:
+        type: string
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +289,164 @@ components:
           type: string
       required:
         - status
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl]
+      properties:
+        id:
+          type: string
+        email:
+          type: [string, 'null']
+          format: email
+        firstName:
+          type: [string, 'null']
+        lastName:
+          type: [string, 'null']
+        profileImageUrl:
+          type: [string, 'null']
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: '#/components/schemas/AuthUser'
+            - type: 'null'
+    MobileTokenExchangeRequest:
+      type: object
+      required: [code, code_verifier, redirect_uri, state]
+      properties:
+        code:
+          type: string
+          minLength: 1
+        code_verifier:
+          type: string
+          minLength: 1
+        redirect_uri:
+          type: string
+          minLength: 1
+          format: uri
+        state:
+          type: string
+          minLength: 1
+        nonce:
+          type: string
+          minLength: 1
+    MobileTokenExchangeSuccess:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+    LogoutSuccess:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          const: true
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    UploadUrlRequestBody:
+      type: object
+      required: [fileName, contentType]
+      properties:
+        fileName:
+          type: string
+          minLength: 1
+        contentType:
+          type: string
+          minLength: 1
+    UploadUrlRequestResponse:
+      type: object
+      required: [uploadUrl, objectPath]
+      properties:
+        uploadUrl:
+          type: string
+        objectPath:
+          type: string
+    Profile:
+      type: object
+      required: [userId, name, age, bio, seeking, photoUrl, createdAt, updatedAt]
+      properties:
+        userId:
+          type: string
+        name:
+          type: string
+        age:
+          type: integer
+        bio:
+          type: string
+        seeking:
+          type: string
+        photoUrl:
+          type: [string, 'null']
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+    ProfileEnvelope:
+      type: object
+      required: [profile]
+      properties:
+        profile:
+          oneOf:
+            - $ref: '#/components/schemas/Profile'
+            - type: 'null'
+    UpsertProfileBody:
+      type: object
+      required: [name, age, bio, seeking, photoUrl]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        age:
+          type: integer
+          minimum: 18
+        bio:
+          type: string
+        seeking:
+          type: string
+        photoUrl:
+          type: [string, 'null']
+    FeedResponse:
+      type: object
+      required: [profiles]
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Profile'
+    SwipeInput:
+      type: object
+      required: [targetUserId, direction]
+      properties:
+        targetUserId:
+          type: string
+          minLength: 1
+        direction:
+          type: string
+          enum: [like, pass, superlike]
+    SwipeResult:
+      type: object
+      required: [matched]
+      properties:
+        matched:
+          type: boolean
+        match:
+          oneOf:
+            - $ref: '#/components/schemas/Profile'
+            - type: 'null'
+    MatchesResponse:
+      type: object
+      required: [matches]
+      properties:
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/Profile'
 

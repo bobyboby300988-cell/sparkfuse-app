@@ -3,13 +3,6 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { Alert, Platform } from "react-native";
 import { checkPendingWebTokenCheckout } from "@/config/payments";
 
-export interface UserProfile {
-  name: string;
-  age: number;
-  bio: string;
-  seeking: "men" | "women" | "everyone";
-}
-
 export interface Message {
   id: string;
   text: string;
@@ -29,20 +22,16 @@ export interface Match {
 export type AppMode = "dating" | "naughty" | "business" | "party" | "travel" | "social";
 
 interface AppContextType {
-  userProfile: UserProfile | null;
   isLoaded: boolean;
   isSubscribed: boolean;
   appMode: AppMode;
   setAppMode: (mode: AppMode) => void;
-  setUserProfile: (p: UserProfile) => Promise<void>;
   setSubscribed: () => Promise<void>;
   matches: Match[];
   addMatch: (profileId: string) => void;
   sendMessage: (profileId: string, text: string) => void;
   sendMedia: (profileId: string, uri: string, type: "image" | "video") => void;
   sendVoice: (profileId: string, uri: string, duration: number) => void;
-  seenProfiles: string[];
-  markSeen: (id: string) => void;
   removeMatch: (profileId: string) => void;
   unlockedPhotos: string[];
   unlockPhoto: (photoId: string) => void;
@@ -65,9 +54,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 const KEYS = {
-  USER_PROFILE: "@spark/profile",
   MATCHES: "@spark/matches",
-  SEEN: "@spark/seen",
   SUBSCRIBED: "@spark/subscribed",
   UNLOCKED_PHOTOS: "@spark/unlocked_photos",
   CREATOR_MODE: "@spark/creator_mode",
@@ -79,9 +66,7 @@ const KEYS = {
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [userProfile, setUserProfileState] = useState<UserProfile | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [seenProfiles, setSeenProfiles] = useState<string[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSubscribed, setIsSubscribedState] = useState(false);
   const [appMode, setAppModeState] = useState<AppMode>("dating");
@@ -96,10 +81,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function load() {
       try {
-        const [profileRaw, matchesRaw, seenRaw, subscribedRaw, unlockedRaw, creatorModeRaw, creatorPriceRaw, earningsRaw, coinsRaw, isLiveRaw, stripeConnectAccountIdRaw] = await Promise.all([
-          AsyncStorage.getItem(KEYS.USER_PROFILE),
+        const [matchesRaw, subscribedRaw, unlockedRaw, creatorModeRaw, creatorPriceRaw, earningsRaw, coinsRaw, isLiveRaw, stripeConnectAccountIdRaw] = await Promise.all([
           AsyncStorage.getItem(KEYS.MATCHES),
-          AsyncStorage.getItem(KEYS.SEEN),
           AsyncStorage.getItem(KEYS.SUBSCRIBED),
           AsyncStorage.getItem(KEYS.UNLOCKED_PHOTOS),
           AsyncStorage.getItem(KEYS.CREATOR_MODE),
@@ -109,9 +92,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.IS_LIVE),
           AsyncStorage.getItem(KEYS.STRIPE_CONNECT_ACCOUNT_ID),
         ]);
-        if (profileRaw) setUserProfileState(JSON.parse(profileRaw));
         if (matchesRaw) setMatches(JSON.parse(matchesRaw));
-        if (seenRaw) setSeenProfiles(JSON.parse(seenRaw));
         if (subscribedRaw === "true") setIsSubscribedState(true);
         if (unlockedRaw) setUnlockedPhotos(JSON.parse(unlockedRaw));
         if (creatorModeRaw === "true") setCreatorModeState(true);
@@ -148,11 +129,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // ignore — nothing to recover or verification failed
       });
   }, []);
-
-  const setUserProfile = async (p: UserProfile) => {
-    setUserProfileState(p);
-    await AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(p));
-  };
 
   const setSubscribed = async () => {
     setIsSubscribedState(true);
@@ -220,15 +196,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { ...m, messages: [...m.messages, newMsg] };
       });
       AsyncStorage.setItem(KEYS.MATCHES, JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  const markSeen = (id: string) => {
-    setSeenProfiles((prev) => {
-      if (prev.includes(id)) return prev;
-      const updated = [...prev, id];
-      AsyncStorage.setItem(KEYS.SEEN, JSON.stringify(updated));
       return updated;
     });
   };
@@ -302,20 +269,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider
       value={{
-        userProfile,
         isLoaded,
         isSubscribed,
         appMode,
         setAppMode: setAppModeState,
-        setUserProfile,
         setSubscribed,
         matches,
         addMatch,
         sendMessage,
         sendMedia,
         sendVoice,
-        seenProfiles,
-        markSeen,
         removeMatch,
         unlockedPhotos,
         unlockPhoto,

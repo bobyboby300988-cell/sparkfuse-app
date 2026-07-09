@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import WebView from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useGetMyProfile } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import { createMeetingToken, getOrCreateRoom } from "@/lib/daily";
 import { endLiveSession, heartbeatLiveSession, startLiveSession } from "@/lib/liveApi";
@@ -29,7 +30,9 @@ function formatDuration(seconds: number) {
 
 export default function GoLiveScreen() {
   const insets = useSafeAreaInsets();
-  const { userProfile, setIsLive } = useApp();
+  const { setIsLive } = useApp();
+  const { data: profileData } = useGetMyProfile();
+  const userProfile = profileData?.profile ?? null;
 
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("Dating");
   const [phase, setPhase] = useState<Phase>("connecting");

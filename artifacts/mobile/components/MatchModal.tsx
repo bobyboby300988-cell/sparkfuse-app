@@ -5,20 +5,21 @@ import {
   Animated,
   Dimensions,
   Image,
+  ImageSourcePropType,
   Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { Profile } from "@/data/allProfiles";
+import type { SwipeProfile } from "@/components/SwipeCard";
 import { useColors } from "@/hooks/useColors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface MatchModalProps {
   visible: boolean;
-  profile: Profile | null;
+  profile: SwipeProfile | null;
   onMessage: () => void;
   onKeepSwiping: () => void;
 }
@@ -90,7 +91,7 @@ export function MatchModal({
 
           <View style={styles.photos}>
             <View style={[styles.photoWrapper, styles.photoLeft]}>
-              <Image source={profile.photo} style={styles.photo} resizeMode="cover" />
+              <Image source={profile.photo as ImageSourcePropType} style={styles.photo} resizeMode="cover" />
             </View>
             <View style={[styles.photoWrapper, styles.photoRight]}>
               <View style={[styles.photoPlaceholder, { backgroundColor: colors.primary }]}>

@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/lib/auth";
 import { buildPayPalCheckoutUrl } from "@/config/payments";
 
 const { width: W } = Dimensions.get("window");
@@ -67,6 +68,7 @@ function Pill({ label, icon, color, delay }: { label: string; icon: string; colo
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const { setSubscribed } = useApp();
+  const { isAuthenticated, isLoading: authLoading, login } = useAuth();
   const [loadingStripe, setLoadingStripe] = useState(false);
   const [loadingPayPal, setLoadingPayPal] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
@@ -114,6 +116,11 @@ export default function WelcomeScreen() {
   }, []);
 
   const handleStripe = async () => {
+    if (!isAuthenticated) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await login();
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoadingStripe(true);
     try {
@@ -139,6 +146,11 @@ export default function WelcomeScreen() {
   };
 
   const handlePayPal = async () => {
+    if (!isAuthenticated) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await login();
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoadingPayPal(true);
     const paypalUrl = buildPayPalCheckoutUrl({
@@ -274,16 +286,23 @@ export default function WelcomeScreen() {
           </Text>
         </Animated.View>
 
-        {/* Skip link */}
+        {/* Login / Skip link */}
         <TouchableOpacity
           style={styles.skipBtn}
-          onPress={() => {
+          onPress={async () => {
             Haptics.selectionAsync();
+            if (!isAuthenticated) {
+              await login();
+              return;
+            }
             router.push("/onboarding");
           }}
           activeOpacity={0.7}
+          disabled={authLoading}
         >
-          <Text style={styles.skipText}>Browse first →</Text>
+          <Text style={styles.skipText}>
+            {isAuthenticated ? "Browse first →" : "Log in to continue →"}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
