@@ -68,7 +68,7 @@ const ST_PACKAGES = [
   { tokens: 50,   eur: 5,  icon: "💌", label: "Starter", hint: "50 Roses or a Kiss 💋",              highlight: false },
   { tokens: 100,  eur: 10, icon: "💋", label: "Popular", hint: "1 Diamond or 2 Wines 🍷",             highlight: true  },
   { tokens: 500,  eur: 50, icon: "🔥", label: "Spicy",   hint: "1 Lipstick or 5 Hot Peppers 🌶️",     highlight: false },
-  { tokens: 2000, eur: 20, icon: "😈", label: "Erotic",  hint: "1 Supernova or 2 Galaxies 🌌",        highlight: false },
+  { tokens: 2000, eur: 200, icon: "😈", label: "Erotic",  hint: "1 Supernova or 2 Galaxies 🌌",        highlight: false },
 ];
 
 const FEE = 0.10;

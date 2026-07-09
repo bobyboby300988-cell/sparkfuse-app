@@ -25,10 +25,10 @@ const TIME_SLOTS = [
 ];
 
 const ST_PACKAGES = [
-  { tokens: 500,  eur: 5,  icon: "💰", label: "Starter"  },
-  { tokens: 1000, eur: 10, icon: "⭐", label: "Popular", highlight: true },
-  { tokens: 2000, eur: 20, icon: "🔥", label: "Value"    },
-  { tokens: 5000, eur: 50, icon: "💎", label: "Premium"  },
+  { tokens: 500,  eur: 50,  icon: "💰", label: "Starter"  },
+  { tokens: 1000, eur: 100, icon: "⭐", label: "Popular", highlight: true },
+  { tokens: 2000, eur: 200, icon: "🔥", label: "Value"    },
+  { tokens: 5000, eur: 500, icon: "💎", label: "Premium"  },
 ];
 
 function getDaysFromToday(count: number) {
