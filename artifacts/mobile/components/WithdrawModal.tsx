@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -28,6 +29,8 @@ export default function WithdrawModal({ visible, onClose }: Props) {
   const colors = useColors();
   const { earnings, clearEarnings, stripeConnectAccountId, setStripeConnectAccountId } = useApp();
 
+  const [method, setMethod] = useState<"stripe" | "paypal">("stripe");
+  const [payoutEmail, setPayoutEmail] = useState("");
   const [onboarding, setOnboarding] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [payoutsEnabled, setPayoutsEnabled] = useState(false);
@@ -96,17 +99,11 @@ export default function WithdrawModal({ visible, onClose }: Props) {
     }
   }
 
-  async function handleWithdraw() {
-    if (!canWithdraw) {
-      Alert.alert("Not enough balance", "Minimum withdrawal is €1.00");
-      return;
-    }
+  async function handleWithdrawStripe() {
     if (!stripeConnectAccountId || !payoutsEnabled) {
       Alert.alert("Verify your account first", "You need to finish identity verification with Stripe before withdrawing.");
       return;
     }
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setWithdrawing(true);
     try {
       const res = await fetch(`${API_BASE}/stripe/withdraw`, {
@@ -131,6 +128,52 @@ export default function WithdrawModal({ visible, onClose }: Props) {
       Alert.alert("Error", err.message ?? "Withdrawal failed. Try again.");
     } finally {
       setWithdrawing(false);
+    }
+  }
+
+  async function handleWithdrawPayPal() {
+    const trimmedEmail = payoutEmail.trim();
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      Alert.alert("PayPal email required", "Enter the PayPal email you want to receive your payout at.");
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      const res = await fetch(`${API_BASE}/paypal/withdraw`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: earnings,
+          payoutEmail: trimmedEmail,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Withdrawal failed");
+      await clearEarnings();
+      setSuccess({
+        message: data.message,
+        ref: data.referenceId,
+        gross: data.grossAmount ?? earnings,
+        fee: data.fee ?? fee,
+        net: data.netAmount ?? netAmount,
+      });
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Withdrawal failed. Try again.");
+    } finally {
+      setWithdrawing(false);
+    }
+  }
+
+  async function handleWithdraw() {
+    if (!canWithdraw) {
+      Alert.alert("Not enough balance", "Minimum withdrawal is €1.00");
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (method === "stripe") {
+      await handleWithdrawStripe();
+    } else {
+      await handleWithdrawPayPal();
     }
   }
 
@@ -203,95 +246,148 @@ export default function WithdrawModal({ visible, onClose }: Props) {
                 )}
               </View>
 
-              {checkingStatus ? (
-                <View style={styles.statusBox}>
-                  <ActivityIndicator color={colors.mutedForeground} />
-                </View>
-              ) : !payoutsEnabled ? (
-                <View style={[styles.verifyBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <Ionicons name="shield-checkmark-outline" size={28} color="#FF3366" />
-                  <Text style={[styles.verifyTitle, { color: colors.foreground }]}>
-                    Verify your identity to get paid
+              <View style={[styles.methodRow, { borderColor: colors.border }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.methodBtn,
+                    method === "stripe" && { backgroundColor: "#FF3366" },
+                  ]}
+                  onPress={() => setMethod("stripe")}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.methodBtnText, { color: method === "stripe" ? "#fff" : colors.mutedForeground }]}>
+                    Bank (Stripe)
                   </Text>
-                  <Text style={[styles.verifyMsg, { color: colors.mutedForeground }]}>
-                    Real payouts to your bank account require a quick one-time identity check
-                    with Stripe (name, ID, bank details). This is required by law for anyone
-                    receiving automated payouts.
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.methodBtn,
+                    method === "paypal" && { backgroundColor: "#FF3366" },
+                  ]}
+                  onPress={() => setMethod("paypal")}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.methodBtnText, { color: method === "paypal" ? "#fff" : colors.mutedForeground }]}>
+                    PayPal
                   </Text>
-                  <TouchableOpacity
-                    style={[styles.verifyBtn, { backgroundColor: "#FF3366" }]}
-                    onPress={handleVerifyIdentity}
-                    disabled={onboarding}
-                    activeOpacity={0.85}
-                  >
-                    {onboarding ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <Ionicons name="lock-open-outline" size={18} color="#fff" />
-                        <Text style={styles.verifyBtnText}>
-                          {stripeConnectAccountId ? "Continue verification" : "Verify with Stripe"}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                  {statusChecked && stripeConnectAccountId && (
-                    <TouchableOpacity onPress={() => checkStatus(stripeConnectAccountId)} style={{ marginTop: 10 }}>
-                      <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
-                        Already verified? Tap to refresh status
-                      </Text>
+                </TouchableOpacity>
+              </View>
+
+              {method === "stripe" ? (
+                checkingStatus ? (
+                  <View style={styles.statusBox}>
+                    <ActivityIndicator color={colors.mutedForeground} />
+                  </View>
+                ) : !payoutsEnabled ? (
+                  <View style={[styles.verifyBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <Ionicons name="shield-checkmark-outline" size={28} color="#FF3366" />
+                    <Text style={[styles.verifyTitle, { color: colors.foreground }]}>
+                      Verify your identity to get paid
+                    </Text>
+                    <Text style={[styles.verifyMsg, { color: colors.mutedForeground }]}>
+                      Real payouts to your bank account require a quick one-time identity check
+                      with Stripe (name, ID, bank details). This is required by law for anyone
+                      receiving automated payouts.
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.verifyBtn, { backgroundColor: "#FF3366" }]}
+                      onPress={handleVerifyIdentity}
+                      disabled={onboarding}
+                      activeOpacity={0.85}
+                    >
+                      {onboarding ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <>
+                          <Ionicons name="lock-open-outline" size={18} color="#fff" />
+                          <Text style={styles.verifyBtnText}>
+                            {stripeConnectAccountId ? "Continue verification" : "Verify with Stripe"}
+                          </Text>
+                        </>
+                      )}
                     </TouchableOpacity>
-                  )}
-                </View>
-              ) : (
-                <>
+                    {statusChecked && stripeConnectAccountId && (
+                      <TouchableOpacity onPress={() => checkStatus(stripeConnectAccountId)} style={{ marginTop: 10 }}>
+                        <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
+                          Already verified? Tap to refresh status
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : (
                   <View style={[styles.verifiedBox, { backgroundColor: "#22C55E15", borderColor: "#22C55E40" }]}>
                     <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
                     <Text style={[styles.verifiedText, { color: colors.foreground }]}>
                       Payout account verified — withdrawals go straight to your bank.
                     </Text>
                   </View>
-
-                  {canWithdraw && (
-                    <View style={[styles.feeSummary, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                      <View style={styles.feeRow}>
-                        <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Gross earnings</Text>
-                        <Text style={[styles.feeValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
-                      </View>
-                      <View style={styles.feeRow}>
-                        <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Platform fee (10%)</Text>
-                        <Text style={[styles.feeValue, { color: "#EF4444" }]}>−€{fee.toFixed(2)}</Text>
-                      </View>
-                      <View style={[styles.feeDivider, { backgroundColor: colors.border }]} />
-                      <View style={styles.feeRow}>
-                        <Text style={[styles.feeLabelBold, { color: colors.foreground }]}>You receive</Text>
-                        <Text style={[styles.feeValueBold, { color: "#22C55E" }]}>€{netAmount.toFixed(2)}</Text>
-                      </View>
-                    </View>
-                  )}
-
-                  <TouchableOpacity
+                )
+              ) : (
+                <View style={[styles.verifyBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <Ionicons name="logo-paypal" size={28} color="#FF3366" />
+                  <Text style={[styles.verifyTitle, { color: colors.foreground }]}>
+                    Get paid via PayPal
+                  </Text>
+                  <Text style={[styles.verifyMsg, { color: colors.mutedForeground }]}>
+                    Enter the PayPal email you want your payout sent to.
+                  </Text>
+                  <TextInput
                     style={[
-                      styles.withdrawBtn,
-                      { backgroundColor: canWithdraw ? "#FF3366" : colors.muted },
+                      styles.emailInput,
+                      { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card },
                     ]}
-                    onPress={handleWithdraw}
-                    disabled={withdrawing || !canWithdraw}
-                    activeOpacity={0.85}
-                  >
-                    {withdrawing ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <Ionicons name="arrow-up-circle-outline" size={18} color="#fff" />
-                        <Text style={styles.withdrawBtnText}>
-                          Withdraw · receive €{netAmount.toFixed(2)}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </>
+                    placeholder="you@paypal.com"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={payoutEmail}
+                    onChangeText={setPayoutEmail}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                  />
+                </View>
               )}
+
+              {canWithdraw && (
+                <View style={[styles.feeSummary, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <View style={styles.feeRow}>
+                    <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Gross earnings</Text>
+                    <Text style={[styles.feeValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.feeRow}>
+                    <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Platform fee (10%)</Text>
+                    <Text style={[styles.feeValue, { color: "#EF4444" }]}>−€{fee.toFixed(2)}</Text>
+                  </View>
+                  <View style={[styles.feeDivider, { backgroundColor: colors.border }]} />
+                  <View style={styles.feeRow}>
+                    <Text style={[styles.feeLabelBold, { color: colors.foreground }]}>You receive</Text>
+                    <Text style={[styles.feeValueBold, { color: "#22C55E" }]}>€{netAmount.toFixed(2)}</Text>
+                  </View>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.withdrawBtn,
+                  {
+                    backgroundColor:
+                      canWithdraw && (method === "paypal" || payoutsEnabled) ? "#FF3366" : colors.muted,
+                  },
+                ]}
+                onPress={handleWithdraw}
+                disabled={withdrawing || !canWithdraw || (method === "stripe" && !payoutsEnabled)}
+                activeOpacity={0.85}
+              >
+                {withdrawing ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="arrow-up-circle-outline" size={18} color="#fff" />
+                    <Text style={styles.withdrawBtnText}>
+                      Withdraw · receive €{netAmount.toFixed(2)}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
 
               <View style={{ height: 32 }} />
             </ScrollView>
@@ -360,6 +456,34 @@ const styles = StyleSheet.create({
   statusBox: {
     paddingVertical: 24,
     alignItems: "center",
+  },
+  methodRow: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+    marginBottom: 16,
+  },
+  methodBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 9,
+    alignItems: "center",
+  },
+  methodBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+  },
+  emailInput: {
+    width: "100%",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
   },
   verifyBox: {
     borderWidth: 1,
