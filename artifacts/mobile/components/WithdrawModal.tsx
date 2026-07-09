@@ -1,40 +1,38 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as WebBrowser from "expo-web-browser";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { API_BASE } from "@/config/payments";
 
-const API_BASE = "https://match-maker-dumitru8830.replit.app/api";
+const CONNECT_RETURN_URL = "mobile://connect-return";
+const CONNECT_REFRESH_URL = "mobile://connect-refresh";
 
 interface Props {
   visible: boolean;
   onClose: () => void;
 }
 
-type Method = "bank" | "paypal";
-
 export default function WithdrawModal({ visible, onClose }: Props) {
   const colors = useColors();
-  const { earnings, clearEarnings } = useApp();
+  const { earnings, clearEarnings, stripeConnectAccountId, setStripeConnectAccountId } = useApp();
 
-  const [method, setMethod] = useState<Method>("bank");
-  const [iban, setIban] = useState("");
-  const [accountHolder, setAccountHolder] = useState("");
-  const [paypalEmail, setPaypalEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [onboarding, setOnboarding] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [payoutsEnabled, setPayoutsEnabled] = useState(false);
+  const [statusChecked, setStatusChecked] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [success, setSuccess] = useState<{
     message: string;
     ref: string;
@@ -48,33 +46,75 @@ export default function WithdrawModal({ visible, onClose }: Props) {
   const netAmount = parseFloat((earnings - fee).toFixed(2));
   const canWithdraw = earnings >= 1;
 
+  async function checkStatus(accountId: string) {
+    setCheckingStatus(true);
+    try {
+      const res = await fetch(`${API_BASE}/stripe/connect/status/${accountId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not check payout account status");
+      setPayoutsEnabled(!!data.payoutsEnabled);
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Could not check payout account status");
+    } finally {
+      setCheckingStatus(false);
+      setStatusChecked(true);
+    }
+  }
+
+  React.useEffect(() => {
+    if (visible && stripeConnectAccountId) {
+      checkStatus(stripeConnectAccountId);
+    }
+  }, [visible, stripeConnectAccountId]);
+
+  async function handleVerifyIdentity() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setOnboarding(true);
+    try {
+      const res = await fetch(`${API_BASE}/stripe/connect/onboard`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId: stripeConnectAccountId ?? undefined,
+          refreshUrl: CONNECT_REFRESH_URL,
+          returnUrl: CONNECT_RETURN_URL,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not start verification");
+
+      if (!stripeConnectAccountId) {
+        await setStripeConnectAccountId(data.accountId);
+      }
+
+      await WebBrowser.openAuthSessionAsync(data.url, CONNECT_RETURN_URL);
+      await checkStatus(data.accountId);
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Could not start verification");
+    } finally {
+      setOnboarding(false);
+    }
+  }
+
   async function handleWithdraw() {
     if (!canWithdraw) {
       Alert.alert("Not enough balance", "Minimum withdrawal is €1.00");
       return;
     }
-    if (method === "bank" && (!iban.trim() || !accountHolder.trim())) {
-      Alert.alert("Missing details", "Please enter your IBAN and account holder name.");
-      return;
-    }
-    if (method === "paypal" && !paypalEmail.trim()) {
-      Alert.alert("Missing details", "Please enter your PayPal email address.");
+    if (!stripeConnectAccountId || !payoutsEnabled) {
+      Alert.alert("Verify your account first", "You need to finish identity verification with Stripe before withdrawing.");
       return;
     }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLoading(true);
+    setWithdrawing(true);
     try {
       const res = await fetch(`${API_BASE}/stripe/withdraw`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: earnings,
-          method,
-          details:
-            method === "bank"
-              ? { iban: iban.trim(), accountHolder: accountHolder.trim() }
-              : { paypalEmail: paypalEmail.trim() },
+          connectedAccountId: stripeConnectAccountId,
         }),
       });
       const data = await res.json();
@@ -90,29 +130,21 @@ export default function WithdrawModal({ visible, onClose }: Props) {
     } catch (err: any) {
       Alert.alert("Error", err.message ?? "Withdrawal failed. Try again.");
     } finally {
-      setLoading(false);
+      setWithdrawing(false);
     }
   }
 
   function handleClose() {
     setSuccess(null);
-    setIban("");
-    setAccountHolder("");
-    setPaypalEmail("");
     onClose();
   }
 
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-          {/* Handle */}
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
-          {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.foreground }]}>Withdraw Earnings</Text>
             <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -121,7 +153,6 @@ export default function WithdrawModal({ visible, onClose }: Props) {
           </View>
 
           {success ? (
-            /* ── Success screen ── */
             <ScrollView contentContainerStyle={styles.successContainer} showsVerticalScrollIndicator={false}>
               <View style={[styles.successIcon, { backgroundColor: "#E8FFF3" }]}>
                 <Ionicons name="checkmark-circle" size={56} color="#22C55E" />
@@ -129,7 +160,6 @@ export default function WithdrawModal({ visible, onClose }: Props) {
               <Text style={[styles.successTitle, { color: colors.foreground }]}>Withdrawal Sent!</Text>
               <Text style={[styles.successMsg, { color: colors.mutedForeground }]}>{success.message}</Text>
 
-              {/* Fee breakdown */}
               <View style={[styles.breakdownBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
                 <View style={styles.breakdownRow}>
                   <Text style={[styles.breakdownLabel, { color: colors.mutedForeground }]}>Gross earnings</Text>
@@ -159,8 +189,7 @@ export default function WithdrawModal({ visible, onClose }: Props) {
               </TouchableOpacity>
             </ScrollView>
           ) : (
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              {/* Balance */}
+            <ScrollView showsVerticalScrollIndicator={false}>
               <View style={[styles.balanceBox, { backgroundColor: "#FF336615", borderColor: "#FF336640" }]}>
                 <Ionicons name="wallet" size={22} color="#FF3366" />
                 <View style={{ flex: 1 }}>
@@ -174,133 +203,101 @@ export default function WithdrawModal({ visible, onClose }: Props) {
                 )}
               </View>
 
-              {/* Method tabs */}
-              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Withdrawal method</Text>
-              <View style={[styles.methodRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                {(["bank", "paypal"] as Method[]).map((m) => (
-                  <TouchableOpacity
-                    key={m}
-                    style={[
-                      styles.methodTab,
-                      method === m && { backgroundColor: "#FF3366" },
-                    ]}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setMethod(m);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name={m === "bank" ? "business-outline" : "logo-paypal"}
-                      size={16}
-                      color={method === m ? "#fff" : colors.mutedForeground}
-                    />
-                    <Text
-                      style={[
-                        styles.methodTabText,
-                        { color: method === m ? "#fff" : colors.mutedForeground },
-                      ]}
-                    >
-                      {m === "bank" ? "Bank Transfer" : "PayPal"}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Bank fields */}
-              {method === "bank" && (
-                <>
-                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>Account holder name</Text>
-                  <TextInput
-                    style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
-                    placeholder="Full name as on bank account"
-                    placeholderTextColor={colors.mutedForeground}
-                    value={accountHolder}
-                    onChangeText={setAccountHolder}
-                    autoCapitalize="words"
-                  />
-                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>IBAN</Text>
-                  <TextInput
-                    style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
-                    placeholder="DE89 3704 0044 0532 0130 00"
-                    placeholderTextColor={colors.mutedForeground}
-                    value={iban}
-                    onChangeText={setIban}
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                  />
-                  <Text style={[styles.fieldHint, { color: colors.mutedForeground }]}>
-                    Bank transfers arrive in 3–5 business days.
-                  </Text>
-                </>
-              )}
-
-              {/* PayPal fields */}
-              {method === "paypal" && (
-                <>
-                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>PayPal email address</Text>
-                  <TextInput
-                    style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
-                    placeholder="you@example.com"
-                    placeholderTextColor={colors.mutedForeground}
-                    value={paypalEmail}
-                    onChangeText={setPaypalEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                  <Text style={[styles.fieldHint, { color: colors.mutedForeground }]}>
-                    PayPal transfers usually arrive within 24 hours.
-                  </Text>
-                </>
-              )}
-
-              {/* Fee summary */}
-              {canWithdraw && (
-                <View style={[styles.feeSummary, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <View style={styles.feeRow}>
-                    <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Gross earnings</Text>
-                    <Text style={[styles.feeValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.feeRow}>
-                    <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Platform fee (10%)</Text>
-                    <Text style={[styles.feeValue, { color: "#EF4444" }]}>−€{fee.toFixed(2)}</Text>
-                  </View>
-                  <View style={[styles.feeDivider, { backgroundColor: colors.border }]} />
-                  <View style={styles.feeRow}>
-                    <Text style={[styles.feeLabelBold, { color: colors.foreground }]}>You receive</Text>
-                    <Text style={[styles.feeValueBold, { color: "#22C55E" }]}>€{netAmount.toFixed(2)}</Text>
-                  </View>
+              {checkingStatus ? (
+                <View style={styles.statusBox}>
+                  <ActivityIndicator color={colors.mutedForeground} />
                 </View>
-              )}
-
-              {/* Withdraw button */}
-              <TouchableOpacity
-                style={[
-                  styles.withdrawBtn,
-                  { backgroundColor: canWithdraw ? "#FF3366" : colors.muted },
-                ]}
-                onPress={handleWithdraw}
-                disabled={loading || !canWithdraw}
-                activeOpacity={0.85}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="arrow-up-circle-outline" size={18} color="#fff" />
-                    <Text style={styles.withdrawBtnText}>
-                      Withdraw · receive €{netAmount.toFixed(2)}
+              ) : !payoutsEnabled ? (
+                <View style={[styles.verifyBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <Ionicons name="shield-checkmark-outline" size={28} color="#FF3366" />
+                  <Text style={[styles.verifyTitle, { color: colors.foreground }]}>
+                    Verify your identity to get paid
+                  </Text>
+                  <Text style={[styles.verifyMsg, { color: colors.mutedForeground }]}>
+                    Real payouts to your bank account require a quick one-time identity check
+                    with Stripe (name, ID, bank details). This is required by law for anyone
+                    receiving automated payouts.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.verifyBtn, { backgroundColor: "#FF3366" }]}
+                    onPress={handleVerifyIdentity}
+                    disabled={onboarding}
+                    activeOpacity={0.85}
+                  >
+                    {onboarding ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="lock-open-outline" size={18} color="#fff" />
+                        <Text style={styles.verifyBtnText}>
+                          {stripeConnectAccountId ? "Continue verification" : "Verify with Stripe"}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  {statusChecked && stripeConnectAccountId && (
+                    <TouchableOpacity onPress={() => checkStatus(stripeConnectAccountId)} style={{ marginTop: 10 }}>
+                      <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
+                        Already verified? Tap to refresh status
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ) : (
+                <>
+                  <View style={[styles.verifiedBox, { backgroundColor: "#22C55E15", borderColor: "#22C55E40" }]}>
+                    <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
+                    <Text style={[styles.verifiedText, { color: colors.foreground }]}>
+                      Payout account verified — withdrawals go straight to your bank.
                     </Text>
-                  </>
-                )}
-              </TouchableOpacity>
+                  </View>
+
+                  {canWithdraw && (
+                    <View style={[styles.feeSummary, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                      <View style={styles.feeRow}>
+                        <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Gross earnings</Text>
+                        <Text style={[styles.feeValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
+                      </View>
+                      <View style={styles.feeRow}>
+                        <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Platform fee (10%)</Text>
+                        <Text style={[styles.feeValue, { color: "#EF4444" }]}>−€{fee.toFixed(2)}</Text>
+                      </View>
+                      <View style={[styles.feeDivider, { backgroundColor: colors.border }]} />
+                      <View style={styles.feeRow}>
+                        <Text style={[styles.feeLabelBold, { color: colors.foreground }]}>You receive</Text>
+                        <Text style={[styles.feeValueBold, { color: "#22C55E" }]}>€{netAmount.toFixed(2)}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={[
+                      styles.withdrawBtn,
+                      { backgroundColor: canWithdraw ? "#FF3366" : colors.muted },
+                    ]}
+                    onPress={handleWithdraw}
+                    disabled={withdrawing || !canWithdraw}
+                    activeOpacity={0.85}
+                  >
+                    {withdrawing ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="arrow-up-circle-outline" size={18} color="#fff" />
+                        <Text style={styles.withdrawBtnText}>
+                          Withdraw · receive €{netAmount.toFixed(2)}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
 
               <View style={{ height: 32 }} />
             </ScrollView>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -360,51 +357,59 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_400Regular",
   },
-  sectionLabel: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 8,
+  statusBox: {
+    paddingVertical: 24,
+    alignItems: "center",
   },
-  methodRow: {
-    flexDirection: "row",
-    borderRadius: 12,
+  verifyBox: {
     borderWidth: 1,
-    overflow: "hidden",
+    borderRadius: 16,
+    padding: 20,
+    alignItems: "center",
+    gap: 10,
     marginBottom: 20,
   },
-  methodTab: {
-    flex: 1,
+  verifyTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+  verifyMsg: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 19,
+    marginBottom: 6,
+  },
+  verifyBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: 12,
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    minWidth: 200,
   },
-  methodTabText: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  verifyBtnText: {
+    color: "#fff",
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    marginBottom: 14,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
   },
-  fieldHint: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginBottom: 20,
-    lineHeight: 18,
+  verifiedBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  verifiedText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    flex: 1,
   },
   feeSummary: {
     borderWidth: 1,

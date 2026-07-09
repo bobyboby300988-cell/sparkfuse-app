@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -14,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { useApp } from "@/context/AppContext";
-import { buildPayPalCheckoutUrl } from "@/config/payments";
+import { buyTokensWithStripe } from "@/config/payments";
 
 /* ─── 30 gift tiers — sweet → romantic → flirty → spicy → erotic ─── */
 const GIFTS = [
@@ -401,17 +400,16 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
 
   async function handleBuy(pkg: typeof ST_PACKAGES[0]) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const url = buildPayPalCheckoutUrl({
-      amountEur: pkg.eur,
-      itemName: `Spark ${pkg.tokens} Tokens`,
-    });
-    await WebBrowser.openBrowserAsync(url, {
-      presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-    });
-    addCoins(pkg.tokens);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert("Spark Tokens added! 🔥", `${pkg.tokens} ST added to your wallet!`);
-    setStep("send");
+    try {
+      const paid = await buyTokensWithStripe(pkg.tokens, pkg.eur);
+      if (!paid) return;
+      addCoins(pkg.tokens);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Spark Tokens added! 🔥", `${pkg.tokens} ST added to your wallet!`);
+      setStep("send");
+    } catch (err: any) {
+      Alert.alert("Payment failed", err.message ?? "Something went wrong. Try again.");
+    }
   }
 
   function handleSend() {

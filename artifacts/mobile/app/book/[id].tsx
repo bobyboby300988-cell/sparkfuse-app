@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
-import * as WebBrowser from "expo-web-browser";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
@@ -18,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MOCK_COACHES } from "@/data/coaches";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
-import { buildPayPalCheckoutUrl } from "@/config/payments";
+import { buyTokensWithStripe } from "@/config/payments";
 
 const TIME_SLOTS = [
   "9:00 AM", "10:00 AM", "11:00 AM",
@@ -76,17 +75,16 @@ export default function BookScreen() {
 
   async function handleBuyST(pkg: typeof ST_PACKAGES[0]) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const url = buildPayPalCheckoutUrl({
-      amountEur: pkg.eur,
-      itemName: `Spark ${pkg.tokens} Tokens`,
-    });
-    await WebBrowser.openBrowserAsync(url, {
-      presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-    });
-    addCoins(pkg.tokens);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert("Spark Tokens added! 🔥", `${pkg.tokens} ST are now in your wallet.`);
-    setShowBuyST(false);
+    try {
+      const paid = await buyTokensWithStripe(pkg.tokens, pkg.eur);
+      if (!paid) return;
+      addCoins(pkg.tokens);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Spark Tokens added! 🔥", `${pkg.tokens} ST are now in your wallet.`);
+      setShowBuyST(false);
+    } catch (err: any) {
+      Alert.alert("Payment failed", err.message ?? "Something went wrong. Try again.");
+    }
   }
 
   if (!coach || !session) {
