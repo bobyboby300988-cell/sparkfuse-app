@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 
 interface BrandLogoProps {
   size?: number;
@@ -9,18 +9,40 @@ interface BrandLogoProps {
 }
 
 export default function BrandLogo({ size = 28, color = "#FF3366", flameColor = "#FF6B35" }: BrandLogoProps) {
+  const boxSize = size * 1.9;
+
   return (
-    <View style={{ width: size, height: size }}>
-      <Ionicons name="heart" size={size} color={color} />
-      <View
+    <View style={{ width: boxSize, height: boxSize, alignItems: "center", justifyContent: "flex-end" }}>
+      {/* Angel — sweet side */}
+      <Text
         style={{
           position: "absolute",
-          right: -size * 0.12,
-          bottom: -size * 0.12,
+          top: 0,
+          left: 0,
+          fontSize: size * 0.5,
         }}
       >
-        <Ionicons name="flame" size={size * 0.52} color={flameColor} />
+        👼
+      </Text>
+
+      {/* Devil — naughty side */}
+      <Text
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          fontSize: size * 0.5,
+        }}
+      >
+        😈
+      </Text>
+
+      {/* Flame crest on top of the heart */}
+      <View style={{ position: "absolute", top: size * 0.28, alignSelf: "center", zIndex: 2 }}>
+        <Ionicons name="flame" size={size * 0.5} color={flameColor} />
       </View>
+
+      <Ionicons name="heart" size={size} color={color} />
     </View>
   );
 }
