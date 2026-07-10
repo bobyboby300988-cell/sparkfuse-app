@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useSignUp, useSSO } from "@clerk/expo";
+import BrandLogo from "@/components/BrandLogo";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, router, type Href } from "expo-router";
 import * as AuthSession from "expo-auth-session";
@@ -124,7 +125,7 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.flameRing}>
-            <Ionicons name="flame" size={44} color="#FF3366" />
+            <BrandLogo size={40} />
           </View>
           <Text style={styles.title}>Create your account</Text>
           <Text style={styles.subtitle}>Join SparkFuse today</Text>

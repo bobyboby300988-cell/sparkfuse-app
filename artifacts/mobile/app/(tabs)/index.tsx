@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCreateSwipe, useGetFeed, useGetMyProfile, useUpsertMyProfile } from "@workspace/api-client-react";
+import BrandLogo from "@/components/BrandLogo";
 import { MatchModal } from "@/components/MatchModal";
 import { SwipeCard, type SwipeProfile } from "@/components/SwipeCard";
 import { useApp } from "@/context/AppContext";
@@ -126,7 +127,7 @@ export default function DiscoverScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
         <View style={styles.logoRow}>
-          <Ionicons name="flame" size={26} color={colors.primary} />
+          <BrandLogo size={24} color={colors.primary} />
           <View>
             <Text style={[styles.logoText, { color: colors.foreground }]}>SparkFuse</Text>
             <Text style={[styles.modeHint, { color: colors.mutedForeground }]}>

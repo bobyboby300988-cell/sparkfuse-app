@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRequestUploadUrl, useUpsertMyProfile } from "@workspace/api-client-react";
+import BrandLogo from "@/components/BrandLogo";
 import { useColors } from "@/hooks/useColors";
 import { useLocation } from "@/hooks/useLocation";
 
@@ -166,7 +167,7 @@ export default function OnboardingScreen() {
         ]}
       >
         <View style={styles.logoRow}>
-          <Ionicons name="flame" size={28} color={colors.primary} />
+          <BrandLogo size={26} color={colors.primary} />
           <Text style={[styles.logoText, { color: colors.primary }]}>SparkFuse</Text>
         </View>
 

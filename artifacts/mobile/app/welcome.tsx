@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@clerk/expo";
+import BrandLogo from "@/components/BrandLogo";
 import { useApp } from "@/context/AppContext";
 import { buildPayPalCheckoutUrl } from "@/config/payments";
 
@@ -189,7 +190,7 @@ export default function WelcomeScreen() {
         {/* ── Logo ── */}
         <Animated.View style={[styles.logoBlock, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
           <View style={styles.flameRing}>
-            <Ionicons name="flame" size={64} color="#FF3366" />
+            <BrandLogo size={56} />
           </View>
           <Text style={styles.appName}>SPARKFUSE</Text>
           <Text style={styles.appSub}>Connect. Explore. Thrive.</Text>
