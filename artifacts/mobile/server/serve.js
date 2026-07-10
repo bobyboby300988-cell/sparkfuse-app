@@ -140,7 +140,22 @@ function serveWebFile(urlPath, res) {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
   const content = fs.readFileSync(filePath);
-  res.writeHead(200, { "content-type": contentType });
+
+  // The app shell (index.html) must always be revalidated — it references
+  // the current content-hashed bundle, and a stale cached copy would keep
+  // pointing browsers at an old JS bundle (e.g. missing newly-added env
+  // vars) indefinitely. Hashed static assets under _expo/static are safe
+  // to cache aggressively since their filename changes whenever content
+  // changes.
+  const isIndexHtml = filePath === WEB_INDEX_PATH;
+  const cacheControl = isIndexHtml
+    ? "no-cache, no-store, must-revalidate"
+    : "public, max-age=31536000, immutable";
+
+  res.writeHead(200, {
+    "content-type": contentType,
+    "cache-control": cacheControl,
+  });
   res.end(content);
 }
 
