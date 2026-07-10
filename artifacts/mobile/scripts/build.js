@@ -528,7 +528,14 @@ async function exportWebBuild(expoPublicDomain, expoPublicReplId) {
     ...process.env,
     EXPO_PUBLIC_DOMAIN: expoPublicDomain,
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
+    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY,
   };
+
+  if (!env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    exitWithError(
+      "ERROR: CLERK_PUBLISHABLE_KEY is not set. The web build cannot initialize auth without it.",
+    );
+  }
 
   await runCommand(
     "pnpm",
