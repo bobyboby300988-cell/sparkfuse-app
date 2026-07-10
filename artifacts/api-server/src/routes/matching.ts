@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { and, eq, inArray, notInArray, or } from "drizzle-orm";
+import { and, eq, inArray, notInArray, or, sql } from "drizzle-orm";
 import { db, matchesTable, profilesTable, swipesTable, blocksTable } from "@workspace/db";
 import { GetFeedResponse, GetMatchesResponse, CreateSwipeBody, CreateSwipeResponse } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -68,10 +68,14 @@ router.get("/feed", requireAuth, async (req: Request, res: Response) => {
 
   const excludeIds = [userId, ...swipedIds, ...blockedIds];
 
+  const FEED_PAGE_SIZE = 50;
+
   const rows = await db
     .select()
     .from(profilesTable)
-    .where(notInArray(profilesTable.userId, excludeIds));
+    .where(notInArray(profilesTable.userId, excludeIds))
+    .orderBy(sql`random()`)
+    .limit(FEED_PAGE_SIZE);
 
   const profiles = rows
     .map((row) => toApiProfile(row, myProfile))

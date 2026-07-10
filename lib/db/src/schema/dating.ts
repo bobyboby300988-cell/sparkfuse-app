@@ -1,4 +1,4 @@
-import { doublePrecision, integer, pgTable, primaryKey, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { doublePrecision, index, integer, pgTable, primaryKey, text, timestamp, varchar } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 
 export const profilesTable = pgTable("profiles", {
@@ -30,7 +30,10 @@ export const swipesTable = pgTable(
     direction: varchar("direction", { enum: swipeDirectionValues }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.swiperId, table.targetId] })],
+  (table) => [
+    primaryKey({ columns: [table.swiperId, table.targetId] }),
+    index("swipes_target_id_idx").on(table.targetId),
+  ],
 );
 
 export const matchesTable = pgTable(
@@ -44,7 +47,10 @@ export const matchesTable = pgTable(
       .references(() => usersTable.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.userAId, table.userBId] })],
+  (table) => [
+    primaryKey({ columns: [table.userAId, table.userBId] }),
+    index("matches_user_b_id_idx").on(table.userBId),
+  ],
 );
 
 export const blocksTable = pgTable(
@@ -58,7 +64,10 @@ export const blocksTable = pgTable(
       .references(() => usersTable.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.blockerId, table.blockedId] })],
+  (table) => [
+    primaryKey({ columns: [table.blockerId, table.blockedId] }),
+    index("blocks_blocked_id_idx").on(table.blockedId),
+  ],
 );
 
 export type Profile = typeof profilesTable.$inferSelect;
