@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActionSheetIOS,
   Alert,
   Animated,
   FlatList,
@@ -96,7 +97,7 @@ interface ChatMsg {
 
 const NAME_COLORS = ["#FF6B9D","#C77DFF","#48CAE4","#FFD166","#FF6B35","#FF3366","#4895EF"];
 
-function ChatRow({ msg }: { msg: ChatMsg }) {
+function ChatRow({ msg, onPressName }: { msg: ChatMsg; onPressName: (name: string) => void }) {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const opAnim    = useRef(new Animated.Value(0)).current;
 
@@ -107,13 +108,17 @@ function ChatRow({ msg }: { msg: ChatMsg }) {
     ]).start();
   }, []);
 
+  const canModerate = msg.name !== "You";
+
   if (msg.isGift) {
     return (
       <Animated.View style={[styles.giftMsgRow, { transform: [{ translateX: slideAnim }], opacity: opAnim }]}>
         <LinearGradient colors={["#FF336620","#FF6B3520"]} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.giftMsgBg}>
           <Text style={styles.giftMsgEmoji}>{msg.gift?.split(" ")[0]}</Text>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.chatName, { color: msg.color }]}>{msg.name}</Text>
+            <TouchableOpacity disabled={!canModerate} onPress={() => onPressName(msg.name)} hitSlop={8}>
+              <Text style={[styles.chatName, { color: msg.color }]}>{msg.name}</Text>
+            </TouchableOpacity>
             <Text style={styles.giftMsgText}>sent  <Text style={{ color: "#FF6B35" }}>{msg.gift}</Text> 🎁</Text>
           </View>
           <Text style={styles.giftMsgST}>+ST</Text>
@@ -124,7 +129,9 @@ function ChatRow({ msg }: { msg: ChatMsg }) {
 
   return (
     <Animated.View style={[styles.chatRow, { transform: [{ translateX: slideAnim }], opacity: opAnim }]}>
-      <Text style={[styles.chatName, { color: msg.color }]}>{msg.name}  </Text>
+      <TouchableOpacity disabled={!canModerate} onPress={() => onPressName(msg.name)} hitSlop={8}>
+        <Text style={[styles.chatName, { color: msg.color }]}>{msg.name}  </Text>
+      </TouchableOpacity>
       <Text style={styles.chatText}>{msg.text}</Text>
     </Animated.View>
   );
@@ -199,8 +206,70 @@ export default function LiveScreen() {
   const [msgIdx,     setMsgIdx]     = useState(0);
   const [tokens,     setTokens]     = useState(mockStream.tokens);
   const [isLiked,    setIsLiked]    = useState(false);
+  const [blockedNames, setBlockedNames] = useState<Set<string>>(new Set());
+  const mutedUntilRef = useRef<Record<string, number>>({});
 
   const listRef = useRef<FlatList>(null);
+
+  function isSilenced(name: string) {
+    if (blockedNames.has(name)) return true;
+    const until = mutedUntilRef.current[name];
+    return !!until && Date.now() < until;
+  }
+
+  function handlePressChatName(name: string) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const options = ["View profile", "Mute 5 min", "Mute 10 min", "Mute for entire live", "Block", "Cancel"];
+    const destructiveButtonIndex = 4;
+    const cancelButtonIndex = 5;
+
+    const runAction = (index: number) => {
+      switch (index) {
+        case 0:
+          Alert.alert(name, "Viewer profiles aren't available for live chat commenters yet.");
+          break;
+        case 1:
+          mutedUntilRef.current[name] = Date.now() + 5 * 60 * 1000;
+          Alert.alert("Muted", `${name} can't chat for 5 minutes.`);
+          break;
+        case 2:
+          mutedUntilRef.current[name] = Date.now() + 10 * 60 * 1000;
+          Alert.alert("Muted", `${name} can't chat for 10 minutes.`);
+          break;
+        case 3:
+          mutedUntilRef.current[name] = Infinity;
+          Alert.alert("Muted", `${name} can't chat for the rest of this live.`);
+          break;
+        case 4:
+          setBlockedNames((prev) => new Set(prev).add(name));
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert("Blocked", `${name} has been blocked and removed from chat.`);
+          break;
+        default:
+          break;
+      }
+    };
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, destructiveButtonIndex, cancelButtonIndex, title: name },
+        (index) => runAction(index),
+      );
+    } else {
+      Alert.alert(
+        name,
+        undefined,
+        [
+          { text: "View profile", onPress: () => runAction(0) },
+          { text: "Mute 5 min", onPress: () => runAction(1) },
+          { text: "Mute 10 min", onPress: () => runAction(2) },
+          { text: "Mute for entire live", onPress: () => runAction(3) },
+          { text: "Block", style: "destructive", onPress: () => runAction(4) },
+          { text: "Cancel", style: "cancel" },
+        ],
+      );
+    }
+  }
 
   function pushMsg(msg: Omit<ChatMsg, "id" | "color">) {
     const color = NAME_COLORS[Math.floor(Math.random() * NAME_COLORS.length)];
@@ -212,8 +281,9 @@ export default function LiveScreen() {
   useEffect(() => {
     const t = setInterval(() => {
       const entry = MOCK_CHAT[msgIdx % MOCK_CHAT.length];
-      pushMsg({ name: entry.name, text: entry.text, gift: entry.gift, isGift: !!entry.gift });
       setMsgIdx((i) => i + 1);
+      if (isSilenced(entry.name)) return;
+      pushMsg({ name: entry.name, text: entry.text, gift: entry.gift, isGift: !!entry.gift });
       if (entry.gift) {
         setTokens((n) => n + Math.floor(Math.random() * 50 + 10));
         spawnReaction(REACTION_EMOJIS[Math.floor(Math.random() * REACTION_EMOJIS.length)]);
@@ -337,9 +407,9 @@ export default function LiveScreen() {
       <View style={styles.chatArea}>
         <FlatList
           ref={listRef}
-          data={messages}
+          data={messages.filter((m) => !blockedNames.has(m.name))}
           keyExtractor={(m) => m.id}
-          renderItem={({ item }) => <ChatRow msg={item} />}
+          renderItem={({ item }) => <ChatRow msg={item} onPressName={handlePressChatName} />}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ gap: 4, paddingVertical: 8 }}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}

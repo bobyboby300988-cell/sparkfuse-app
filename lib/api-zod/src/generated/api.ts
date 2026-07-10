@@ -26,7 +26,23 @@ export const GetCurrentAuthUserResponse = zod.object({
   "email": zod.string().email().nullable(),
   "firstName": zod.string().nullable(),
   "lastName": zod.string().nullable(),
-  "profileImageUrl": zod.string().nullable()
+  "profileImageUrl": zod.string().nullable(),
+  "isSubscribed": zod.boolean()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Mark the authenticated user as subscribed (persisted server-side, tied to their account).
+ */
+export const ActivateSubscriptionResponse = zod.object({
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "email": zod.string().email().nullable(),
+  "firstName": zod.string().nullable(),
+  "lastName": zod.string().nullable(),
+  "profileImageUrl": zod.string().nullable(),
+  "isSubscribed": zod.boolean()
 }),zod.null()])
 })
 

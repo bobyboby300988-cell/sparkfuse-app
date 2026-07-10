@@ -202,6 +202,76 @@ export function useGetCurrentAuthUser<TData = Awaited<ReturnType<typeof getCurre
 
 
 
+export const getActivateSubscriptionUrl = () => {
+
+
+
+
+  return `/api/subscription/activate`
+}
+
+/**
+ * @summary Mark the authenticated user as subscribed (persisted server-side, tied to their account).
+ */
+export const activateSubscription = async ( options?: RequestInit): Promise<AuthUserEnvelope> => {
+
+  return customFetch<AuthUserEnvelope>(getActivateSubscriptionUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getActivateSubscriptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateSubscription>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof activateSubscription>>, TError,void, TContext> => {
+
+const mutationKey = ['activateSubscription'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof activateSubscription>>, void> = () => {
+
+
+          return  activateSubscription(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActivateSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof activateSubscription>>>
+
+    export type ActivateSubscriptionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark the authenticated user as subscribed (persisted server-side, tied to their account).
+ */
+export const useActivateSubscription = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activateSubscription>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof activateSubscription>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getActivateSubscriptionMutationOptions(options));
+    }
+
 export const getRequestUploadUrlUrl = () => {
 
 

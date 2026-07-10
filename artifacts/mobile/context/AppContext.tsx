@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Alert, Platform } from "react-native";
+import { useGetCurrentAuthUser, useActivateSubscription } from "@workspace/api-client-react";
+import { useAuth } from "@clerk/expo";
 import { checkPendingWebTokenCheckout } from "@/config/payments";
 
 export interface Message {
@@ -78,6 +80,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLive, setIsLiveState] = useState(false);
   const [stripeConnectAccountId, setStripeConnectAccountIdState] = useState<string | null>(null);
 
+  const { isSignedIn } = useAuth();
+  const { data: authUserData } = useGetCurrentAuthUser({
+    query: { enabled: !!isSignedIn, queryKey: ["currentAuthUser"] },
+  });
+  const activateSubscriptionMutation = useActivateSubscription();
+
+  // Server is the source of truth for subscription status once the user is
+  // signed in — this makes a paid subscription follow the account across
+  // devices/reinstalls instead of being stuck in local AsyncStorage.
+  useEffect(() => {
+    if (authUserData?.user?.isSubscribed) {
+      setIsSubscribedState(true);
+      AsyncStorage.setItem(KEYS.SUBSCRIBED, "true");
+    }
+  }, [authUserData?.user?.isSubscribed]);
+
   useEffect(() => {
     async function load() {
       try {
@@ -133,6 +151,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setSubscribed = async () => {
     setIsSubscribedState(true);
     await AsyncStorage.setItem(KEYS.SUBSCRIBED, "true");
+    try {
+      await activateSubscriptionMutation.mutateAsync();
+    } catch {
+      // Local state is already updated optimistically; the next successful
+      // auth/user fetch (or a retried activation) will reconcile the server.
+    }
   };
 
   const addMatch = (profileId: string) => {

@@ -19,6 +19,7 @@ export interface AuthUser {
   lastName: string | null;
   /** @nullable */
   profileImageUrl: string | null;
+  isSubscribed: boolean;
 }
 
 export interface AuthUserEnvelope {

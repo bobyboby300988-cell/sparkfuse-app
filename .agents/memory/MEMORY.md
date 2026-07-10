@@ -2,3 +2,4 @@
 - [Resend sandbox sending](resend-sandbox-email.md) — default test/sandbox from-address is onboarding@resend.dev, NOT resend.com; using resend.com 403s.
 - [Live video broadcast architecture](live-broadcast-architecture.md) — real camera streaming via Daily.co WebView + ephemeral in-memory session registry, no DB.
 - [Generated API client response shape](generated-api-client-shape.md) — Orval-generated hooks return the response body directly, never `{data: ...}`; always check openapi.yaml paths, don't guess route names.
+- [Client-only entitlement flags](client-only-entitlement-flags.md) — device-local (AsyncStorage) subscription/premium flags don't survive reinstall or new-device login; must be mirrored server-side on the user record.

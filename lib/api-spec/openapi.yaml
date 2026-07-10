@@ -44,6 +44,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthUserEnvelope'
+  /subscription/activate:
+    post:
+      tags: [Auth]
+      operationId: activateSubscription
+      summary: Mark the authenticated user as subscribed (persisted server-side, tied to their account).
+      responses:
+        '200':
+          description: Subscription activated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
   /storage/uploads/request-url:
     post:
       tags: [Profiles]
@@ -239,7 +251,7 @@ components:
         - status
     AuthUser:
       type: object
-      required: [id, email, firstName, lastName, profileImageUrl]
+      required: [id, email, firstName, lastName, profileImageUrl, isSubscribed]
       properties:
         id:
           type: string
@@ -252,6 +264,8 @@ components:
           type: [string, 'null']
         profileImageUrl:
           type: [string, 'null']
+        isSubscribed:
+          type: boolean
     AuthUserEnvelope:
       type: object
       required: [user]
