@@ -186,9 +186,18 @@ export default function LiveTab() {
         data={streams}
         keyExtractor={(s) => s.id}
         numColumns={2}
-        contentContainerStyle={styles.grid}
-        columnWrapperStyle={{ gap: 10 }}
+        contentContainerStyle={[styles.grid, streams.length === 0 && styles.emptyList]}
+        columnWrapperStyle={streams.length > 0 ? { gap: 10 } : undefined}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="radio-outline" size={40} color="#ffffff66" />
+            <Text style={styles.emptyTitle}>No one's live right now</Text>
+            <Text style={styles.emptySubtitle}>
+              Be the first — tap "Go Live" to start streaming, or check back later.
+            </Text>
+          </View>
+        }
         renderItem={({ item }) => (
           <StreamCard
             item={item}
@@ -216,6 +225,10 @@ const styles = StyleSheet.create({
   goLiveText: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#fff" },
 
   grid: { paddingHorizontal: 10, paddingBottom: 100, gap: 10 },
+  emptyList: { flexGrow: 1 },
+  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 40, paddingTop: 80 },
+  emptyTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#fff" },
+  emptySubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#ffffff99", textAlign: "center", lineHeight: 19 },
 
   cardWrap: { flex: 1 },
   card: {

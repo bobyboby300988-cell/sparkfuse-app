@@ -170,7 +170,19 @@ export default function LiveScreen() {
     );
   };
 
-  const mockStream = LIVE_STREAMS.find((s) => s.id === id) ?? streamFromProfile(id) ?? LIVE_STREAMS[0];
+  const FALLBACK_STREAM: LiveStream = {
+    id: id ?? "unknown",
+    name: "Live host",
+    age: 0,
+    avatar: require("../../assets/images/p1.png"),
+    tagline: "Broadcasting live right now",
+    category: "Dating",
+    viewers: 1,
+    tokens: 0,
+    isVerified: false,
+    badges: ["🔴 Live now"],
+  };
+  const mockStream = LIVE_STREAMS.find((s) => s.id === id) ?? streamFromProfile(id) ?? FALLBACK_STREAM;
 
   /* Real broadcast lookup — if this id matches an active live session on the
      server, we join the host's actual Daily.co room instead of the mock demo. */
@@ -279,6 +291,7 @@ export default function LiveScreen() {
 
   /* Auto chat messages */
   useEffect(() => {
+    if (MOCK_CHAT.length === 0) return;
     const t = setInterval(() => {
       const entry = MOCK_CHAT[msgIdx % MOCK_CHAT.length];
       setMsgIdx((i) => i + 1);

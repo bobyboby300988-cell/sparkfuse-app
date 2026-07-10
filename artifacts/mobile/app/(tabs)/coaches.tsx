@@ -100,8 +100,21 @@ export default function CoachesScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(c) => c.id}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[
+          styles.list,
+          { paddingBottom: insets.bottom + 100 },
+          filtered.length === 0 && styles.emptyList,
+        ]}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="people-outline" size={40} color={colors.mutedForeground} />
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No coaches yet</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+              We're onboarding real dating coaches. Check back soon!
+            </Text>
+          </View>
+        }
         renderItem={({ item: coach }) => {
           const minST = Math.min(...coach.sessions.map((s) => s.tokenPrice));
           const canAfford = coinBalance >= minST;
@@ -207,6 +220,10 @@ const styles = StyleSheet.create({
   },
   chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   list: { paddingHorizontal: 16, paddingTop: 4, gap: 14 },
+  emptyList: { flexGrow: 1 },
+  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 40, paddingTop: 60 },
+  emptyTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  emptySubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 19 },
   card: {
     borderRadius: 18,
     borderWidth: 1,
