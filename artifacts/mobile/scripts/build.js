@@ -505,6 +505,40 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   console.log("Manifests updated");
 }
 
+function runCommand(command, args, env) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: "inherit",
+      cwd: projectRoot,
+      env,
+    });
+    child.on("exit", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`${command} ${args.join(" ")} exited with code ${code}`));
+    });
+    child.on("error", reject);
+  });
+}
+
+async function exportWebBuild(expoPublicDomain, expoPublicReplId) {
+  console.log("Exporting web build for browser access...");
+
+  const webOutputDir = path.join(projectRoot, "static-build", "web");
+  const env = {
+    ...process.env,
+    EXPO_PUBLIC_DOMAIN: expoPublicDomain,
+    EXPO_PUBLIC_REPL_ID: expoPublicReplId,
+  };
+
+  await runCommand(
+    "pnpm",
+    ["exec", "expo", "export", "-p", "web", "--output-dir", webOutputDir, "--clear"],
+    env,
+  );
+
+  console.log("Web build exported to", webOutputDir);
+}
+
 async function main() {
   console.log("Building static Expo Go deployment...");
 
@@ -517,6 +551,8 @@ async function main() {
 
   prepareDirectories(timestamp);
   clearMetroCache();
+
+  await exportWebBuild(domain, expoPublicReplId);
 
   await startMetro(domain, expoPublicReplId);
 

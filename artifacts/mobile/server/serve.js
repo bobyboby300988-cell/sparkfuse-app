@@ -14,8 +14,11 @@ const fs = require("fs");
 const path = require("path");
 
 const STATIC_ROOT = path.resolve(__dirname, "..", "static-build");
+const WEB_STATIC_ROOT = path.join(STATIC_ROOT, "web");
+const WEB_INDEX_PATH = path.join(WEB_STATIC_ROOT, "index.html");
 const TEMPLATE_PATH = path.resolve(__dirname, "templates", "landing-page.html");
 const basePath = (process.env.BASE_PATH || "/").replace(/\/+$/, "");
+const hasWebBuild = fs.existsSync(WEB_INDEX_PATH);
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -104,6 +107,43 @@ function serveStaticFile(urlPath, res) {
   res.end(content);
 }
 
+// Serves the browser-facing web export (from `expo export -p web`), with a
+// static-file-first lookup and an SPA-style fallback to index.html for
+// client-side routed paths (expo-router web) that don't map to a real file.
+function serveWebFile(urlPath, res) {
+  const safePath = path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, "");
+  let filePath = path.join(WEB_STATIC_ROOT, safePath);
+
+  if (!filePath.startsWith(WEB_STATIC_ROOT)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
+
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+    filePath = path.join(filePath, "index.html");
+  }
+
+  const hasExtension = path.extname(safePath) !== "";
+
+  if (!fs.existsSync(filePath)) {
+    if (hasExtension) {
+      res.writeHead(404);
+      res.end("Not Found");
+      return;
+    }
+    // No file for this route (e.g. a dynamic route like /live/abc) — fall
+    // back to the app shell so expo-router can resolve it client-side.
+    filePath = WEB_INDEX_PATH;
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = MIME_TYPES[ext] || "application/octet-stream";
+  const content = fs.readFileSync(filePath);
+  res.writeHead(200, { "content-type": contentType });
+  res.end(content);
+}
+
 const landingPageTemplate = fs.readFileSync(TEMPLATE_PATH, "utf-8");
 const appName = getAppName();
 
@@ -115,15 +155,25 @@ const server = http.createServer((req, res) => {
     pathname = pathname.slice(basePath.length) || "/";
   }
 
+  const platform = req.headers["expo-platform"];
+
   if (pathname === "/" || pathname === "/manifest") {
-    const platform = req.headers["expo-platform"];
     if (platform === "ios" || platform === "android") {
       return serveManifest(platform, res);
     }
 
     if (pathname === "/") {
+      if (hasWebBuild) {
+        return serveWebFile("/index.html", res);
+      }
       return serveLandingPage(req, res, landingPageTemplate, appName);
     }
+  }
+
+  // Expo Go / native clients request their bundle & assets from the root
+  // static-build tree; regular browsers get the exported web app instead.
+  if (!platform && hasWebBuild) {
+    return serveWebFile(pathname, res);
   }
 
   serveStaticFile(pathname, res);
