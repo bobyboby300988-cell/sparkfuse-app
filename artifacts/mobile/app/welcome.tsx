@@ -289,7 +289,27 @@ export default function WelcomeScreen() {
           </Text>
         </Animated.View>
 
-        {/* Login / Skip link */}
+        {/* ── Already have an account? Big login card ── */}
+        {!isAuthenticated && (
+          <Animated.View style={[styles.loginCard, { opacity: cardOpacity, transform: [{ translateY: cardTY }] }]}>
+            <Text style={styles.loginCardTitle}>Already subscribed?</Text>
+            <Text style={styles.loginCardSubtitle}>Log in to pick up right where you left off — no need to pay again.</Text>
+            <TouchableOpacity
+              style={styles.loginBtn}
+              onPress={async () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                await login();
+              }}
+              activeOpacity={0.88}
+              disabled={authLoading}
+            >
+              <Ionicons name="log-in-outline" size={20} color="#fff" />
+              <Text style={styles.loginBtnText}>Log In</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        {/* Browse first link */}
         <TouchableOpacity
           style={styles.skipBtn}
           onPress={async () => {
@@ -304,7 +324,7 @@ export default function WelcomeScreen() {
           disabled={authLoading}
         >
           <Text style={styles.skipText}>
-            {isAuthenticated ? "Browse first →" : "Log in to continue →"}
+            {isAuthenticated ? "Browse first →" : "Or create a new account →"}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -517,6 +537,39 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 16,
   },
+
+  /* Big login card */
+  loginCard: {
+    width: "100%",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    borderRadius: 24,
+    padding: 22,
+    gap: 14,
+    alignItems: "center",
+  },
+  loginCardTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#fff" },
+  loginCardSubtitle: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.5)",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  loginBtn: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.35)",
+    borderRadius: 28,
+    paddingVertical: 17,
+  },
+  loginBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
 
   /* Skip */
   skipBtn: { paddingVertical: 8 },
