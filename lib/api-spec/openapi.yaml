@@ -16,6 +16,8 @@ tags:
     description: Dating profile management.
   - name: Matching
     description: Feed, swiping, and matches.
+  - name: Blocks
+    description: Blocking and unblocking other users.
 paths:
   /healthz:
     get:
@@ -155,6 +157,71 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MatchesResponse'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /blocks:
+    get:
+      tags: [Blocks]
+      operationId: getBlocks
+      summary: Get the authenticated user's blocked user IDs
+      responses:
+        '200':
+          description: List of blocked user IDs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlocksResponse'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags: [Blocks]
+      operationId: createBlock
+      summary: Block another user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlockInput'
+      responses:
+        '200':
+          description: User blocked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlocksResponse'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /blocks/{userId}:
+    delete:
+      tags: [Blocks]
+      operationId: deleteBlock
+      summary: Unblock a previously blocked user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User unblocked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlocksResponse'
         '401':
           description: Not authenticated.
           content:
@@ -308,4 +375,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Profile'
+    BlockInput:
+      type: object
+      required: [targetUserId]
+      properties:
+        targetUserId:
+          type: string
+          minLength: 1
+    BlocksResponse:
+      type: object
+      required: [blockedUserIds]
+      properties:
+        blockedUserIds:
+          type: array
+          items:
+            type: string
 

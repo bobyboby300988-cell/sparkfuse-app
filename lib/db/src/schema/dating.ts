@@ -47,7 +47,22 @@ export const matchesTable = pgTable(
   (table) => [primaryKey({ columns: [table.userAId, table.userBId] })],
 );
 
+export const blocksTable = pgTable(
+  "blocks",
+  {
+    blockerId: varchar("blocker_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    blockedId: varchar("blocked_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.blockerId, table.blockedId] })],
+);
+
 export type Profile = typeof profilesTable.$inferSelect;
 export type UpsertProfile = typeof profilesTable.$inferInsert;
 export type Swipe = typeof swipesTable.$inferSelect;
 export type Match = typeof matchesTable.$inferSelect;
+export type Block = typeof blocksTable.$inferSelect;

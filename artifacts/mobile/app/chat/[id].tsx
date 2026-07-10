@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useCreateBlock } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
@@ -167,7 +168,8 @@ export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { matches, sendMessage, sendMedia, sendVoice } = useApp();
+  const { matches, sendMessage, sendMedia, sendVoice, removeMatch } = useApp();
+  const { mutateAsync: blockUser } = useCreateBlock();
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGiftModal, setShowGiftModal] = useState(false);
@@ -208,6 +210,43 @@ export default function ChatScreen() {
 
   const handleVideoCall = () => {
     router.push({ pathname: "/call/[id]", params: { id: id! } });
+  };
+
+  const doBlock = async () => {
+    if (!id) return;
+    try {
+      await blockUser({ data: { targetUserId: id } });
+    } catch {
+      // even if the network call fails, still remove locally so the person disappears
+    }
+    removeMatch(id);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    router.back();
+  };
+
+  const confirmBlock = () => {
+    if (!profile) return;
+    Alert.alert(
+      `Block ${profile.name}?`,
+      "They won't be able to message you, appear in your feed, or see your live streams again. This can't be undone from here.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Block", style: "destructive", onPress: doBlock },
+      ]
+    );
+  };
+
+  const handleMorePress = () => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ["Cancel", "Block"], destructiveButtonIndex: 1, cancelButtonIndex: 0 },
+        (idx) => {
+          if (idx === 1) confirmBlock();
+        }
+      );
+    } else {
+      confirmBlock();
+    }
   };
 
   const pickMedia = async (type: "image" | "video") => {
@@ -349,6 +388,14 @@ export default function ChatScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="call" size={20} color={colors.primary} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.headerAction, { backgroundColor: colors.card }]}
+          onPress={handleMorePress}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.foreground} />
         </TouchableOpacity>
       </View>
 

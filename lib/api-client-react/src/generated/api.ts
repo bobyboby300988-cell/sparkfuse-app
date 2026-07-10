@@ -21,6 +21,8 @@ import type {
 
 import type {
   AuthUserEnvelope,
+  BlockInput,
+  BlocksResponse,
   ErrorEnvelope,
   FeedResponse,
   HealthStatus,
@@ -643,4 +645,222 @@ export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TE
 
 
 
+
+export const getGetBlocksUrl = () => {
+
+
+
+
+  return `/api/blocks`
+}
+
+/**
+ * @summary Get the authenticated user's blocked user IDs
+ */
+export const getBlocks = async ( options?: RequestInit): Promise<BlocksResponse> => {
+
+  return customFetch<BlocksResponse>(getGetBlocksUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBlocksQueryKey = () => {
+    return [
+    `/api/blocks`
+    ] as const;
+    }
+
+
+export const getGetBlocksQueryOptions = <TData = Awaited<ReturnType<typeof getBlocks>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBlocks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBlocksQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBlocks>>> = ({ signal }) => getBlocks({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBlocks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBlocksQueryResult = NonNullable<Awaited<ReturnType<typeof getBlocks>>>
+export type GetBlocksQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Get the authenticated user's blocked user IDs
+ */
+
+export function useGetBlocks<TData = Awaited<ReturnType<typeof getBlocks>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBlocks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBlocksQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateBlockUrl = () => {
+
+
+
+
+  return `/api/blocks`
+}
+
+/**
+ * @summary Block another user
+ */
+export const createBlock = async (blockInput: BlockInput, options?: RequestInit): Promise<BlocksResponse> => {
+
+  return customFetch<BlocksResponse>(getCreateBlockUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      blockInput,)
+  }
+);}
+
+
+
+
+export const getCreateBlockMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBlock>>, TError,{data: BodyType<BlockInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBlock>>, TError,{data: BodyType<BlockInput>}, TContext> => {
+
+const mutationKey = ['createBlock'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBlock>>, {data: BodyType<BlockInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createBlock(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBlockMutationResult = NonNullable<Awaited<ReturnType<typeof createBlock>>>
+    export type CreateBlockMutationBody = BodyType<BlockInput>
+    export type CreateBlockMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Block another user
+ */
+export const useCreateBlock = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBlock>>, TError,{data: BodyType<BlockInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBlock>>,
+        TError,
+        {data: BodyType<BlockInput>},
+        TContext
+      > => {
+      return useMutation(getCreateBlockMutationOptions(options));
+    }
+
+export const getDeleteBlockUrl = (userId: string,) => {
+
+
+
+
+  return `/api/blocks/${userId}`
+}
+
+/**
+ * @summary Unblock a previously blocked user
+ */
+export const deleteBlock = async (userId: string, options?: RequestInit): Promise<BlocksResponse> => {
+
+  return customFetch<BlocksResponse>(getDeleteBlockUrl(userId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteBlockMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBlock>>, TError,{userId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteBlock>>, TError,{userId: string}, TContext> => {
+
+const mutationKey = ['deleteBlock'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteBlock>>, {userId: string}> = (props) => {
+          const {userId} = props ?? {};
+
+          return  deleteBlock(userId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteBlockMutationResult = NonNullable<Awaited<ReturnType<typeof deleteBlock>>>
+
+    export type DeleteBlockMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Unblock a previously blocked user
+ */
+export const useDeleteBlock = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBlock>>, TError,{userId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteBlock>>,
+        TError,
+        {userId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteBlockMutationOptions(options));
+    }
 

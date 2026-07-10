@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { and, eq, inArray, notInArray, or } from "drizzle-orm";
-import { db, matchesTable, profilesTable, swipesTable } from "@workspace/db";
+import { db, matchesTable, profilesTable, swipesTable, blocksTable } from "@workspace/db";
 import { GetFeedResponse, GetMatchesResponse, CreateSwipeBody, CreateSwipeResponse } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 
@@ -60,7 +60,13 @@ router.get("/feed", requireAuth, async (req: Request, res: Response) => {
     .where(eq(swipesTable.swiperId, userId));
   const swipedIds = swiped.map((s) => s.targetId);
 
-  const excludeIds = [userId, ...swipedIds];
+  const blocks = await db
+    .select({ blockerId: blocksTable.blockerId, blockedId: blocksTable.blockedId })
+    .from(blocksTable)
+    .where(or(eq(blocksTable.blockerId, userId), eq(blocksTable.blockedId, userId)));
+  const blockedIds = blocks.map((b) => (b.blockerId === userId ? b.blockedId : b.blockerId));
+
+  const excludeIds = [userId, ...swipedIds, ...blockedIds];
 
   const rows = await db
     .select()
@@ -145,7 +151,19 @@ router.get("/matches", requireAuth, async (req: Request, res: Response) => {
     .from(matchesTable)
     .where(or(eq(matchesTable.userAId, userId), eq(matchesTable.userBId, userId)));
 
-  const otherIds = rows.map((r) => (r.userAId === userId ? r.userBId : r.userAId));
+  let otherIds = rows.map((r) => (r.userAId === userId ? r.userBId : r.userAId));
+  if (otherIds.length === 0) {
+    res.json(GetMatchesResponse.parse({ matches: [] }));
+    return;
+  }
+
+  const blocks = await db
+    .select({ blockerId: blocksTable.blockerId, blockedId: blocksTable.blockedId })
+    .from(blocksTable)
+    .where(or(eq(blocksTable.blockerId, userId), eq(blocksTable.blockedId, userId)));
+  const blockedIds = new Set(blocks.map((b) => (b.blockerId === userId ? b.blockedId : b.blockerId)));
+  otherIds = otherIds.filter((id) => !blockedIds.has(id));
+
   if (otherIds.length === 0) {
     res.json(GetMatchesResponse.parse({ matches: [] }));
     return;

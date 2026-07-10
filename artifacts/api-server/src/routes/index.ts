@@ -8,6 +8,7 @@ import authRouter from "./auth";
 import storageRouter from "./storage";
 import profileRouter from "./profile";
 import matchingRouter from "./matching";
+import blocksRouter from "./blocks";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(authRouter);
 router.use(storageRouter);
 router.use(profileRouter);
 router.use(matchingRouter);
+router.use(blocksRouter);
 
 export default router;

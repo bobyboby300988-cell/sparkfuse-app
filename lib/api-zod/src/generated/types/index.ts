@@ -8,6 +8,8 @@
 
 export * from './authUser';
 export * from './authUserEnvelope';
+export * from './blockInput';
+export * from './blocksResponse';
 export * from './errorEnvelope';
 export * from './feedResponse';
 export * from './healthStatus';

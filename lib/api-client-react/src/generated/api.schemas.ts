@@ -109,3 +109,12 @@ export interface MatchesResponse {
   matches: Profile[];
 }
 
+export interface BlockInput {
+  /** @minLength 1 */
+  targetUserId: string;
+}
+
+export interface BlocksResponse {
+  blockedUserIds: string[];
+}
+

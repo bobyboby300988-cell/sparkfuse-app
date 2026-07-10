@@ -173,3 +173,38 @@ export const GetMatchesResponse = zod.object({
 })
 
 
+/**
+ * @summary Get the authenticated user's blocked user IDs
+ */
+export const GetBlocksResponse = zod.object({
+  "blockedUserIds": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Block another user
+ */
+
+
+
+export const CreateBlockBody = zod.object({
+  "targetUserId": zod.string().min(1)
+})
+
+export const CreateBlockResponse = zod.object({
+  "blockedUserIds": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Unblock a previously blocked user
+ */
+export const DeleteBlockParams = zod.object({
+  "userId": zod.coerce.string()
+})
+
+export const DeleteBlockResponse = zod.object({
+  "blockedUserIds": zod.array(zod.string())
+})
+
+

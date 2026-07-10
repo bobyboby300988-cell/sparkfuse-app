@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   FlatList,
   Image,
@@ -17,6 +18,7 @@ import {
 } from "react-native";
 import WebView from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useCreateBlock } from "@workspace/api-client-react";
 import GiftModal from "@/components/GiftModal";
 import { CATEGORY_COLORS, LIVE_STREAMS, MOCK_CHAT, LiveStream } from "@/data/livestreams";
 import { ALL_PROFILES } from "@/data/allProfiles";
@@ -134,6 +136,32 @@ export default function LiveScreen() {
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
   const { coinBalance, spendCoins, addEarning } = useApp();
+  const { mutateAsync: blockUser } = useCreateBlock();
+
+  const handleBlockPress = () => {
+    Alert.alert(
+      `Block ${mockStream.name}?`,
+      "You won't see their live streams, profile, or messages anymore. This can't be undone from here.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Block",
+          style: "destructive",
+          onPress: async () => {
+            if (id) {
+              try {
+                await blockUser({ data: { targetUserId: id } });
+              } catch {
+                // still leave the stream even if the request fails
+              }
+            }
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            router.back();
+          },
+        },
+      ]
+    );
+  };
 
   const mockStream = LIVE_STREAMS.find((s) => s.id === id) ?? streamFromProfile(id) ?? LIVE_STREAMS[0];
 
@@ -261,6 +289,10 @@ export default function LiveScreen() {
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
           <Ionicons name="chevron-back" size={22} color="#fff" />
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleBlockPress} style={styles.backBtn} activeOpacity={0.8}>
+          <Ionicons name="ellipsis-horizontal" size={20} color="#fff" />
         </TouchableOpacity>
 
         {/* Streamer info */}
