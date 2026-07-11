@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useSignUp } from "@clerk/expo";
+import { useSignUp } from "@clerk/expo/legacy";
 import BrandLogo from "@/components/BrandLogo";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function SignUpScreen() {
   const insets = useSafeAreaInsets();
-  const { signUp, fetchStatus } = useSignUp();
+  const { signUp, isLoaded, setActive } = useSignUp();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,13 +32,8 @@ export default function SignUpScreen() {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
 
-  // Only disable on user-triggered loading, not on Clerk's internal fetchStatus.
-  // fetchStatus can be "fetching" during page reinitialization (e.g. post-payment
-  // redirect) which would lock the button before the user ever presses it.
-  const isLoading = loading;
-
   const handleSubmit = async () => {
-    if (!signUp || fetchStatus === "fetching") {
+    if (!isLoaded || !signUp) {
       setErrorMsg("Still loading — please wait a moment and try again.");
       return;
     }
@@ -53,31 +48,15 @@ export default function SignUpScreen() {
     setErrorMsg("");
     setLoading(true);
     try {
-      const { error: createError } = await signUp.password({
+      await signUp.create({
         emailAddress: email.trim().toLowerCase(),
         password,
       });
-      if (createError) {
-        const code: string = (createError as any)?.code ?? "";
-        const msg =
-          code === "form_identifier_exists"
-            ? "An account with this email already exists. Try signing in."
-            : code === "form_password_pwned"
-            ? "This password is too common. Please choose a stronger one."
-            : code === "form_param_format_invalid"
-            ? "Please enter a valid email address."
-            : (createError as any)?.longMessage ?? (createError as any)?.message ?? "Sign up failed. Please try again.";
-        setErrorMsg(msg);
-        return;
-      }
-      const { error: sendError } = await signUp.verifications.sendEmailCode();
-      if (sendError) {
-        setErrorMsg((sendError as any)?.longMessage ?? (sendError as any)?.message ?? "Failed to send verification code.");
-        return;
-      }
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setPendingVerification(true);
     } catch (err: any) {
-      const errCode: string = err?.errors?.[0]?.code ?? err?.code ?? "";
+      const clerkError = err?.errors?.[0];
+      const errCode: string = clerkError?.code ?? "";
       const msg =
         errCode === "form_identifier_exists"
           ? "An account with this email already exists. Try signing in."
@@ -85,7 +64,7 @@ export default function SignUpScreen() {
           ? "This password is too common. Please choose a stronger one."
           : errCode === "form_param_format_invalid"
           ? "Please enter a valid email address."
-          : err?.errors?.[0]?.longMessage ?? err?.message ?? "Sign up failed. Please try again.";
+          : clerkError?.longMessage ?? clerkError?.message ?? err?.message ?? "Sign up failed. Please try again.";
       setErrorMsg(msg);
     } finally {
       setLoading(false);
@@ -93,7 +72,7 @@ export default function SignUpScreen() {
   };
 
   const handleVerify = async () => {
-    if (!signUp) {
+    if (!isLoaded || !signUp || !setActive) {
       setVerifyError("Still loading — please wait a moment and try again.");
       return;
     }
@@ -104,32 +83,22 @@ export default function SignUpScreen() {
     setVerifyError("");
     setVerifyLoading(true);
     try {
-      const { error } = await signUp.verifications.verifyEmailCode({ code: code.trim() });
-      if (error) {
-        const errCode: string = (error as any)?.code ?? "";
-        const msg =
-          errCode === "form_code_incorrect"
-            ? "Incorrect code. Please check and try again."
-            : errCode === "verification_expired"
-            ? "The code has expired. Please request a new one."
-            : (error as any)?.longMessage ?? (error as any)?.message ?? "Verification failed. Try again.";
-        setVerifyError(msg);
-        return;
-      }
-      if (signUp.status === "complete") {
-        await signUp.finalize();
+      const result = await signUp.attemptEmailAddressVerification({ code: code.trim() });
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
         router.replace("/onboarding" as Href);
       } else {
         setVerifyError("Verification incomplete. Please try again.");
       }
     } catch (err: any) {
-      const errCode: string = err?.errors?.[0]?.code ?? err?.code ?? "";
+      const clerkError = err?.errors?.[0];
+      const errCode: string = clerkError?.code ?? "";
       const msg =
         errCode === "form_code_incorrect"
           ? "Incorrect code. Please check and try again."
           : errCode === "verification_expired"
           ? "The code has expired. Please request a new one."
-          : err?.errors?.[0]?.longMessage ?? err?.message ?? "Verification failed. Try again.";
+          : clerkError?.longMessage ?? clerkError?.message ?? err?.message ?? "Verification failed. Try again.";
       setVerifyError(msg);
     } finally {
       setVerifyLoading(false);
@@ -137,14 +106,10 @@ export default function SignUpScreen() {
   };
 
   const resendCode = async () => {
-    if (!signUp) return;
+    if (!isLoaded || !signUp) return;
     try {
-      const { error } = await signUp.verifications.sendEmailCode();
-      if (error) {
-        setVerifyError("Could not resend. Please wait a moment and try again.");
-      } else {
-        setVerifyError("A new code was sent.");
-      }
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      setVerifyError("A new code was sent.");
     } catch {
       setVerifyError("Could not resend. Please wait a moment and try again.");
     }
@@ -311,9 +276,9 @@ export default function SignUpScreen() {
             )}
 
             <TouchableOpacity
-              style={[styles.submitBtn, isLoading && { opacity: 0.6 }]}
+              style={[styles.submitBtn, loading && { opacity: 0.6 }]}
               onPress={handleSubmit}
-              disabled={isLoading}
+              disabled={loading}
               activeOpacity={0.88}
             >
               <LinearGradient
@@ -322,7 +287,7 @@ export default function SignUpScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.submitBtnInner}
               >
-                {isLoading ? (
+                {loading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.submitBtnText}>Create Account</Text>
