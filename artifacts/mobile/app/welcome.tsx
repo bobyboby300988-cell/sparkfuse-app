@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -81,8 +82,17 @@ export default function WelcomeScreen() {
   const [showUnderage, setShowUnderage] = useState(false);
   const gateOpacity = useRef(new Animated.Value(1)).current;
 
+  // Restore age verification from storage so the gate doesn't reappear
+  // after a payment redirect causes the page to reload.
+  useEffect(() => {
+    AsyncStorage.getItem("ageVerified").then((val) => {
+      if (val === "1") setAgeVerified(true);
+    });
+  }, []);
+
   const handleConfirmAdult = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    AsyncStorage.setItem("ageVerified", "1");
     Animated.timing(gateOpacity, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
       setAgeVerified(true);
     });
@@ -129,8 +139,8 @@ export default function WelcomeScreen() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          successUrl: `${APP_DOMAIN}/success`,
-          cancelUrl: `${APP_DOMAIN}/cancel`,
+          successUrl: `${APP_DOMAIN}/sign-up`,
+          cancelUrl: `${APP_DOMAIN}/welcome`,
         }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Checkout failed");
@@ -157,6 +167,8 @@ export default function WelcomeScreen() {
     const paypalUrl = buildPayPalCheckoutUrl({
       amountEur: 2,
       itemName: "SparkFuse Premium — 1 month",
+      returnUrl: `${APP_DOMAIN}/sign-up`,
+      cancelUrl: `${APP_DOMAIN}/welcome`,
     });
     try {
       setLoadingPayPal(false);

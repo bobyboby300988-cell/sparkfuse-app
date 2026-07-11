@@ -8,6 +8,8 @@ export const PAYPAL_BUSINESS_EMAIL = "dumitru8830@gmail.com";
 export function buildPayPalCheckoutUrl(opts: {
   amountEur: number;
   itemName: string;
+  returnUrl?: string;
+  cancelUrl?: string;
 }): string {
   const params = new URLSearchParams({
     cmd: "_xclick",
@@ -16,6 +18,8 @@ export function buildPayPalCheckoutUrl(opts: {
     currency_code: "EUR",
     item_name: opts.itemName,
   });
+  if (opts.returnUrl) params.set("return", opts.returnUrl);
+  if (opts.cancelUrl) params.set("cancel_return", opts.cancelUrl);
   return `https://www.paypal.com/cgi-bin/webscr?${params.toString()}`;
 }
 
