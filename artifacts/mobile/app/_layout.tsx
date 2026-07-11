@@ -9,11 +9,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useGetMyProfile } from "@workspace/api-client-react";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { ClerkProvider, useAuth } from "@clerk/expo";
-import { tokenCache } from "@clerk/expo/token-cache";
+import { tokenCache as nativeTokenCache } from "@clerk/expo/token-cache";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -27,6 +27,10 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY as string;
+// On web, Clerk manages tokens via cookies/localStorage internally.
+// The native tokenCache (expo-secure-store) silently fails in a browser
+// and prevents Clerk from ever finishing initialisation.
+const tokenCache = Platform.OS === "web" ? undefined : nativeTokenCache;
 
 function RootLayoutNav() {
   const { isSubscribed, isLoaded: appLoaded } = useApp();
