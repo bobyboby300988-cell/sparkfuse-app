@@ -21,10 +21,11 @@ import {
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useCreateBlock } from "@workspace/api-client-react";
+import { useCreateBlock, useGetMatches } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
+import { getPhotoUrl } from "@/lib/api";
 import GiftModal from "@/components/GiftModal";
 import { useTranslation } from "react-i18next";
 import { translateMessage } from "@/lib/translateMessage";
@@ -204,7 +205,20 @@ export default function ChatScreen() {
     });
   }, []);
 
-  const profile = useMemo(() => ALL_PROFILES.find((p) => p.id === id), [id]);
+  const { data: matchesServerData } = useGetMatches();
+  const profile = useMemo(() => {
+    const mock = ALL_PROFILES.find((p) => p.id === id);
+    if (mock) return mock;
+    if (!id) return null;
+    const srv = matchesServerData?.matches?.find((p) => p.userId === id);
+    if (!srv) return null;
+    const photoUrl = getPhotoUrl(srv.photoUrl);
+    return {
+      id: srv.userId,
+      name: srv.name,
+      photo: photoUrl ? { uri: photoUrl } : require("../../assets/images/p1.png"),
+    };
+  }, [id, matchesServerData]);
   const match = useMemo(() => matches.find((m) => m.profileId === id), [matches, id]);
   const reversedMessages = useMemo(() => {
     if (!match) return [];

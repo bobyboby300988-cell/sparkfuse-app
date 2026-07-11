@@ -55,11 +55,15 @@ export default function ProfileScreen() {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(userProfile?.name ?? "");
   const [editBio, setEditBio] = useState(userProfile?.bio ?? "");
+  const [editCity, setEditCity] = useState(userProfile?.city ?? "");
+  const [editCountry, setEditCountry] = useState(userProfile?.country ?? "");
 
   useEffect(() => {
     if (userProfile) {
       setEditName(userProfile.name);
       setEditBio(userProfile.bio);
+      setEditCity(userProfile.city ?? "");
+      setEditCountry(userProfile.country ?? "");
     }
   }, [userProfile]);
 
@@ -72,8 +76,8 @@ export default function ProfileScreen() {
         bio: editBio.trim(),
         seeking: userProfile.seeking,
         photoUrl: userProfile.photoUrl,
-        city: userProfile.city ?? null,
-        country: userProfile.country ?? null,
+        city: editCity.trim() || null,
+        country: editCountry.trim() || null,
         latitude: userProfile.latitude ?? null,
         longitude: userProfile.longitude ?? null,
       },
@@ -190,11 +194,17 @@ export default function ProfileScreen() {
           </Text>
           <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.messages")}</Text>
         </View>
-        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-        <View style={styles.statItem}>
-          <Text style={[styles.statNum, { color: colors.primary }]}>2</Text>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>mi away</Text>
-        </View>
+        {userProfile?.city ? (
+          <>
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.statItem}>
+              <Ionicons name="location-outline" size={14} color={colors.primary} />
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {userProfile.city}
+              </Text>
+            </View>
+          </>
+        ) : null}
       </View>
 
       {/* Bio */}
@@ -226,6 +236,36 @@ export default function ProfileScreen() {
               placeholder={t("profile.bioPH")}
               placeholderTextColor={colors.mutedForeground}
             />
+            <TextInput
+              style={[
+                styles.locationInput,
+                {
+                  color: colors.foreground,
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                },
+              ]}
+              value={editCity}
+              onChangeText={setEditCity}
+              placeholder="City (e.g. Paris, Lagos)"
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={80}
+            />
+            <TextInput
+              style={[
+                styles.locationInput,
+                {
+                  color: colors.foreground,
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                },
+              ]}
+              value={editCountry}
+              onChangeText={setEditCountry}
+              placeholder="Country"
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={80}
+            />
             <View style={styles.editActions}>
               <TouchableOpacity
                 style={[styles.editBtn, { borderColor: colors.border }]}
@@ -233,6 +273,8 @@ export default function ProfileScreen() {
                   setEditing(false);
                   setEditName(userProfile?.name ?? "");
                   setEditBio(userProfile?.bio ?? "");
+                  setEditCity(userProfile?.city ?? "");
+                  setEditCountry(userProfile?.country ?? "");
                 }}
               >
                 <Text style={[styles.editBtnText, { color: colors.mutedForeground }]}>{t("common.cancel")}</Text>
@@ -604,6 +646,14 @@ const styles = StyleSheet.create({
     minHeight: 90,
     textAlignVertical: "top",
     lineHeight: 22,
+  },
+  locationInput: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 8,
   },
   editActions: {
     flexDirection: "row",
