@@ -341,13 +341,21 @@ function TierHeader({ tier }: { tier: string }) {
 }
 
 /* ══ Main modal ══ */
+export interface GiftSentInfo {
+  emoji: string;
+  label: string;
+  tokens: number;
+  grad: [string, string];
+}
+
 interface Props {
   visible: boolean;
   onClose: () => void;
   recipientName: string;
+  onGiftSent?: (gift: GiftSentInfo) => void;
 }
 
-export default function GiftModal({ visible, onClose, recipientName }: Props) {
+export default function GiftModal({ visible, onClose, recipientName, onGiftSent }: Props) {
   const { coinBalance, addCoins, spendCoins, addEarning } = useApp();
 
   const [step,         setStep]         = useState<"buy" | "send">("send");
@@ -431,6 +439,7 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
     addEarning(parseFloat((selectedGift.tokens * 0.1).toFixed(2)));
     setSent(true);
     playSentAnimation();
+    onGiftSent?.({ emoji: selectedGift.emoji, label: selectedGift.label, tokens: selectedGift.tokens, grad: selectedGift.grad });
   }
 
   function handleClose() { setSent(false); onClose(); }

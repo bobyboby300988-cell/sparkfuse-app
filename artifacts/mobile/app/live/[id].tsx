@@ -20,7 +20,8 @@ import {
 import WebView from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCreateBlock } from "@workspace/api-client-react";
-import GiftModal from "@/components/GiftModal";
+import GiftModal, { GiftSentInfo } from "@/components/GiftModal";
+import GiftSplashOverlay from "@/components/GiftSplashOverlay";
 import { CATEGORY_COLORS, LIVE_STREAMS, MOCK_CHAT, LiveStream } from "@/data/livestreams";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { useApp } from "@/context/AppContext";
@@ -214,6 +215,7 @@ export default function LiveScreen() {
   const [viewers,    setViewers]    = useState(mockStream.viewers);
   const [reactions,  setReactions]  = useState<{ id: string; emoji: string; x: number }[]>([]);
   const [giftOpen,   setGiftOpen]   = useState(false);
+  const [giftSplash, setGiftSplash] = useState<GiftSentInfo | null>(null);
   const [inputText,  setInputText]  = useState("");
   const [msgIdx,     setMsgIdx]     = useState(0);
   const [tokens,     setTokens]     = useState(mockStream.tokens);
@@ -475,8 +477,20 @@ export default function LiveScreen() {
       {/* ── Gift modal ── */}
       <GiftModal
         visible={giftOpen}
-        onClose={() => { setGiftOpen(false); handleGiftSent(); }}
+        onClose={() => setGiftOpen(false)}
         recipientName={stream.name}
+        onGiftSent={(gift) => {
+          setGiftOpen(false);
+          setGiftSplash(gift);
+          handleGiftSent();
+          pushMsg({ name: "You", text: `🎁 Gifted a ${gift.label} · ${gift.tokens} ST`, isGift: true, gift: `${gift.emoji} ${gift.label}` });
+        }}
+      />
+
+      <GiftSplashOverlay
+        gift={giftSplash}
+        recipientName={stream.name}
+        onHide={() => setGiftSplash(null)}
       />
     </KeyboardAvoidingView>
   );

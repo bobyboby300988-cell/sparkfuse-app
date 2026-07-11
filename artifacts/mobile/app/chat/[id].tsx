@@ -26,7 +26,8 @@ import { useApp } from "@/context/AppContext";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
 import { getPhotoUrl } from "@/lib/api";
-import GiftModal from "@/components/GiftModal";
+import GiftModal, { GiftSentInfo } from "@/components/GiftModal";
+import GiftSplashOverlay from "@/components/GiftSplashOverlay";
 import { useTranslation } from "react-i18next";
 import { translateMessage } from "@/lib/translateMessage";
 
@@ -177,6 +178,7 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGiftModal, setShowGiftModal] = useState(false);
+  const [giftSplash, setGiftSplash] = useState<GiftSentInfo | null>(null);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const recordingStart = useRef<number>(0);
@@ -686,8 +688,21 @@ export default function ChatScreen() {
           visible={showGiftModal}
           onClose={() => setShowGiftModal(false)}
           recipientName={profile.name}
+          onGiftSent={(gift) => {
+            setShowGiftModal(false);
+            setGiftSplash(gift);
+            if (id) {
+              sendMessage(id, `🎁 Gifted a ${gift.label} · ${gift.tokens} ST`);
+            }
+          }}
         />
       )}
+
+      <GiftSplashOverlay
+        gift={giftSplash}
+        recipientName={profile?.name}
+        onHide={() => setGiftSplash(null)}
+      />
     </View>
   );
 }
