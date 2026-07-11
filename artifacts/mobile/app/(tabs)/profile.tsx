@@ -526,41 +526,48 @@ export default function ProfileScreen() {
         <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
       </TouchableOpacity>
 
-      {/* Reset */}
-      <TouchableOpacity
-        style={[styles.resetBtn, { borderColor: colors.destructive }]}
-        onPress={handleReset}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="refresh-outline" size={16} color={colors.destructive} />
-        <Text style={[styles.resetText, { color: colors.destructive }]}>{t("profile.resetProfile")}</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      {/* Log Out + Reset — compact action row */}
+      <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginHorizontal: 20, marginTop: 12, marginBottom: bottomPadding + 20 }}>
+        <Pressable
+          onPress={handleLogout}
+          disabled={loggingOut}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 5,
+            paddingVertical: 8,
+            paddingHorizontal: 14,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: "rgba(255,51,102,0.45)",
+            opacity: pressed || loggingOut ? 0.5 : 1,
+          })}
+        >
+          <Ionicons name="log-out-outline" size={14} color="#FF3366" />
+          <Text style={{ color: "#FF3366", fontSize: 12, fontFamily: "Inter_500Medium" }}>
+            {loggingOut ? "Logging out…" : "Log Out"}
+          </Text>
+        </Pressable>
 
-    {/* Log Out button — lives OUTSIDE the ScrollView so scroll never steals the tap */}
-    <Pressable
-      onPress={handleLogout}
-      disabled={loggingOut}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        marginHorizontal: 20,
-        marginTop: 8,
-        marginBottom: bottomPadding + 16,
-        paddingVertical: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: "#FF3366",
-        opacity: pressed || loggingOut ? 0.6 : 1,
-      })}
-    >
-      <Ionicons name="log-out-outline" size={18} color="#FF3366" />
-      <Text style={{ color: "#FF3366", fontSize: 15, fontFamily: "Inter_600SemiBold" }}>
-        {loggingOut ? "Logging out…" : "Log Out"}
-      </Text>
-    </Pressable>
+        <Pressable
+          onPress={handleReset}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 5,
+            paddingVertical: 8,
+            paddingHorizontal: 14,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.12)",
+            opacity: pressed ? 0.5 : 1,
+          })}
+        >
+          <Ionicons name="refresh-outline" size={14} color={colors.mutedForeground} />
+          <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_500Medium" }}>{t("profile.resetProfile")}</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
 
     </View>
 
