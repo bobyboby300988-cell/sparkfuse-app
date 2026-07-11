@@ -133,6 +133,9 @@ export default function WelcomeScreen() {
 
   const handleStripe = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Mark subscribed before opening the browser — payment redirects reload
+    // the page so the code after openBrowserAsync may never run.
+    await AsyncStorage.setItem("@spark/subscribed", "true");
     setLoadingStripe(true);
     try {
       const res = await fetch(`${API_BASE}/stripe/subscription-checkout`, {
@@ -163,6 +166,9 @@ export default function WelcomeScreen() {
 
   const handlePayPal = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Mark subscribed before opening the browser — PayPal redirect reloads
+    // the page so the code after openBrowserAsync may never run.
+    await AsyncStorage.setItem("@spark/subscribed", "true");
     setLoadingPayPal(true);
     const paypalUrl = buildPayPalCheckoutUrl({
       amountEur: 2,
