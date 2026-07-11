@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useRef, useMemo, useState } from "react";
+import React, { useEffect, useRef, useMemo, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -143,7 +143,7 @@ export default function MatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { matches, removeMatch } = useApp();
+  const { matches, addMatch, removeMatch } = useApp();
   const { data } = useGetMatches();
   const { data: myProfileData } = useGetMyProfile();
   const myProfile = myProfileData?.profile ?? null;
@@ -152,12 +152,27 @@ export default function MatchesScreen() {
   const [distanceUnit, setDistanceUnit] = useState<DistanceUnit>("km");
   const [showDistancePicker, setShowDistancePicker] = useState(false);
 
+  // Sync any server-side matches that aren't yet in local AsyncStorage.
+  // This handles the case where someone matched you but you never swiped them
+  // through the Explore tab on this device (so addMatch was never called locally).
+  useEffect(() => {
+    const serverMatches = data?.matches ?? [];
+    serverMatches.forEach((sp) => {
+      addMatch(sp.userId);
+    });
+  }, [data?.matches]);
+
   const matchData = useMemo(() => {
     const serverMatches = data?.matches ?? [];
-    return matches
-      .map((m) => {
-        const serverProfile = serverMatches.find((p) => p.userId === m.profileId);
-        if (!serverProfile) return null;
+    // Iterate SERVER matches so every mutual like appears, even if this
+    // device's AsyncStorage has no local entry yet.
+    return serverMatches
+      .map((serverProfile) => {
+        const localMatch = matches.find((m) => m.profileId === serverProfile.userId) ?? {
+          profileId: serverProfile.userId,
+          matchedAt: Date.now(),
+          messages: [],
+        };
         const photoUrl = getPhotoUrl(serverProfile.photoUrl);
         const profile = {
           id: serverProfile.userId,
@@ -167,11 +182,10 @@ export default function MatchesScreen() {
           country: serverProfile.country ?? null,
           distanceKm: serverProfile.distanceKm ?? null,
         };
-        const lastMsg = m.messages[m.messages.length - 1];
-        return { match: m, profile, lastMsg };
+        const lastMsg = localMatch.messages[localMatch.messages.length - 1];
+        return { match: localMatch, profile, lastMsg };
       })
-      .filter(Boolean)
-      .sort((a, b) => b!.match.matchedAt - a!.match.matchedAt);
+      .sort((a, b) => b.match.matchedAt - a.match.matchedAt);
   }, [matches, data]);
 
   const filteredMatchData = useMemo(() => {
