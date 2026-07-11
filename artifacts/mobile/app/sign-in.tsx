@@ -1,13 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useSignIn, useSSO } from "@clerk/expo";
+import { useSignIn } from "@clerk/expo";
 import BrandLogo from "@/components/BrandLogo";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, router, type Href } from "expo-router";
-import * as AuthSession from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
-import React, { useCallback, useEffect, useState } from "react";
+import { router, type Href } from "expo-router";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,156 +18,172 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-WebBrowser.maybeCompleteAuthSession();
-
-export const useWarmUpBrowser = () => {
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    void WebBrowser.warmUpAsync();
-    return () => {
-      void WebBrowser.coolDownAsync();
-    };
-  }, []);
-};
-
 export default function SignInScreen() {
-  useWarmUpBrowser();
   const insets = useSafeAreaInsets();
-  const { signIn, errors, fetchStatus } = useSignIn();
-  const { startSSOFlow } = useSSO();
+  const { signIn, fetchStatus } = useSignIn();
 
-  const [emailAddress, setEmailAddress] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const finish = useCallback(() => {
-    router.replace("/onboarding" as Href);
-  }, []);
+  const isLoading = fetchStatus === "fetching" || loading;
 
   const handleSubmit = async () => {
-    const { error } = await signIn.password({ emailAddress, password });
-    if (error) return;
-
-    if (signIn.status === "complete") {
-      await signIn.finalize({
-        navigate: ({ session }) => {
-          if (session?.currentTask) return;
-          finish();
-        },
-      });
+    if (!signIn) return;
+    if (!email.trim() || !password) {
+      setErrorMsg("Please enter your email and password.");
+      return;
     }
-  };
-
-  const handleGoogle = async () => {
-    setGoogleLoading(true);
+    setErrorMsg("");
+    setLoading(true);
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: "oauth_google",
-        redirectUrl: AuthSession.makeRedirectUri(),
+      const { error } = await signIn.password({
+        emailAddress: email.trim().toLowerCase(),
+        password,
       });
-
-      if (createdSessionId && setActive) {
-        await setActive({
-          session: createdSessionId,
-          navigate: async ({ session }) => {
-            if (session?.currentTask) return;
-            finish();
-          },
-        });
+      if (error) {
+        const code: string = (error as any)?.code ?? "";
+        const msg =
+          code === "form_password_incorrect"
+            ? "Incorrect password. Please try again."
+            : code === "form_identifier_not_found"
+            ? "No account found with that email."
+            : code === "form_param_format_invalid"
+            ? "Please enter a valid email address."
+            : (error as any)?.longMessage ?? (error as any)?.message ?? "Sign in failed. Please try again.";
+        setErrorMsg(msg);
+        return;
       }
-    } catch (err) {
-      console.error("Google sign-in error:", err);
+      if (signIn.status === "complete") {
+        await signIn.finalize();
+        // _layout.tsx routing handles navigation after session is set
+      } else {
+        setErrorMsg("Sign in incomplete. Please try again.");
+      }
+    } catch (err: any) {
+      const code: string = err?.errors?.[0]?.code ?? err?.code ?? "";
+      const msg =
+        code === "form_password_incorrect"
+          ? "Incorrect password. Please try again."
+          : code === "form_identifier_not_found"
+          ? "No account found with that email."
+          : code === "form_param_format_invalid"
+          ? "Please enter a valid email address."
+          : err?.errors?.[0]?.longMessage ?? err?.message ?? "Sign in failed. Please try again.";
+      setErrorMsg(msg);
     } finally {
-      setGoogleLoading(false);
+      setLoading(false);
     }
   };
-
-  const canSubmit = !!emailAddress && !!password && fetchStatus !== "fetching";
 
   return (
     <LinearGradient colors={["#0D0D1A", "#15080F", "#0D0D1A"]} style={styles.root}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingTop: insets.top + (Platform.OS === "web" ? 80 : 20), paddingBottom: insets.bottom + 40 },
+          ]}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.flameRing}>
-            <BrandLogo size={40} />
-          </View>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Sign in to keep the sparks flying</Text>
+          {/* Back */}
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+            <Ionicons name="chevron-back" size={24} color="rgba(255,255,255,0.6)" />
+          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.googleBtn, googleLoading && { opacity: 0.6 }]}
-            onPress={handleGoogle}
-            disabled={googleLoading}
-            activeOpacity={0.88}
-          >
-            {googleLoading ? (
-              <ActivityIndicator color="#1F1F1F" />
-            ) : (
-              <>
-                <Ionicons name="logo-google" size={18} color="#1F1F1F" />
-                <Text style={styles.googleBtnText}>Continue with Google</Text>
-              </>
+          {/* Logo */}
+          <View style={styles.logoBlock}>
+            <View style={styles.flameRing}>
+              <BrandLogo size={44} />
+            </View>
+            <Text style={styles.title}>Welcome back</Text>
+            <Text style={styles.subtitle}>Sign in to keep the sparks flying</Text>
+          </View>
+
+          {/* Form */}
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email address</Text>
+              <View style={styles.inputWrap}>
+                <Ionicons name="mail-outline" size={18} color="rgba(255,255,255,0.35)" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="you@example.com"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  value={email}
+                  onChangeText={(v) => { setEmail(v); setErrorMsg(""); }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  returnKeyType="next"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputWrap}>
+                <Ionicons name="lock-closed-outline" size={18} color="rgba(255,255,255,0.35)" style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="••••••••"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  value={password}
+                  onChangeText={(v) => { setPassword(v); setErrorMsg(""); }}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmit}
+                />
+                <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.eyeBtn}>
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color="rgba(255,255,255,0.35)"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {!!errorMsg && (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle-outline" size={16} color="#FF6B6B" />
+                <Text style={styles.errorText}>{errorMsg}</Text>
+              </View>
             )}
-          </TouchableOpacity>
 
-          <View style={styles.divRow}>
-            <View style={styles.divLine} />
-            <Text style={styles.divLabel}>or</Text>
-            <View style={styles.divLine} />
+            <TouchableOpacity
+              style={[styles.submitBtn, isLoading && { opacity: 0.6 }]}
+              onPress={handleSubmit}
+              disabled={isLoading}
+              activeOpacity={0.88}
+            >
+              <LinearGradient
+                colors={["#FF3366", "#FF6B35"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.submitBtnInner}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Sign In</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>Email address</Text>
-          <TextInput
-            style={styles.input}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            placeholder="you@example.com"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            value={emailAddress}
-            onChangeText={setEmailAddress}
-          />
-          {errors.fields.identifier && <Text style={styles.error}>{errors.fields.identifier.message}</Text>}
-
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            secureTextEntry
-            placeholder="••••••••"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            value={password}
-            onChangeText={setPassword}
-          />
-          {errors.fields.password && <Text style={styles.error}>{errors.fields.password.message}</Text>}
-
-          <TouchableOpacity
-            style={[styles.submitBtn, !canSubmit && { opacity: 0.5 }]}
-            onPress={handleSubmit}
-            disabled={!canSubmit}
-            activeOpacity={0.88}
-          >
-            <LinearGradient
-              colors={["#FF3366", "#FF6B35"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.submitBtnInner}
-            >
-              {fetchStatus === "fetching" ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.submitBtnText}>Sign in</Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <View style={styles.linkRow}>
-            <Text style={styles.linkText}>Don't have an account? </Text>
-            <Link href={"/sign-up" as Href}>
-              <Text style={styles.linkAction}>Sign up</Text>
-            </Link>
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Don't have an account? </Text>
+            <TouchableOpacity onPress={() => router.replace("/sign-up" as Href)} activeOpacity={0.7}>
+              <Text style={styles.footerLink}>Create one</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -178,59 +193,75 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  scroll: { paddingHorizontal: 24, alignItems: "center", gap: 6 },
+  scroll: { paddingHorizontal: 24, gap: 28 },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoBlock: { alignItems: "center", gap: 10 },
   flameRing: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     backgroundColor: "rgba(255,51,102,0.14)",
     borderWidth: 1.5,
     borderColor: "rgba(255,51,102,0.35)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  title: { fontSize: 26, fontFamily: "Inter_700Bold", color: "#fff" },
-  subtitle: { fontSize: 14, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.5)", marginBottom: 24 },
-  googleBtn: {
-    width: "100%",
+  title: { fontSize: 28, fontFamily: "Inter_700Bold", color: "#fff" },
+  subtitle: { fontSize: 14, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.45)", textAlign: "center" },
+  form: { gap: 16 },
+  inputGroup: { gap: 8 },
+  label: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.55)", marginLeft: 4 },
+  inputWrap: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "#fff",
-    paddingVertical: 14,
-    borderRadius: 26,
-  },
-  googleBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#1F1F1F" },
-  divRow: { flexDirection: "row", alignItems: "center", gap: 10, width: "100%", marginVertical: 20 },
-  divLine: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.1)" },
-  divLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.3)" },
-  label: {
-    alignSelf: "flex-start",
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-    color: "rgba(255,255,255,0.6)",
-    marginBottom: 6,
-    marginTop: 8,
-  },
-  input: {
-    width: "100%",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(255,255,255,0.07)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.12)",
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+  },
+  inputIcon: { marginRight: 10 },
+  input: {
+    flex: 1,
+    height: 52,
     color: "#fff",
     fontSize: 15,
     fontFamily: "Inter_400Regular",
   },
-  error: { color: "#FF6B6B", fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 4, alignSelf: "flex-start" },
-  submitBtn: { width: "100%", borderRadius: 26, overflow: "hidden", marginTop: 24 },
-  submitBtnInner: { paddingVertical: 16, alignItems: "center", justifyContent: "center" },
+  eyeBtn: { padding: 8 },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(255,107,107,0.12)",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,107,107,0.25)",
+  },
+  errorText: { color: "#FF6B6B", fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+  submitBtn: {
+    borderRadius: 28,
+    overflow: "hidden",
+    marginTop: 8,
+    shadowColor: "#FF3366",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  submitBtnInner: { paddingVertical: 17, alignItems: "center", justifyContent: "center" },
   submitBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
-  linkRow: { flexDirection: "row", marginTop: 20 },
-  linkText: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.5)" },
-  linkAction: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#FF3366" },
+  footer: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
+  footerText: { fontSize: 14, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.4)" },
+  footerLink: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#FF3366" },
 });

@@ -122,11 +122,6 @@ export default function WelcomeScreen() {
   }, []);
 
   const handleStripe = async () => {
-    if (!isAuthenticated) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await login();
-      return;
-    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoadingStripe(true);
     try {
@@ -144,7 +139,12 @@ export default function WelcomeScreen() {
       await WebBrowser.openBrowserAsync(url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });
       await setSubscribed();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace("/onboarding");
+      // Pay first → then account: if already signed in go to onboarding, else sign up
+      if (isAuthenticated) {
+        router.replace("/onboarding");
+      } else {
+        router.replace("/sign-up");
+      }
     } catch (err: any) {
       setLoadingStripe(false);
       Alert.alert("Error", err.message ?? "Something went wrong. Try again.");
@@ -152,11 +152,6 @@ export default function WelcomeScreen() {
   };
 
   const handlePayPal = async () => {
-    if (!isAuthenticated) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await login();
-      return;
-    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoadingPayPal(true);
     const paypalUrl = buildPayPalCheckoutUrl({
@@ -168,7 +163,11 @@ export default function WelcomeScreen() {
       await WebBrowser.openBrowserAsync(paypalUrl, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN });
       await setSubscribed();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace("/onboarding");
+      if (isAuthenticated) {
+        router.replace("/onboarding");
+      } else {
+        router.replace("/sign-up");
+      }
     } catch (err: any) {
       setLoadingPayPal(false);
       Alert.alert("Error", err.message ?? "Something went wrong. Try again.");
@@ -312,16 +311,16 @@ export default function WelcomeScreen() {
           </Animated.View>
         )}
 
-        {/* Browse first link */}
+        {/* Browse / create account link */}
         <TouchableOpacity
           style={styles.skipBtn}
-          onPress={async () => {
+          onPress={() => {
             Haptics.selectionAsync();
-            if (!isAuthenticated) {
-              await login();
-              return;
+            if (isAuthenticated) {
+              router.push("/onboarding");
+            } else {
+              router.push("/sign-up");
             }
-            router.push("/onboarding");
           }}
           activeOpacity={0.7}
           disabled={authLoading}
