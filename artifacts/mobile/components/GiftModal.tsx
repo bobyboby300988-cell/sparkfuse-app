@@ -17,26 +17,28 @@ import {
 import { useApp } from "@/context/AppContext";
 import { buyTokensWithStripe, buyTokensWithPayPal } from "@/config/payments";
 
-/* ─── 9 gift tiers scaled to real euro values (1 ST = €0.01) ─── */
+/* ─── 11 gifts priced in ST cents (1 ST = €0.01) ─── */
 const GIFTS = [
   /* ── Sweet ── */
-  { tokens: 500,   label: "Rose",        emoji: "🌹", desc: "A sweet gesture",        tier: "Sweet",    grad: ["#FFD6E7","#FF8FAB"] as [string,string], glow: "#FF8FAB90", tierColor: "#FF6B9D" },
-  { tokens: 1000,  label: "Love Letter", emoji: "💌", desc: "From the heart",          tier: "Sweet",    grad: ["#FFAFCC","#FF5C8A"] as [string,string], glow: "#FF5C8A90", tierColor: "#FF6B9D" },
+  { tokens: 1,     label: "Rose",        emoji: "🌹", desc: "A sweet gesture",        tier: "Sweet",    grad: ["#FFD6E7","#FF8FAB"] as [string,string], glow: "#FF8FAB90", tierColor: "#FF6B9D" },
+  { tokens: 10,    label: "Daisy",       emoji: "🌼", desc: "Pure and sunny",          tier: "Sweet",    grad: ["#FFF3B0","#FFD23F"] as [string,string], glow: "#FFD23F90", tierColor: "#FF6B9D" },
+  { tokens: 20,    label: "Blossom",     emoji: "🌸", desc: "Gentle and soft",         tier: "Sweet",    grad: ["#FFC8DD","#FF85A1"] as [string,string], glow: "#FF85A190", tierColor: "#FF6B9D" },
 
   /* ── Romantic ── */
-  { tokens: 2000,  label: "Butterfly",   emoji: "🦋", desc: "Flutter of feelings",    tier: "Romantic", grad: ["#BDB2FF","#7B2D8B"] as [string,string], glow: "#7B2D8B90", tierColor: "#C77DFF" },
-  { tokens: 2500,  label: "Wine",        emoji: "🍷", desc: "A sensual evening",       tier: "Romantic", grad: ["#9E2A2B","#540B0E"] as [string,string], glow: "#9E2A2B90", tierColor: "#C77DFF" },
+  { tokens: 50,    label: "Love Letter", emoji: "💌", desc: "From the heart",          tier: "Romantic", grad: ["#FFAFCC","#FF5C8A"] as [string,string], glow: "#FF5C8A90", tierColor: "#C77DFF" },
+  { tokens: 100,   label: "Butterfly",   emoji: "🦋", desc: "Flutter of feelings",    tier: "Romantic", grad: ["#BDB2FF","#7B2D8B"] as [string,string], glow: "#7B2D8B90", tierColor: "#C77DFF" },
+  { tokens: 150,   label: "Kiss",        emoji: "💋", desc: "Soft lips on yours",      tier: "Romantic", grad: ["#C77DFF","#7B2FBE"] as [string,string], glow: "#C77DFF90", tierColor: "#C77DFF" },
 
   /* ── Flirty ── */
-  { tokens: 5000,  label: "Diamond",     emoji: "💎", desc: "You shine bright",        tier: "Flirty",   grad: ["#48CAE4","#0077B6"] as [string,string], glow: "#48CAE490", tierColor: "#FF6B35" },
-  { tokens: 8000,  label: "Flame",       emoji: "🔥", desc: "Pure desire burning",     tier: "Flirty",   grad: ["#FF4500","#B22222"] as [string,string], glow: "#FF450090", tierColor: "#FF6B35" },
+  { tokens: 700,   label: "Wine",        emoji: "🍷", desc: "A sensual evening",       tier: "Flirty",   grad: ["#9E2A2B","#540B0E"] as [string,string], glow: "#9E2A2B90", tierColor: "#FF6B35" },
+  { tokens: 1000,  label: "Diamond",     emoji: "💎", desc: "You shine bright",        tier: "Flirty",   grad: ["#48CAE4","#0077B6"] as [string,string], glow: "#48CAE490", tierColor: "#FF6B35" },
 
   /* ── Spicy ── */
-  { tokens: 10000, label: "Crown",       emoji: "👑", desc: "Royalty treatment",       tier: "Spicy",    grad: ["#FFD700","#C8860A"] as [string,string], glow: "#FFD70090", tierColor: "#FF1744" },
+  { tokens: 5000,  label: "Crown",       emoji: "👑", desc: "Royalty treatment",       tier: "Spicy",    grad: ["#FFD700","#C8860A"] as [string,string], glow: "#FFD70090", tierColor: "#FF1744" },
+  { tokens: 10000, label: "Flame",       emoji: "🔥", desc: "Pure desire burning",     tier: "Spicy",    grad: ["#FF4500","#B22222"] as [string,string], glow: "#FF450090", tierColor: "#FF1744" },
 
   /* ── Erotic ── */
-  { tokens: 15000, label: "Yacht",       emoji: "🛥️", desc: "Luxury on the waves",     tier: "Erotic",   grad: ["#0D0221","#3A0CA3"] as [string,string], glow: "#3A0CA390", tierColor: "#FF3366" },
-  { tokens: 30000, label: "Galaxy",      emoji: "🌌", desc: "Universe of desire",      tier: "Erotic",   grad: ["#2D0057","#9B2FBE"] as [string,string], glow: "#9B2FBE90", tierColor: "#FF3366" },
+  { tokens: 20000, label: "Galaxy",      emoji: "🌌", desc: "Universe of desire",      tier: "Erotic",   grad: ["#2D0057","#9B2FBE"] as [string,string], glow: "#9B2FBE90", tierColor: "#FF3366" },
 ];
 
 const TIER_ORDER = ["Sweet", "Romantic", "Flirty", "Spicy", "Erotic"];
