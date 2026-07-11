@@ -32,11 +32,7 @@ import { buyTokensWithStripe } from "@/config/payments";
 
 const PRICE_OPTIONS = [1, 2, 3, 5, 10];
 
-const TOKEN_PACKS = [
-  { tokens: 100, priceEur: 1.00 },
-  { tokens: 500, priceEur: 5.00 },
-  { tokens: 1000, priceEur: 10.00 },
-];
+const ST_MIN = 50; // Stripe minimum is €0.50
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -65,6 +61,7 @@ export default function ProfileScreen() {
   const [editCity, setEditCity] = useState(userProfile?.city ?? "");
   const [editCountry, setEditCountry] = useState(userProfile?.country ?? "");
   const [buyingTokens, setBuyingTokens] = useState(false);
+  const [customTokenAmount, setCustomTokenAmount] = useState("");
 
   useEffect(() => {
     if (userProfile) {
@@ -357,37 +354,66 @@ export default function ProfileScreen() {
           {t("profile.giftBalanceDesc")}
         </Text>
 
-        {/* Buy ST token packs */}
+        {/* Buy ST tokens — free-form amount */}
         <Text style={[styles.tokenPackTitle, { color: colors.foreground }]}>Buy Spark Tokens 🔥</Text>
-        <View style={styles.tokenPackRow}>
-          {TOKEN_PACKS.map((pack) => (
-            <TouchableOpacity
-              key={pack.tokens}
-              style={[styles.tokenPackCard, { backgroundColor: colors.background, borderColor: colors.border }]}
-              activeOpacity={0.8}
-              disabled={buyingTokens}
-              onPress={async () => {
-                try {
-                  setBuyingTokens(true);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  const paid = await buyTokensWithStripe(pack.tokens, pack.priceEur);
-                  if (paid) {
-                    addCoins(pack.tokens);
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    Alert.alert("🔥 Tokens added!", `${pack.tokens} ST credited to your wallet.`);
-                  }
-                } catch (e: any) {
-                  Alert.alert("Purchase failed", e?.message ?? "Please try again.");
-                } finally {
-                  setBuyingTokens(false);
-                }
-              }}
-            >
-              <Text style={[styles.tokenPackAmount, { color: colors.primary }]}>{pack.tokens} ST</Text>
-              <Text style={[styles.tokenPackPrice, { color: colors.foreground }]}>€{pack.priceEur.toFixed(2)}</Text>
-            </TouchableOpacity>
-          ))}
+        <Text style={[styles.tokenRateHint, { color: colors.mutedForeground }]}>
+          1 ST = €0.01 · 1 rose = 1 ST · minimum 50 ST
+        </Text>
+        <View style={[styles.tokenInputRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+          <TextInput
+            style={[styles.tokenInput, { color: colors.foreground }]}
+            value={customTokenAmount}
+            onChangeText={(v) => setCustomTokenAmount(v.replace(/[^0-9]/g, ""))}
+            keyboardType="number-pad"
+            placeholder="e.g. 20, 50, 200…"
+            placeholderTextColor={colors.mutedForeground}
+            maxLength={6}
+            editable={!buyingTokens}
+          />
+          <Text style={[styles.tokenInputSuffix, { color: colors.mutedForeground }]}>ST</Text>
+          {!!customTokenAmount && parseInt(customTokenAmount, 10) >= ST_MIN && (
+            <Text style={[styles.tokenInputPrice, { color: colors.primary }]}>
+              = €{(parseInt(customTokenAmount, 10) / 100).toFixed(2)}
+            </Text>
+          )}
         </View>
+        <TouchableOpacity
+          style={[
+            styles.tokenBuyBtn,
+            {
+              backgroundColor:
+                !customTokenAmount || parseInt(customTokenAmount, 10) < ST_MIN || buyingTokens
+                  ? colors.muted
+                  : colors.primary,
+            },
+          ]}
+          activeOpacity={0.8}
+          disabled={!customTokenAmount || parseInt(customTokenAmount, 10) < ST_MIN || buyingTokens}
+          onPress={async () => {
+            const amount = parseInt(customTokenAmount, 10);
+            if (!amount || amount < ST_MIN) return;
+            const priceEur = parseFloat((amount / 100).toFixed(2));
+            try {
+              setBuyingTokens(true);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              const paid = await buyTokensWithStripe(amount, priceEur);
+              if (paid) {
+                addCoins(amount);
+                setCustomTokenAmount("");
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert("🔥 Tokens added!", `${amount} ST credited to your wallet.`);
+              }
+            } catch (e: any) {
+              Alert.alert("Purchase failed", e?.message ?? "Please try again.");
+            } finally {
+              setBuyingTokens(false);
+            }
+          }}
+        >
+          <Text style={styles.tokenBuyBtnText}>
+            {buyingTokens ? "Processing…" : "Buy Tokens"}
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.earningsRow, { backgroundColor: colors.background, borderColor: colors.border }]}
@@ -797,18 +823,33 @@ const styles = StyleSheet.create({
   walletCoin: { fontSize: 26 },
   walletValue: { fontSize: 22, fontFamily: "Inter_700Bold", lineHeight: 28 },
   walletLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  tokenPackTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginTop: 12, marginBottom: 8 },
-  tokenPackRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
-  tokenPackCard: {
-    flex: 1,
+  tokenPackTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginTop: 12, marginBottom: 4 },
+  tokenRateHint: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 10 },
+  tokenInputRow: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
     borderWidth: 1,
-    gap: 4,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    gap: 8,
+    marginBottom: 8,
   },
-  tokenPackAmount: { fontSize: 15, fontFamily: "Inter_700Bold" },
-  tokenPackPrice: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  tokenInput: {
+    flex: 1,
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    paddingVertical: 10,
+  },
+  tokenInputSuffix: { fontSize: 15, fontFamily: "Inter_500Medium" },
+  tokenInputPrice: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  tokenBuyBtn: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  tokenBuyBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
   resetBtn: {
     flexDirection: "row",
     alignItems: "center",
