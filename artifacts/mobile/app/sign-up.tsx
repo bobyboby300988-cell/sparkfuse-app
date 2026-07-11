@@ -3,7 +3,7 @@ import { useSignUp } from "@clerk/expo/legacy";
 import BrandLogo from "@/components/BrandLogo";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -32,8 +32,26 @@ export default function SignUpScreen() {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
 
+  // Mirror the 6-second timeout from _layout.tsx so the button becomes
+  // active even when Clerk's isLoaded stalls after a payment redirect.
+  const [clerkTimedOut, setClerkTimedOut] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (isLoaded) return;
+    timerRef.current = setTimeout(() => setClerkTimedOut(true), 6000);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [isLoaded]);
+  const canSubmit = isLoaded || clerkTimedOut;
+
   const handleSubmit = async () => {
-    if (!isLoaded || !signUp) return;
+    if (!canSubmit) {
+      setErrorMsg("Still connecting — please wait a moment and tap again.");
+      return;
+    }
+    if (!signUp) {
+      setErrorMsg("Authentication unavailable. Please refresh the page and try again.");
+      return;
+    }
     if (!email.trim() || !password) {
       setErrorMsg("Please enter your email and password.");
       return;
@@ -111,19 +129,6 @@ export default function SignUpScreen() {
       setVerifyError("Could not resend. Please wait a moment and try again.");
     }
   };
-
-  // Show a spinner overlay while Clerk initialises. The component stays
-  // mounted (preserving form state) but the user can't submit until ready.
-  if (!isLoaded) {
-    return (
-      <LinearGradient colors={["#0D0D1A", "#15080F", "#0D0D1A"]} style={[styles.root, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color="#FF3366" />
-        <Text style={{ color: "rgba(255,255,255,0.4)", marginTop: 16, fontFamily: "Inter_400Regular", fontSize: 14 }}>
-          Getting ready…
-        </Text>
-      </LinearGradient>
-    );
-  }
 
   if (pendingVerification) {
     return (
@@ -286,9 +291,9 @@ export default function SignUpScreen() {
             )}
 
             <TouchableOpacity
-              style={[styles.submitBtn, loading && { opacity: 0.6 }]}
+              style={[styles.submitBtn, (loading || !canSubmit) && { opacity: 0.6 }]}
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || !canSubmit}
               activeOpacity={0.88}
             >
               <LinearGradient
@@ -299,6 +304,8 @@ export default function SignUpScreen() {
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" />
+                ) : !canSubmit ? (
+                  <Text style={styles.submitBtnText}>Connecting…</Text>
                 ) : (
                   <Text style={styles.submitBtnText}>Create Account</Text>
                 )}
