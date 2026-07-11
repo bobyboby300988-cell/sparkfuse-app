@@ -7,3 +7,4 @@
 - [Expo web-browser access](expo-web-browser-access.md) — `expo export -p web` + route serve.js by `expo-platform` header to make an Expo Go-only app also work in regular browsers.
 - [i18n locale type safety](i18next-locale-types.md) — use DeepString<typeof en> not typeof en directly; avoid naming timer vars `t` inside components that use useTranslation.
 - [Clerk Expo v3 / React v6 Signal API](clerk-expo-v3-api.md) — no setActive/isLoaded; use signIn.password()+finalize(), signUp.password()+verifications.sendEmailCode()/verifyEmailCode()+finalize().
+- [Clerk layout unmount during sign-up](clerk-layout-unmount.md) — _layout.tsx loading guard must exclude sign-up/sign-in pages or Clerk's mid-flow state change unmounts the form and wipes all state.
