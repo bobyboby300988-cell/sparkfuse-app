@@ -33,9 +33,9 @@ import { buyTokensWithStripe } from "@/config/payments";
 const PRICE_OPTIONS = [1, 2, 3, 5, 10];
 
 const TOKEN_PACKS = [
-  { tokens: 100, priceEur: 0.99 },
-  { tokens: 500, priceEur: 3.99 },
-  { tokens: 1500, priceEur: 9.99 },
+  { tokens: 100, priceEur: 1.00 },
+  { tokens: 500, priceEur: 5.00 },
+  { tokens: 1000, priceEur: 10.00 },
 ];
 
 export default function ProfileScreen() {
