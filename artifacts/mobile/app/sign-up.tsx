@@ -32,14 +32,13 @@ export default function SignUpScreen() {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
 
-  // Only block the button on user-triggered loading. fetchStatus can be
-  // "fetching" while Clerk re-initialises after a page reload (e.g. post-
-  // PayPal redirect), which would disable the button before the user ever
-  // presses it and make the form appear stuck.
+  // Only disable on user-triggered loading, not on Clerk's internal fetchStatus.
+  // fetchStatus can be "fetching" during page reinitialization (e.g. post-payment
+  // redirect) which would lock the button before the user ever presses it.
   const isLoading = loading;
 
   const handleSubmit = async () => {
-    if (!signUp) {
+    if (!signUp || fetchStatus === "fetching") {
       setErrorMsg("Still loading — please wait a moment and try again.");
       return;
     }
@@ -94,7 +93,10 @@ export default function SignUpScreen() {
   };
 
   const handleVerify = async () => {
-    if (!signUp) return;
+    if (!signUp) {
+      setVerifyError("Still loading — please wait a moment and try again.");
+      return;
+    }
     if (!code.trim()) {
       setVerifyError("Please enter the verification code.");
       return;
@@ -243,12 +245,10 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Back */}
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
             <Ionicons name="chevron-back" size={24} color="rgba(255,255,255,0.6)" />
           </TouchableOpacity>
 
-          {/* Logo */}
           <View style={styles.logoBlock}>
             <View style={styles.flameRing}>
               <BrandLogo size={44} />
@@ -257,7 +257,6 @@ export default function SignUpScreen() {
             <Text style={styles.subtitle}>Join SparkFuse and start connecting</Text>
           </View>
 
-          {/* Form */}
           <View style={styles.form}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email address</Text>
@@ -336,7 +335,6 @@ export default function SignUpScreen() {
             </Text>
           </View>
 
-          {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account? </Text>
             <TouchableOpacity onPress={() => router.replace("/sign-in" as Href)} activeOpacity={0.7}>
