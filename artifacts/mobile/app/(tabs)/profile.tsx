@@ -131,7 +131,7 @@ export default function ProfileScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ paddingBottom: 16 }}
+      contentContainerStyle={{ paddingBottom: bottomPadding + 100 }}
       showsVerticalScrollIndicator={false}
     >
       {/* Photo / Avatar area */}
