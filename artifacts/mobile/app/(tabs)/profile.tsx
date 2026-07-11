@@ -9,6 +9,7 @@ import {
   FlatList,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -42,7 +43,7 @@ export default function ProfileScreen() {
   const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, addCoins, isLive, setIsLive } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
-  const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [currentLang, setCurrentLang] = useState<SupportedLanguage>(i18n.language as SupportedLanguage || "en");
 
   const handleLanguageChange = async (lang: SupportedLanguage) => {
@@ -92,16 +93,14 @@ export default function ProfileScreen() {
     setEditing(false);
   };
 
-  const handleLogout = () => {
-    setLogoutConfirmVisible(true);
-  };
-
-  const confirmLogout = async () => {
-    setLogoutConfirmVisible(false);
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
     try {
       await signOut();
     } catch (_) {}
     router.replace("/welcome");
+    setLoggingOut(false);
   };
 
   const handleReset = () => {
@@ -129,9 +128,10 @@ export default function ProfileScreen() {
 
   return (
     <>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={{ paddingBottom: bottomPadding + 100 }}
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 16 }}
       showsVerticalScrollIndicator={false}
     >
       {/* Photo / Avatar area */}
@@ -312,16 +312,6 @@ export default function ProfileScreen() {
           </Text>
         </View>
       </View>
-
-      {/* Log Out — placed prominently before the wallet */}
-      <TouchableOpacity
-        style={[styles.resetBtn, { borderColor: "#FF3366", marginBottom: 4 }]}
-        onPress={handleLogout}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="log-out-outline" size={16} color="#FF3366" />
-        <Text style={[styles.resetText, { color: "#FF3366" }]}>Log Out</Text>
-      </TouchableOpacity>
 
       {/* Wallet — visible to every user */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
@@ -547,6 +537,33 @@ export default function ProfileScreen() {
       </TouchableOpacity>
     </ScrollView>
 
+    {/* Log Out button — lives OUTSIDE the ScrollView so scroll never steals the tap */}
+    <Pressable
+      onPress={handleLogout}
+      disabled={loggingOut}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        marginHorizontal: 20,
+        marginTop: 8,
+        marginBottom: bottomPadding + 16,
+        paddingVertical: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#FF3366",
+        opacity: pressed || loggingOut ? 0.6 : 1,
+      })}
+    >
+      <Ionicons name="log-out-outline" size={18} color="#FF3366" />
+      <Text style={{ color: "#FF3366", fontSize: 15, fontFamily: "Inter_600SemiBold" }}>
+        {loggingOut ? "Logging out…" : "Log Out"}
+      </Text>
+    </Pressable>
+
+    </View>
+
     {/* Language picker modal */}
     <Modal
       visible={languageModalVisible}
@@ -591,28 +608,6 @@ export default function ProfileScreen() {
 
     <WithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} />
 
-    <Modal visible={logoutConfirmVisible} transparent animationType="fade" onRequestClose={() => setLogoutConfirmVisible(false)}>
-      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", padding: 32 }}>
-        <View style={{ backgroundColor: "#1A1A2E", borderRadius: 16, padding: 24, width: "100%", maxWidth: 320 }}>
-          <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700", marginBottom: 8, textAlign: "center" }}>Log Out</Text>
-          <Text style={{ color: "#aaa", fontSize: 14, marginBottom: 24, textAlign: "center" }}>Are you sure you want to log out?</Text>
-          <TouchableOpacity
-            style={{ backgroundColor: "#FF3366", borderRadius: 10, paddingVertical: 14, marginBottom: 10, alignItems: "center" }}
-            onPress={confirmLogout}
-            activeOpacity={0.8}
-          >
-            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Log Out</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{ borderRadius: 10, paddingVertical: 14, alignItems: "center" }}
-            onPress={() => setLogoutConfirmVisible(false)}
-            activeOpacity={0.8}
-          >
-            <Text style={{ color: "#aaa", fontSize: 15 }}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
     </>
   );
 }
