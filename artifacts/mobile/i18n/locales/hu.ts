@@ -201,6 +201,11 @@ const hu: Translations = {
     endMatch: "Egyezés befejezése",
     videoNote: "Videó",
     voiceNote: "Hangüzenet",
+    translate: "Fordítás",
+    showOriginal: "Eredeti megjelenítése",
+    translating: "Fordítás…",
+    translationFailed: "A fordítás sikertelen",
+    translatedFrom: "Lefordítva",
   },
   gifts: {
     title: "🎁 Ajándék küldése",

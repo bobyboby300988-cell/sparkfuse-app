@@ -201,6 +201,11 @@ const ro: Translations = {
     endMatch: "Termină potrivirea",
     videoNote: "Video",
     voiceNote: "Mesaj vocal",
+    translate: "Traduce",
+    showOriginal: "Arată originalul",
+    translating: "Se traduce…",
+    translationFailed: "Traducere eșuată",
+    translatedFrom: "Tradus",
   },
   gifts: {
     title: "🎁 Trimite un cadou",

@@ -201,6 +201,11 @@ const es: Translations = {
     endMatch: "Terminar coincidencia",
     videoNote: "Video",
     voiceNote: "Mensaje de voz",
+    translate: "Traducir",
+    showOriginal: "Mostrar original",
+    translating: "Traduciendo…",
+    translationFailed: "Traducción fallida",
+    translatedFrom: "Traducido",
   },
   gifts: {
     title: "🎁 Enviar un regalo",

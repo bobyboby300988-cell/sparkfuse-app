@@ -201,6 +201,11 @@ const de: Translations = {
     endMatch: "Match beenden",
     videoNote: "Video",
     voiceNote: "Sprachnachricht",
+    translate: "Übersetzen",
+    showOriginal: "Original anzeigen",
+    translating: "Übersetze…",
+    translationFailed: "Übersetzung fehlgeschlagen",
+    translatedFrom: "Übersetzt",
   },
   gifts: {
     title: "🎁 Geschenk senden",

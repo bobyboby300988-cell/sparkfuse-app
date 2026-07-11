@@ -201,6 +201,11 @@ const zh: Translations = {
     endMatch: "结束匹配",
     videoNote: "视频",
     voiceNote: "语音消息",
+    translate: "翻译",
+    showOriginal: "显示原文",
+    translating: "翻译中…",
+    translationFailed: "翻译失败",
+    translatedFrom: "已翻译",
   },
   gifts: {
     title: "🎁 发送礼物",

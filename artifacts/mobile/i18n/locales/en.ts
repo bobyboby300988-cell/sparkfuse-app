@@ -199,6 +199,11 @@ const en = {
     endMatch: "End Match",
     videoNote: "Video",
     voiceNote: "Voice message",
+    translate: "Translate",
+    showOriginal: "Show original",
+    translating: "Translating…",
+    translationFailed: "Translation failed",
+    translatedFrom: "Translated",
   },
   gifts: {
     title: "🎁 Send a Gift",

@@ -148,7 +148,7 @@ export default function LiveTab() {
           name: s.name,
           age: 0,
           avatar: LIVE_STREAMS[0].avatar,
-          tagline: t("live.broadcastingLive"),
+          tagline: t("live.broadcasting"),
           category: (s.category as LiveStream["category"]) ?? "Dating",
           viewers: 1,
           tokens: 0,

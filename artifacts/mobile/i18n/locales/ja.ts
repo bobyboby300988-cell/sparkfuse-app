@@ -201,6 +201,11 @@ const ja: Translations = {
     endMatch: "マッチ終了",
     videoNote: "動画",
     voiceNote: "音声メッセージ",
+    translate: "翻訳",
+    showOriginal: "原文を表示",
+    translating: "翻訳中…",
+    translationFailed: "翻訳に失敗しました",
+    translatedFrom: "翻訳済み",
   },
   gifts: {
     title: "🎁 ギフトを送る",

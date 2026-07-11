@@ -201,6 +201,11 @@ const el: Translations = {
     endMatch: "Τέλος ταιριάσματος",
     videoNote: "Βίντεο",
     voiceNote: "Φωνητικό μήνυμα",
+    translate: "Μετάφραση",
+    showOriginal: "Εμφάνιση πρωτότυπου",
+    translating: "Μεταφράζεται…",
+    translationFailed: "Η μετάφραση απέτυχε",
+    translatedFrom: "Μεταφρασμένο",
   },
   gifts: {
     title: "🎁 Στείλε Δώρο",

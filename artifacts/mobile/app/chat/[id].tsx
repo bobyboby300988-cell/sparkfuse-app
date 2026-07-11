@@ -26,6 +26,8 @@ import { useApp } from "@/context/AppContext";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
 import GiftModal from "@/components/GiftModal";
+import { useTranslation } from "react-i18next";
+import { translateMessage } from "@/lib/translateMessage";
 
 function formatTime(ts: number) {
   const d = new Date(ts);
@@ -168,6 +170,7 @@ export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { matches, sendMessage, sendMedia, sendVoice, removeMatch } = useApp();
   const { mutateAsync: blockUser } = useCreateBlock();
   const [inputText, setInputText] = useState("");
@@ -177,6 +180,29 @@ export default function ChatScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const recordingStart = useRef<number>(0);
   const inputRef = useRef<TextInput>(null);
+
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [translating, setTranslating] = useState<Record<string, boolean>>({});
+
+  const handleTranslate = useCallback(async (msgId: string, text: string) => {
+    setTranslating((prev) => ({ ...prev, [msgId]: true }));
+    try {
+      const result = await translateMessage(text);
+      setTranslations((prev) => ({ ...prev, [msgId]: result }));
+    } catch {
+      Alert.alert(t("chat.translationFailed"), undefined, [{ text: "OK" }]);
+    } finally {
+      setTranslating((prev) => ({ ...prev, [msgId]: false }));
+    }
+  }, [t]);
+
+  const clearTranslation = useCallback((msgId: string) => {
+    setTranslations((prev) => {
+      const next = { ...prev };
+      delete next[msgId];
+      return next;
+    });
+  }, []);
 
   const profile = useMemo(() => ALL_PROFILES.find((p) => p.id === id), [id]);
   const match = useMemo(() => matches.find((m) => m.profileId === id), [matches, id]);
@@ -460,22 +486,59 @@ export default function ChatScreen() {
                     )}
                   </View>
                 ) : (
-                  <View
-                    style={[
-                      styles.bubble,
-                      item.fromMe
-                        ? [styles.bubbleMe, { backgroundColor: colors.primary }]
-                        : [styles.bubbleThem, { backgroundColor: colors.card }],
-                    ]}
-                  >
-                    <Text
+                  <View style={{ alignSelf: item.fromMe ? "flex-end" : "flex-start" }}>
+                    <View
                       style={[
-                        styles.bubbleText,
-                        { color: item.fromMe ? "#FFFFFF" : colors.foreground },
+                        styles.bubble,
+                        item.fromMe
+                          ? [styles.bubbleMe, { backgroundColor: colors.primary }]
+                          : [styles.bubbleThem, { backgroundColor: colors.card }],
                       ]}
                     >
-                      {item.text}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.bubbleText,
+                          { color: item.fromMe ? "#FFFFFF" : colors.foreground },
+                        ]}
+                      >
+                        {translations[item.id] ?? item.text}
+                      </Text>
+                      {translations[item.id] && !item.fromMe && (
+                        <Text
+                          style={[
+                            styles.translatedLabel,
+                            { color: item.fromMe ? "rgba(255,255,255,0.6)" : colors.mutedForeground },
+                          ]}
+                        >
+                          {t("chat.translatedFrom")}
+                        </Text>
+                      )}
+                    </View>
+                    {!item.fromMe && item.text && (
+                      <TouchableOpacity
+                        onPress={() =>
+                          translations[item.id]
+                            ? clearTranslation(item.id)
+                            : handleTranslate(item.id, item.text!)
+                        }
+                        activeOpacity={0.7}
+                        style={styles.translateBtn}
+                      >
+                        <Ionicons
+                          name="language"
+                          size={12}
+                          color={colors.primary}
+                          style={{ marginRight: 3 }}
+                        />
+                        <Text style={[styles.translateBtnText, { color: colors.primary }]}>
+                          {translating[item.id]
+                            ? t("chat.translating")
+                            : translations[item.id]
+                            ? t("chat.showOriginal")
+                            : t("chat.translate")}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
                 <Text style={[styles.timeText, { color: colors.mutedForeground }]}>
@@ -747,4 +810,23 @@ const styles = StyleSheet.create({
   emojiGrid: { flexDirection: "row", flexWrap: "wrap" },
   emojiBtn: { width: "12.5%", aspectRatio: 1, alignItems: "center", justifyContent: "center" },
   emojiChar: { fontSize: 26 },
+  translateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    marginTop: 4,
+    marginLeft: 2,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  translateBtnText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  translatedLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
+    opacity: 0.7,
+  },
 });
