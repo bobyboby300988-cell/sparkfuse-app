@@ -81,7 +81,13 @@ function RootLayoutNav() {
     }
   }, [isLoaded, isAuthenticated, hasProfile, isSubscribed, segments]);
 
-  if (!isLoaded) {
+  // Don't unmount auth pages while Clerk is reinitialising mid-flow (e.g.
+  // after signUp.password() briefly sets isSignedIn=true before email
+  // verification). Those pages manage their own loading state, and unmounting
+  // them would wipe form state and make the page appear to "reload".
+  const inAuthPage = segments[0] === "sign-up" || segments[0] === "sign-in";
+
+  if (!isLoaded && !inAuthPage) {
     return (
       <View style={{ flex: 1, backgroundColor: "#0A0A0F", justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#FF3366" />
