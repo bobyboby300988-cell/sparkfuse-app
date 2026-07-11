@@ -86,6 +86,10 @@ function RootLayoutNav() {
       router.replace("/paywall");
     } else if (isAuthenticated && hasProfile && isSubscribed && inPaywall) {
       router.replace("/");
+    } else if (isAuthenticated && hasProfile && isSubscribed && (inSignIn || inWelcome)) {
+      // User is fully authenticated but ended up on sign-in/welcome (e.g. after a partial logout).
+      // Send them straight to the app.
+      router.replace("/");
     }
   }, [isLoaded, isAuthenticated, hasProfile, isSubscribed, segments]);
 

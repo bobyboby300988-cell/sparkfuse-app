@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useSignIn } from "@clerk/expo";
+import { useSignIn, useAuth } from "@clerk/expo";
 import BrandLogo from "@/components/BrandLogo";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function SignInScreen() {
   const insets = useSafeAreaInsets();
   const { signIn, fetchStatus } = useSignIn();
+  const { signOut } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +30,45 @@ export default function SignInScreen() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const isLoading = fetchStatus === "fetching" || loading;
+
+  const attemptSignIn = async () => {
+    if (!signIn) return false;
+    const { error } = await signIn.password({
+      emailAddress: email.trim().toLowerCase(),
+      password,
+    });
+    if (error) {
+      const code: string = (error as any)?.code ?? "";
+      const msg =
+        code === "form_password_incorrect"
+          ? "Incorrect password. Please try again."
+          : code === "form_identifier_not_found"
+          ? "No account found with that email."
+          : code === "form_param_format_invalid"
+          ? "Please enter a valid email address."
+          : (error as any)?.longMessage ?? (error as any)?.message ?? "Sign in failed. Please try again.";
+      setErrorMsg(msg);
+      return false;
+    }
+    if (signIn.status === "complete") {
+      await signIn.finalize();
+      return true;
+    }
+    setErrorMsg("Sign in incomplete. Please try again.");
+    return false;
+  };
+
+  const isSessionError = (err: any) => {
+    const code: string = err?.errors?.[0]?.code ?? err?.code ?? "";
+    const msg: string = (err?.errors?.[0]?.message ?? err?.message ?? "").toLowerCase();
+    return (
+      code === "single_session_mode" ||
+      code.includes("session") ||
+      msg.includes("already signed in") ||
+      msg.includes("already logged in") ||
+      msg.includes("session exists")
+    );
+  };
 
   const handleSubmit = async () => {
     if (!signIn) return;
@@ -39,12 +79,25 @@ export default function SignInScreen() {
     setErrorMsg("");
     setLoading(true);
     try {
-      const { error } = await signIn.password({
-        emailAddress: email.trim().toLowerCase(),
-        password,
-      });
-      if (error) {
-        const code: string = (error as any)?.code ?? "";
+      await attemptSignIn();
+    } catch (err: any) {
+      if (isSessionError(err)) {
+        // Stale session left over from a previous logout — clear it and retry once.
+        try { await signOut(); } catch (_) {}
+        try {
+          await attemptSignIn();
+        } catch (retryErr: any) {
+          const code: string = retryErr?.errors?.[0]?.code ?? retryErr?.code ?? "";
+          const msg =
+            code === "form_password_incorrect"
+              ? "Incorrect password. Please try again."
+              : code === "form_identifier_not_found"
+              ? "No account found with that email."
+              : retryErr?.errors?.[0]?.longMessage ?? retryErr?.message ?? "Sign in failed. Please try again.";
+          setErrorMsg(msg);
+        }
+      } else {
+        const code: string = err?.errors?.[0]?.code ?? err?.code ?? "";
         const msg =
           code === "form_password_incorrect"
             ? "Incorrect password. Please try again."
@@ -52,27 +105,9 @@ export default function SignInScreen() {
             ? "No account found with that email."
             : code === "form_param_format_invalid"
             ? "Please enter a valid email address."
-            : (error as any)?.longMessage ?? (error as any)?.message ?? "Sign in failed. Please try again.";
+            : err?.errors?.[0]?.longMessage ?? err?.message ?? "Sign in failed. Please try again.";
         setErrorMsg(msg);
-        return;
       }
-      if (signIn.status === "complete") {
-        await signIn.finalize();
-        // _layout.tsx routing handles navigation after session is set
-      } else {
-        setErrorMsg("Sign in incomplete. Please try again.");
-      }
-    } catch (err: any) {
-      const code: string = err?.errors?.[0]?.code ?? err?.code ?? "";
-      const msg =
-        code === "form_password_incorrect"
-          ? "Incorrect password. Please try again."
-          : code === "form_identifier_not_found"
-          ? "No account found with that email."
-          : code === "form_param_format_invalid"
-          ? "Please enter a valid email address."
-          : err?.errors?.[0]?.longMessage ?? err?.message ?? "Sign in failed. Please try again.";
-      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }
