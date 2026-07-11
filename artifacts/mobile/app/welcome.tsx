@@ -74,7 +74,16 @@ export default function WelcomeScreen() {
   const { setSubscribed } = useApp();
   const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const isAuthenticated = !!isSignedIn;
-  const authLoading = !authLoaded;
+  // Mirror the 6-second timeout from _layout.tsx: stop blocking buttons even
+  // if Clerk's isLoaded stalls after a payment redirect on web.
+  const [clerkTimedOut, setClerkTimedOut] = useState(false);
+  const clerkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (authLoaded) return;
+    clerkTimerRef.current = setTimeout(() => setClerkTimedOut(true), 6000);
+    return () => { if (clerkTimerRef.current) clearTimeout(clerkTimerRef.current); };
+  }, [authLoaded]);
+  const authLoading = !authLoaded && !clerkTimedOut;
   const login = async () => router.push("/sign-in");
   const [loadingStripe, setLoadingStripe] = useState(false);
   const [loadingPayPal, setLoadingPayPal] = useState(false);
