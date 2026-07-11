@@ -18,11 +18,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
-import { ALL_PROFILES, getProfilesByMode } from "@/data/allProfiles";
-import type { Profile } from "@/data/allProfiles";
-import { LockedPhotoGrid } from "@/components/LockedPhotoGrid";
 import { ModeSelector } from "@/components/ModeSelector";
 import { useColors } from "@/hooks/useColors";
+import { useGetFeed, useCreateSwipe } from "@workspace/api-client-react";
+import { getPhotoUrl } from "@/lib/api";
 
 const { width: W } = Dimensions.get("window");
 const COLS = 3;
@@ -63,27 +62,52 @@ function ExploreLiveBadge() {
   );
 }
 
-function ProfileModal({
+type ServerProfile = {
+  userId: string;
+  name: string;
+  age: number;
+  bio?: string | null;
+  photoUrl?: string | null;
+  city?: string | null;
+  country?: string | null;
+  distanceKm?: number | null;
+};
+
+function ServerProfileModal({
   profile,
   visible,
   onClose,
 }: {
-  profile: Profile | null;
+  profile: ServerProfile | null;
   visible: boolean;
   onClose: () => void;
 }) {
   const colors = useColors();
   const { addMatch, matches } = useApp();
+  const createSwipe = useCreateSwipe();
   if (!profile) return null;
-  const alreadyMatched = matches.some((m) => m.profileId === profile.id);
-  const accent = MODE_ACCENT[profile.mode] ?? colors.primary;
+  const alreadyMatched = matches.some((m) => m.profileId === profile.userId);
+  const photoUrl = getPhotoUrl(profile.photoUrl);
 
-  const handleLike = () => {
+  const handleLike = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (!alreadyMatched) addMatch(profile.id);
+    try {
+      await createSwipe.mutateAsync({ data: { targetUserId: profile.userId, direction: "like" } });
+    } catch { /* ignore — local match state still works */ }
+    if (!alreadyMatched) addMatch(profile.userId);
     onClose();
-    router.push({ pathname: "/chat/[id]", params: { id: profile.id } });
+    router.push({ pathname: "/chat/[id]", params: { id: profile.userId } });
   };
+
+  const handleNope = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await createSwipe.mutateAsync({ data: { targetUserId: profile.userId, direction: "pass" } });
+    } catch { /* ignore */ }
+    onClose();
+  };
+
+  const locationStr = [profile.city, profile.country].filter(Boolean).join(", ");
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -93,32 +117,36 @@ function ProfileModal({
         </TouchableOpacity>
 
         <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-          <Image source={profile.photo} style={modalStyles.photo} contentFit="cover" />
+          {photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={modalStyles.photo} contentFit="cover" />
+          ) : (
+            <LinearGradient colors={["#FF3366", "#6B21A8"]} style={modalStyles.photo}>
+              <Text style={{ fontSize: 60 }}>👤</Text>
+            </LinearGradient>
+          )}
           <View style={modalStyles.info}>
             <View style={modalStyles.nameRow}>
               <Text style={[modalStyles.name, { color: colors.foreground }]}>
                 {profile.name}, {profile.age}
               </Text>
-              <Ionicons name="checkmark-circle" size={22} color={accent} />
+              <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
             </View>
-            <View style={modalStyles.metaRow}>
-              <Ionicons name="location-outline" size={14} color={colors.mutedForeground} />
-              <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>{profile.location}</Text>
-              <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>·</Text>
-              <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>{profile.height}</Text>
-            </View>
-            <Text style={[modalStyles.bio, { color: colors.foreground }]}>{profile.bio}</Text>
-            <Text style={[modalStyles.sectionLabel, { color: colors.mutedForeground }]}>Interests</Text>
-            <View style={modalStyles.chips}>
-              {profile.interests.map((interest) => (
-                <View key={interest} style={[modalStyles.chip, { backgroundColor: accent + "18", borderColor: accent + "40" }]}>
-                  <Text style={[modalStyles.chipText, { color: accent }]}>{interest}</Text>
-                </View>
-              ))}
-            </View>
-
-            {profile.lockedPhotos && profile.lockedPhotos.length > 0 && (
-              <LockedPhotoGrid profileName={profile.name} lockedPhotos={profile.lockedPhotos} />
+            {locationStr ? (
+              <View style={modalStyles.metaRow}>
+                <Ionicons name="location-outline" size={14} color={colors.mutedForeground} />
+                <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>{locationStr}</Text>
+                {profile.distanceKm != null && (
+                  <>
+                    <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>·</Text>
+                    <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>{profile.distanceKm} km away</Text>
+                  </>
+                )}
+              </View>
+            ) : null}
+            {profile.bio ? (
+              <Text style={[modalStyles.bio, { color: colors.foreground }]}>{profile.bio}</Text>
+            ) : (
+              <Text style={[modalStyles.bio, { color: colors.mutedForeground }]}>No bio yet.</Text>
             )}
           </View>
         </ScrollView>
@@ -126,34 +154,18 @@ function ProfileModal({
         <View style={[modalStyles.actions, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
           <TouchableOpacity
             style={[modalStyles.nopeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={onClose}
+            onPress={handleNope}
             activeOpacity={0.8}
           >
             <Ionicons name="close" size={26} color="#FF4D6D" />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[modalStyles.likeBtn, { backgroundColor: accent }]}
+            style={[modalStyles.likeBtn, { backgroundColor: colors.primary }]}
             onPress={handleLike}
             activeOpacity={0.85}
           >
-            <Ionicons
-              name={
-                profile.mode === "business" ? "briefcase" :
-                profile.mode === "party" ? "musical-notes" :
-                profile.mode === "travel" ? "airplane" :
-                profile.mode === "social" ? "people" :
-                "heart"
-              }
-              size={24} color="#fff"
-            />
-            <Text style={modalStyles.likeBtnText}>
-              {alreadyMatched ? "Message" :
-               profile.mode === "business" ? "Connect" :
-               profile.mode === "party" ? "Join" :
-               profile.mode === "travel" ? "Explore" :
-               profile.mode === "social" ? "Meet" :
-               "Like"}
-            </Text>
+            <Ionicons name="heart" size={24} color="#fff" />
+            <Text style={modalStyles.likeBtnText}>{alreadyMatched ? "Message" : "Like"}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -199,12 +211,10 @@ export default function ExploreScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { appMode, setAppMode } = useApp();
-  const [selected, setSelected] = useState<Profile | null>(null);
-  const [liveOnly, setLiveOnly] = useState(false);
+  const [selected, setSelected] = useState<ServerProfile | null>(null);
+  const { data: feedData, isLoading } = useGetFeed();
 
-  const profiles = liveOnly
-    ? ALL_PROFILES.filter((p) => p.isLive)
-    : getProfilesByMode(appMode);
+  const profiles: ServerProfile[] = feedData?.profiles ?? [];
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
@@ -215,78 +225,62 @@ export default function ExploreScreen() {
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: colors.foreground }]}>Explore</Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              {liveOnly
-                ? `${profiles.length} people live now`
-                : `${profiles.length} people in ${appMode} mode`}
+              {isLoading ? "Finding people near you…" : `${profiles.length} people to discover`}
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setLiveOnly((v) => !v);
-            }}
-            activeOpacity={0.85}
-            style={styles.liveOnlyBtnOuter}
-          >
-            {liveOnly ? (
-              <LinearGradient
-                colors={[PURPLE_DEEP, GOLD]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={styles.liveOnlyBtn}
-              >
-                <Ionicons name="radio" size={14} color="#fff" />
-                <Text style={[styles.liveOnlyBtnText, { color: "#fff" }]}>Live</Text>
-              </LinearGradient>
-            ) : (
-              <View style={[styles.liveOnlyBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: GOLD + "50" }]}>
-                <Ionicons name="radio" size={14} color={GOLD} />
-                <Text style={[styles.liveOnlyBtnText, { color: colors.foreground }]}>Live</Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
       </View>
 
-      {!liveOnly && <ModeSelector value={appMode} onChange={setAppMode} />}
+      <ModeSelector value={appMode} onChange={setAppMode} />
 
-      <FlatList
-        data={profiles}
-        keyExtractor={(p) => p.id}
-        numColumns={COLS}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={{ paddingBottom: bottomPadding + 100 }}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.tile}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              if (item.isLive) {
-                router.push(`/live/${item.id}` as any);
-              } else {
-                setSelected(item);
-              }
-            }}
-            activeOpacity={0.88}
-          >
-            <Image source={item.photo} style={styles.tileImg} contentFit="cover" />
-            <LinearGradient
-              colors={["transparent", PURPLE_DARK + "E6"]}
-              style={styles.tileOverlay}
-            >
-              <Text style={styles.tileName} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.tileAge}>{item.age}</Text>
-            </LinearGradient>
-            {item.isLive && (
-              <View style={styles.liveBadgeAnchor}>
-                <ExploreLiveBadge />
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
-      />
+      {!isLoading && profiles.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={[styles.emptyIcon, { color: colors.primary }]}>🔍</Text>
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No profiles yet</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+            Be the first! More people join every day.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={profiles}
+          keyExtractor={(p) => p.userId}
+          numColumns={COLS}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={{ paddingBottom: bottomPadding + 100 }}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => {
+            const photoUrl = getPhotoUrl(item.photoUrl);
+            return (
+              <TouchableOpacity
+                style={styles.tile}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelected(item);
+                }}
+                activeOpacity={0.88}
+              >
+                {photoUrl ? (
+                  <Image source={{ uri: photoUrl }} style={styles.tileImg} contentFit="cover" />
+                ) : (
+                  <LinearGradient colors={["#FF3366", "#6B21A8"]} style={styles.tileImg}>
+                    <Text style={{ fontSize: 36 }}>👤</Text>
+                  </LinearGradient>
+                )}
+                <LinearGradient
+                  colors={["transparent", PURPLE_DARK + "E6"]}
+                  style={styles.tileOverlay}
+                >
+                  <Text style={styles.tileName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.tileAge}>{item.age}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      )}
 
-      <ProfileModal
+      <ServerProfileModal
         profile={selected}
         visible={!!selected}
         onClose={() => setSelected(null)}
@@ -320,6 +314,10 @@ const styles = StyleSheet.create({
   },
   tileName: { color: "#fff", fontSize: 12, fontFamily: "Inter_600SemiBold" },
   tileAge: { color: "rgba(255,255,255,0.75)", fontSize: 11, fontFamily: "Inter_400Regular" },
+  emptyState: { flex: 1, justifyContent: "center", alignItems: "center", gap: 10, paddingHorizontal: 40, paddingTop: 60 },
+  emptyIcon: { fontSize: 48 },
+  emptyTitle: { fontSize: 22, fontFamily: "Inter_700Bold", textAlign: "center" },
+  emptySubtitle: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
   liveBadgeAnchor: { position: "absolute", top: 6, left: 6 },
   liveBadgeWrap: {
     flexDirection: "row", alignItems: "center", gap: 4,

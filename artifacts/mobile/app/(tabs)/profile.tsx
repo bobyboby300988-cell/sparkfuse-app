@@ -28,15 +28,22 @@ import { Image } from "expo-image";
 import { useTranslation } from "react-i18next";
 import i18n, { SUPPORTED_LANGUAGES, saveLanguage, type SupportedLanguage } from "@/i18n";
 import { LANGUAGE_FLAGS, LANGUAGE_NATIVE_NAMES, type LanguageCode } from "@/i18n/locales/_languages";
+import { buyTokensWithStripe } from "@/config/payments";
 
 const PRICE_OPTIONS = [1, 2, 3, 5, 10];
+
+const TOKEN_PACKS = [
+  { tokens: 100, priceEur: 0.99 },
+  { tokens: 500, priceEur: 3.99 },
+  { tokens: 1500, priceEur: 9.99 },
+];
 
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { signOut } = useAuth();
-  const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, isLive, setIsLive } = useApp();
+  const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, addCoins, isLive, setIsLive } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [currentLang, setCurrentLang] = useState<SupportedLanguage>(i18n.language as SupportedLanguage || "en");
@@ -57,6 +64,7 @@ export default function ProfileScreen() {
   const [editBio, setEditBio] = useState(userProfile?.bio ?? "");
   const [editCity, setEditCity] = useState(userProfile?.city ?? "");
   const [editCountry, setEditCountry] = useState(userProfile?.country ?? "");
+  const [buyingTokens, setBuyingTokens] = useState(false);
 
   useEffect(() => {
     if (userProfile) {
@@ -313,6 +321,16 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* Log Out — placed prominently before the wallet */}
+      <TouchableOpacity
+        style={[styles.resetBtn, { borderColor: "#FF3366", marginBottom: 4 }]}
+        onPress={handleLogout}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="log-out-outline" size={16} color="#FF3366" />
+        <Text style={[styles.resetText, { color: "#FF3366" }]}>Log Out</Text>
+      </TouchableOpacity>
+
       {/* Wallet — visible to every user */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <View style={styles.sectionHeader}>
@@ -338,6 +356,38 @@ export default function ProfileScreen() {
         <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
           {t("profile.giftBalanceDesc")}
         </Text>
+
+        {/* Buy ST token packs */}
+        <Text style={[styles.tokenPackTitle, { color: colors.foreground }]}>Buy Spark Tokens 🔥</Text>
+        <View style={styles.tokenPackRow}>
+          {TOKEN_PACKS.map((pack) => (
+            <TouchableOpacity
+              key={pack.tokens}
+              style={[styles.tokenPackCard, { backgroundColor: colors.background, borderColor: colors.border }]}
+              activeOpacity={0.8}
+              disabled={buyingTokens}
+              onPress={async () => {
+                try {
+                  setBuyingTokens(true);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  const paid = await buyTokensWithStripe(pack.tokens, pack.priceEur);
+                  if (paid) {
+                    addCoins(pack.tokens);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    Alert.alert("🔥 Tokens added!", `${pack.tokens} ST credited to your wallet.`);
+                  }
+                } catch (e: any) {
+                  Alert.alert("Purchase failed", e?.message ?? "Please try again.");
+                } finally {
+                  setBuyingTokens(false);
+                }
+              }}
+            >
+              <Text style={[styles.tokenPackAmount, { color: colors.primary }]}>{pack.tokens} ST</Text>
+              <Text style={[styles.tokenPackPrice, { color: colors.foreground }]}>€{pack.priceEur.toFixed(2)}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <TouchableOpacity
           style={[styles.earningsRow, { backgroundColor: colors.background, borderColor: colors.border }]}
@@ -463,16 +513,6 @@ export default function ProfileScreen() {
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
-      </TouchableOpacity>
-
-      {/* Log Out */}
-      <TouchableOpacity
-        style={[styles.resetBtn, { borderColor: "#FF3366" }]}
-        onPress={handleLogout}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="log-out-outline" size={16} color="#FF3366" />
-        <Text style={[styles.resetText, { color: "#FF3366" }]}>Log Out</Text>
       </TouchableOpacity>
 
       {/* Reset */}
@@ -757,6 +797,18 @@ const styles = StyleSheet.create({
   walletCoin: { fontSize: 26 },
   walletValue: { fontSize: 22, fontFamily: "Inter_700Bold", lineHeight: 28 },
   walletLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  tokenPackTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginTop: 12, marginBottom: 8 },
+  tokenPackRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  tokenPackCard: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+  },
+  tokenPackAmount: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  tokenPackPrice: { fontSize: 12, fontFamily: "Inter_400Regular" },
   resetBtn: {
     flexDirection: "row",
     alignItems: "center",

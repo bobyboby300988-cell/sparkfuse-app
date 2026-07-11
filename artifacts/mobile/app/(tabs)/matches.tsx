@@ -23,7 +23,8 @@ import { getPhotoUrl } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 
 type LocationFilter = "everywhere" | "myCity" | "myCountry" | "nearby";
-const NEARBY_KM = 50;
+type DistanceUnit = "km" | "mi";
+const MI_TO_KM = 1.60934;
 
 const { width: W } = Dimensions.get("window");
 const SWIPE_THRESHOLD = 60;
@@ -147,6 +148,9 @@ export default function MatchesScreen() {
   const { data: myProfileData } = useGetMyProfile();
   const myProfile = myProfileData?.profile ?? null;
   const [locationFilter, setLocationFilter] = useState<LocationFilter>("everywhere");
+  const [customDistanceKm, setCustomDistanceKm] = useState(50);
+  const [distanceUnit, setDistanceUnit] = useState<DistanceUnit>("km");
+  const [showDistancePicker, setShowDistancePicker] = useState(false);
 
   const matchData = useMemo(() => {
     const serverMatches = data?.matches ?? [];
@@ -182,7 +186,7 @@ export default function MatchesScreen() {
         return myProfile?.country && country && country.toLowerCase() === myProfile.country.toLowerCase();
       }
       if (locationFilter === "nearby") {
-        return distanceKm !== null && distanceKm <= NEARBY_KM;
+        return distanceKm !== null && distanceKm <= customDistanceKm;
       }
       return true;
     });
@@ -204,11 +208,15 @@ export default function MatchesScreen() {
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
+  const displayDistance = distanceUnit === "km"
+    ? `${customDistanceKm} km`
+    : `${Math.round(customDistanceKm / MI_TO_KM)} mi`;
+
   const filterOptions: { key: LocationFilter; label: string }[] = [
     { key: "everywhere", label: t("matches.filterEverywhere") },
     { key: "myCity", label: t("matches.filterMyCity") },
     { key: "myCountry", label: t("matches.filterMyCountry") },
-    { key: "nearby", label: t("matches.filterNearby") },
+    { key: "nearby", label: `Within ${displayDistance}` },
   ];
 
   return (
@@ -242,6 +250,7 @@ export default function MatchesScreen() {
                 ]}
                 onPress={() => {
                   setLocationFilter(opt.key);
+                  if (opt.key === "nearby") setShowDistancePicker(true);
                   Haptics.selectionAsync();
                 }}
                 activeOpacity={0.75}
@@ -253,6 +262,44 @@ export default function MatchesScreen() {
             );
           })}
         </ScrollView>
+
+        {/* Distance picker — shown when "nearby" is active */}
+        {locationFilter === "nearby" && (
+          <View style={[styles.distancePicker, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {/* km/miles toggle */}
+            <View style={styles.distanceUnitRow}>
+              <TouchableOpacity
+                style={[styles.unitBtn, distanceUnit === "km" && { backgroundColor: colors.primary }]}
+                onPress={() => { setDistanceUnit("km"); Haptics.selectionAsync(); }}
+              >
+                <Text style={[styles.unitBtnText, { color: distanceUnit === "km" ? "#fff" : colors.foreground }]}>km</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.unitBtn, distanceUnit === "mi" && { backgroundColor: colors.primary }]}
+                onPress={() => { setDistanceUnit("mi"); Haptics.selectionAsync(); }}
+              >
+                <Text style={[styles.unitBtnText, { color: distanceUnit === "mi" ? "#fff" : colors.foreground }]}>mi</Text>
+              </TouchableOpacity>
+            </View>
+            {/* +/- controls */}
+            <View style={styles.distanceControls}>
+              {[5, 10, 25, 50, 100, 250].map((val) => {
+                const displayVal = distanceUnit === "km" ? val : Math.round(val / MI_TO_KM);
+                const kmVal = distanceUnit === "km" ? val : Math.round(val * MI_TO_KM);
+                const active = customDistanceKm === kmVal;
+                return (
+                  <TouchableOpacity
+                    key={val}
+                    style={[styles.distanceChip, { backgroundColor: active ? colors.primary : colors.background, borderColor: active ? colors.primary : colors.border }]}
+                    onPress={() => { setCustomDistanceKm(kmVal); Haptics.selectionAsync(); }}
+                  >
+                    <Text style={[styles.distanceChipText, { color: active ? "#fff" : colors.foreground }]}>{displayVal}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
       </View>
 
       {filteredMatchData.length === 0 ? (
@@ -345,6 +392,31 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   filterChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
+  distancePicker: {
+    marginHorizontal: 20,
+    marginTop: 4,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+  },
+  distanceUnitRow: { flexDirection: "row", gap: 8 },
+  unitBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(128,128,128,0.12)",
+  },
+  unitBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  distanceControls: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  distanceChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderWidth: 1.5,
+  },
+  distanceChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   list: { paddingHorizontal: 20 },
 
   matchRow: {
