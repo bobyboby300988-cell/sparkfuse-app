@@ -12,7 +12,8 @@ import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { View, ActivityIndicator } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -28,20 +29,33 @@ const queryClient = new QueryClient();
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY as string;
 
 function RootLayoutNav() {
-  const { isSubscribed } = useApp();
+  const { isSubscribed, isLoaded: appLoaded } = useApp();
   const { isSignedIn, isLoaded: authLoaded, getToken } = useAuth();
   const isAuthenticated = !!isSignedIn;
   const { data: profileData, isLoading: profileLoading } = useGetMyProfile({
     query: { enabled: isAuthenticated, queryKey: ["myProfile"] },
   });
   const segments = useSegments();
+  const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
     setAuthTokenGetter(() => getToken());
   }, [getToken]);
 
   const hasProfile = !!profileData?.profile;
-  const isLoaded = authLoaded && (!isAuthenticated || !profileLoading);
+  const isLoaded = (authLoaded || timedOut) && appLoaded && (!isAuthenticated || !profileLoading);
+
+  // Safety net: if Clerk takes more than 6 s to initialise (network issue,
+  // missing publishable key, etc.) treat auth as "not signed in" and redirect
+  // to welcome so the user never gets stuck on the tabs screen.
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (authLoaded) return;
+    timeoutRef.current = setTimeout(() => setTimedOut(true), 6000);
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [authLoaded]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -66,6 +80,14 @@ function RootLayoutNav() {
       router.replace("/");
     }
   }, [isLoaded, isAuthenticated, hasProfile, isSubscribed, segments]);
+
+  if (!isLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#0A0A0F", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#FF3366" />
+      </View>
+    );
+  }
 
   return (
     <Stack>
