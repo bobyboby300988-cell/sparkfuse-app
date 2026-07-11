@@ -1,9 +1,11 @@
 import { LinearGradient } from "expo-linear-gradient";
+import LottieView from "lottie-react-native";
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
   Dimensions,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   View,
@@ -24,29 +26,36 @@ interface Props {
 
 const { width } = Dimensions.get("window");
 
-/* ─── threshold: €10 = 1000 ST triggers the big animation ─── */
-const BIG_THRESHOLD = 1000;
+/* ─── thresholds ─── */
+const BIG_THRESHOLD  = 1000;   // ≥ €10 → Lottie full-screen
+const EPIC_THRESHOLD = 5000;   // ≥ €50 → bigger Lottie
+const MEGA_THRESHOLD = 10000;  // ≥ €100 → most impressive Lottie
+
+function getLottieSource(tokens: number) {
+  if (tokens >= MEGA_THRESHOLD) return require("../assets/animations/explosion.json");
+  if (tokens >= EPIC_THRESHOLD) return require("../assets/animations/confetti.json");
+  return require("../assets/animations/sparkle.json");
+}
 
 /* ══════════════════════════════════════════════
    SMALL TOAST  — gift < €10
-   Slides in from right, floats up, fades out ~1 s
-   No modal backdrop — just a floating card
+   Slides in from right, floats up, fades in 1 s
 ══════════════════════════════════════════════ */
 function SmallToast({ gift, onHide }: { gift: SplashGift; onHide: () => void }) {
-  const translateX = useRef(new Animated.Value(160)).current;
+  const translateX = useRef(new Animated.Value(200)).current;
   const opacity    = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(translateX, { toValue: 0, useNativeDriver: true, speed: 22, bounciness: 10 }),
-      Animated.timing(opacity,    { toValue: 1, duration: 180, useNativeDriver: true }),
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true, speed: 24, bounciness: 10 }),
+      Animated.timing(opacity,    { toValue: 1, duration: 160, useNativeDriver: true }),
     ]).start();
 
     const timer = setTimeout(() => {
       Animated.parallel([
-        Animated.timing(opacity,    { toValue: 0, duration: 400, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: -28, duration: 400, useNativeDriver: true }),
+        Animated.timing(opacity,    { toValue: 0, duration: 380, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: -32, duration: 380, useNativeDriver: true }),
       ]).start(() => onHide());
     }, 1100);
 
@@ -56,17 +65,9 @@ function SmallToast({ gift, onHide }: { gift: SplashGift; onHide: () => void }) 
   return (
     <Animated.View
       pointerEvents="none"
-      style={[
-        styles.toastWrap,
-        { opacity, transform: [{ translateX }, { translateY }] },
-      ]}
+      style={[styles.toastWrap, { opacity, transform: [{ translateX }, { translateY }] }]}
     >
-      <LinearGradient
-        colors={gift.grad}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.toastCard}
-      >
+      <LinearGradient colors={gift.grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.toastCard}>
         <Text style={styles.toastEmoji}>{gift.emoji}</Text>
         <View style={styles.toastText}>
           <Text style={styles.toastLabel} numberOfLines={1}>{gift.label}</Text>
@@ -79,210 +80,198 @@ function SmallToast({ gift, onHide }: { gift: SplashGift; onHide: () => void }) 
 
 /* ══════════════════════════════════════════════
    BIG SPLASH  — gift ≥ €10
-   Full-screen modal with large emoji + particles
+   Full-screen Lottie animation + gift card
 ══════════════════════════════════════════════ */
-function FloatingParticle({ color, delay }: { color: string; delay: number }) {
-  const y  = useRef(new Animated.Value(0)).current;
-  const op = useRef(new Animated.Value(0)).current;
-  const x  = useRef(new Animated.Value((Math.random() - 0.5) * width * 0.7)).current;
-
-  useEffect(() => {
-    const run = () => {
-      y.setValue(0); op.setValue(0);
-      x.setValue((Math.random() - 0.5) * width * 0.7);
-      Animated.parallel([
-        Animated.timing(y,  { toValue: -120, duration: 1800 + Math.random() * 700, useNativeDriver: true }),
-        Animated.sequence([
-          Animated.timing(op, { toValue: 0.9, duration: 300, useNativeDriver: true }),
-          Animated.timing(op, { toValue: 0,   duration: 900, useNativeDriver: true }),
-        ]),
-      ]).start(() => setTimeout(run, 200 + Math.random() * 800));
-    };
-    const t = setTimeout(run, delay);
-    return () => clearTimeout(t);
-  }, []);
-
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={{
-        position: "absolute",
-        bottom: "40%",
-        left: "50%",
-        width: 8, height: 8,
-        borderRadius: 4,
-        backgroundColor: color,
-        transform: [{ translateX: x }, { translateY: y }],
-        opacity: op,
-      }}
-    />
-  );
-}
-
 function BigSplash({ gift, recipientName, onHide }: { gift: SplashGift; recipientName?: string; onHide: () => void }) {
-  const scaleAnim  = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const floatAnim  = useRef(new Animated.Value(0)).current;
-  const textAnim   = useRef(new Animated.Value(0)).current;
+  const overlayOp  = useRef(new Animated.Value(0)).current;
+  const cardScale  = useRef(new Animated.Value(0)).current;
+  const cardOp     = useRef(new Animated.Value(0)).current;
+  const labelOp    = useRef(new Animated.Value(0)).current;
+  const labelY     = useRef(new Animated.Value(24)).current;
+  const lottieRef  = useRef<LottieView>(null);
+
+  /* auto-hide duration: bigger gift = longer display */
+  const displayMs = gift.tokens >= MEGA_THRESHOLD ? 4200 : gift.tokens >= EPIC_THRESHOLD ? 3600 : 3000;
 
   useEffect(() => {
-    scaleAnim.setValue(0);
-    opacityAnim.setValue(0);
-    floatAnim.setValue(0);
-    textAnim.setValue(0);
+    overlayOp.setValue(0); cardScale.setValue(0.4); cardOp.setValue(0);
+    labelOp.setValue(0); labelY.setValue(24);
 
     Animated.parallel([
-      Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 5, bounciness: 20 }),
-      Animated.timing(opacityAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-      Animated.loop(Animated.sequence([
-        Animated.timing(floatAnim, { toValue: -20, duration: 850, useNativeDriver: true }),
-        Animated.timing(floatAnim, { toValue: 0,   duration: 850, useNativeDriver: true }),
-      ])),
+      Animated.timing(overlayOp, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.spring(cardScale, { toValue: 1, useNativeDriver: true, speed: 6, bounciness: 18 }),
+      Animated.timing(cardOp,    { toValue: 1, duration: 220, useNativeDriver: true }),
     ]).start();
 
-    Animated.timing(textAnim, { toValue: 1, duration: 380, delay: 320, useNativeDriver: true }).start();
+    Animated.parallel([
+      Animated.timing(labelOp, { toValue: 1, duration: 350, delay: 350, useNativeDriver: true }),
+      Animated.timing(labelY,  { toValue: 0,  duration: 350, delay: 350, useNativeDriver: true }),
+    ]).start();
+
+    setTimeout(() => lottieRef.current?.play(), 80);
 
     const timer = setTimeout(() => {
-      Animated.timing(opacityAnim, { toValue: 0, duration: 550, useNativeDriver: true }).start(() => onHide());
-    }, 3400);
+      Animated.timing(overlayOp, { toValue: 0, duration: 500, useNativeDriver: true }).start(() => onHide());
+    }, displayMs);
 
     return () => clearTimeout(timer);
   }, []);
 
-  const eurValue = gift.tokens >= 100
+  const eurLabel = gift.tokens >= 100
     ? `€${Math.round(gift.tokens / 100)}`
     : `€${(gift.tokens / 100).toFixed(2)}`;
 
   return (
     <Modal transparent animationType="none" visible statusBarTranslucent>
-      <Animated.View style={[styles.bigOverlay, { opacity: opacityAnim }]} pointerEvents="none">
+      <Animated.View style={[styles.bigOverlay, { opacity: overlayOp }]} pointerEvents="none">
+
         {/* Dark scrim */}
         <LinearGradient
-          colors={["rgba(0,0,0,0.82)", "rgba(0,0,0,0.55)", "rgba(0,0,0,0.82)"]}
+          colors={["rgba(0,0,0,0.80)", "rgba(0,0,0,0.50)", "rgba(0,0,0,0.80)"]}
           style={StyleSheet.absoluteFillObject}
           pointerEvents="none"
         />
 
-        {/* Particles */}
-        {Array.from({ length: 12 }).map((_, i) => (
-          <FloatingParticle key={i} color={i % 2 === 0 ? gift.grad[0] : gift.grad[1]} delay={i * 180} />
-        ))}
+        {/* ── Lottie full-screen background animation ── */}
+        <LottieView
+          ref={lottieRef}
+          source={getLottieSource(gift.tokens)}
+          style={styles.lottieFullscreen}
+          autoPlay={false}
+          loop={false}
+          resizeMode="cover"
+          renderMode={Platform.OS === "web" ? "AUTOMATIC" : "HARDWARE"}
+        />
 
-        {/* Gift card */}
-        <Animated.View style={[styles.bigCard, { transform: [{ scale: scaleAnim }] }]}>
+        {/* ── Gift info card ── */}
+        <Animated.View style={[styles.bigCard, { transform: [{ scale: cardScale }], opacity: cardOp }]}>
           <LinearGradient colors={gift.grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bigCardGrad}>
-            <View style={[styles.bigGlow, { backgroundColor: gift.grad[1] + "55" }]} />
-            <Animated.Text style={[styles.bigEmoji, { transform: [{ translateY: floatAnim }] }]}>
-              {gift.emoji}
-            </Animated.Text>
+            <View style={[styles.bigGlow, { backgroundColor: gift.grad[1] + "66" }]} />
+            <Text style={styles.bigEmoji}>{gift.emoji}</Text>
             <Text style={styles.bigName}>{gift.label}</Text>
-            <Text style={styles.bigTokens}>{gift.tokens.toLocaleString()} ST · {eurValue}</Text>
+            <Text style={styles.bigValue}>{gift.tokens.toLocaleString()} ST · {eurLabel}</Text>
           </LinearGradient>
         </Animated.View>
 
-        {/* Label */}
-        <Animated.View style={[styles.bigLabel, {
-          opacity: textAnim,
-          transform: [{ translateY: textAnim.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }],
-        }]}>
+        {/* ── Sender label ── */}
+        <Animated.View style={[styles.bigLabel, { opacity: labelOp, transform: [{ translateY: labelY }] }]}>
           <Text style={styles.bigLabelText}>
             🎁 You gifted{recipientName ? ` ${recipientName}` : ""} a{" "}
             <Text style={{ fontFamily: "Inter_700Bold" }}>{gift.label}</Text>!
           </Text>
         </Animated.View>
+
       </Animated.View>
     </Modal>
   );
 }
 
 /* ══════════════════════════════════════════════
-   MAIN EXPORT — routes between small / big
+   MAIN EXPORT
 ══════════════════════════════════════════════ */
 export default function GiftSplashOverlay({ gift, recipientName, onHide }: Props) {
   if (!gift) return null;
-
   if (gift.tokens >= BIG_THRESHOLD) {
     return <BigSplash gift={gift} recipientName={recipientName} onHide={onHide} />;
   }
-
   return <SmallToast gift={gift} onHide={onHide} />;
 }
 
 const styles = StyleSheet.create({
-  /* ── Small toast ── */
+  /* ── Toast ── */
   toastWrap: {
     position: "absolute",
-    bottom: 110,
+    bottom: 120,
     right: 16,
     zIndex: 9999,
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
     elevation: 14,
   },
   toastCard: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    gap: 10,
-    minWidth: 140,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    gap: 12,
+    minWidth: 150,
   },
-  toastEmoji: { fontSize: 34 },
+  toastEmoji: { fontSize: 36 },
   toastText:  { gap: 2 },
-  toastLabel: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#fff" },
-  toastST:    { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.8)" },
+  toastLabel: { fontSize: 13, fontFamily: "Inter_700Bold",      color: "#fff" },
+  toastST:    { fontSize: 11, fontFamily: "Inter_400Regular",   color: "rgba(255,255,255,0.8)" },
 
   /* ── Big splash ── */
   bigOverlay: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 28,
+    gap: 26,
+  },
+  lottieFullscreen: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
   bigCard: {
-    width: width * 0.62,
-    borderRadius: 28,
+    width: width * 0.60,
+    borderRadius: 26,
     overflow: "hidden",
+    zIndex: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.6,
-    shadowRadius: 30,
-    elevation: 26,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.65,
+    shadowRadius: 32,
+    elevation: 28,
   },
   bigCardGrad: {
     alignItems: "center",
-    paddingVertical: 44,
-    paddingHorizontal: 24,
-    gap: 12,
+    paddingVertical: 40,
+    paddingHorizontal: 22,
+    gap: 10,
   },
   bigGlow: {
     position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    top: "8%",
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    top: "10%",
   },
-  bigEmoji: { fontSize: 110, lineHeight: 126 },
-  bigName:  {
-    fontSize: 28, fontFamily: "Inter_700Bold", color: "#fff",
+  bigEmoji: {
+    fontSize: 96,
+    lineHeight: 112,
+    zIndex: 1,
+  },
+  bigName: {
+    fontSize: 26,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
     textAlign: "center",
     textShadowColor: "rgba(0,0,0,0.4)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 6,
+    zIndex: 1,
   },
-  bigTokens: {
-    fontSize: 16, fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.85)",
+  bigValue: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: "rgba(255,255,255,0.85)",
+    zIndex: 1,
   },
   bigLabel: {
-    paddingHorizontal: 28, paddingVertical: 12,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 20,
+    paddingHorizontal: 26,
+    paddingVertical: 12,
+    backgroundColor: "rgba(255,255,255,0.13)",
+    borderRadius: 22,
+    zIndex: 1,
   },
   bigLabelText: {
-    fontSize: 16, fontFamily: "Inter_400Regular", color: "#fff", textAlign: "center",
+    fontSize: 16,
+    fontFamily: "Inter_400Regular",
+    color: "#fff",
+    textAlign: "center",
   },
 });
