@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/expo";
 import {
   Alert,
+  Dimensions,
   FlatList,
   Modal,
   Platform,
@@ -40,7 +42,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { signOut } = useAuth();
-  const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, addCoins, isLive, setIsLive } = useApp();
+  const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, addCoins, isLive, setIsLive, myPhotos, addMyPhoto, removeMyPhoto, togglePhotoExclusive } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -64,6 +66,9 @@ export default function ProfileScreen() {
   const [editCountry, setEditCountry] = useState(userProfile?.country ?? "");
   const [buyingTokens, setBuyingTokens] = useState(false);
   const [customTokenAmount, setCustomTokenAmount] = useState("");
+  const [photoEditMode, setPhotoEditMode] = useState(false);
+  const [addPhotoVisible, setAddPhotoVisible] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (userProfile) {
@@ -121,6 +126,63 @@ export default function ProfileScreen() {
     );
   };
 
+  const pickMainPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow photo access to change your profile picture.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !userProfile) return;
+    const uri = result.assets[0].uri;
+    try {
+      setUploadingAvatar(true);
+      const urlRes = await fetch(`${getApiUrl()}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: "avatar.jpg" }),
+      });
+      const { uploadUrl, objectPath } = await urlRes.json();
+      const blob = await (await fetch(uri)).blob();
+      await fetch(uploadUrl, { method: "PUT", body: blob, headers: { "Content-Type": "image/jpeg" } });
+      await upsertProfile.mutateAsync({
+        data: {
+          name: userProfile.name, age: userProfile.age, bio: userProfile.bio,
+          seeking: userProfile.seeking, photoUrl: objectPath,
+          city: userProfile.city ?? null, country: userProfile.country ?? null,
+          latitude: userProfile.latitude ?? null, longitude: userProfile.longitude ?? null,
+        },
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert("Upload failed", "Could not save photo. Please try again.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const pickGalleryPhoto = async (exclusive: boolean) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow photo access to add pictures.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    addMyPhoto(result.assets[0].uri, exclusive);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setAddPhotoVisible(false);
+  };
+
   const initial = userProfile?.name?.[0]?.toUpperCase() ?? "?";
 
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
@@ -155,9 +217,13 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={[styles.editPhotoBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => {}}
+          onPress={pickMainPhoto}
+          disabled={uploadingAvatar}
         >
-          <Ionicons name="camera-outline" size={16} color={colors.foreground} />
+          {uploadingAvatar
+            ? <Ionicons name="hourglass-outline" size={16} color={colors.foreground} />
+            : <Ionicons name="camera-outline" size={16} color={colors.foreground} />
+          }
         </TouchableOpacity>
       </View>
 
@@ -292,6 +358,67 @@ export default function ProfileScreen() {
             {userProfile?.bio || t("profile.noBio")}
           </Text>
         )}
+      </View>
+
+      {/* ── My Photos Gallery ── */}
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.creatorTitleRow}>
+            <Text style={{ fontSize: 18 }}>📸</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>My Photos</Text>
+          </View>
+          <TouchableOpacity onPress={() => setPhotoEditMode((v) => !v)} activeOpacity={0.7}>
+            <Text style={{ fontSize: 13, color: colors.primary, fontFamily: "Inter_600SemiBold" }}>
+              {photoEditMode ? "Done" : "Edit"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
+          Free photos are visible to everyone. Exclusive photos are blurred — people pay 50 ST to unlock them.
+        </Text>
+
+        <View style={gallSt.grid}>
+          {myPhotos.map((photo) => (
+            <View key={photo.id} style={gallSt.tile}>
+              <Image source={{ uri: photo.uri }} style={gallSt.tileImg} contentFit="cover" />
+
+              {/* Free / Exclusive badge */}
+              <View style={[gallSt.badge, { backgroundColor: photo.exclusive ? "rgba(255,51,102,0.85)" : "rgba(34,197,94,0.85)" }]}>
+                <Text style={gallSt.badgeText}>{photo.exclusive ? "🔒 EXCL" : "FREE"}</Text>
+              </View>
+
+              {photoEditMode ? (
+                <>
+                  {/* Delete button */}
+                  <TouchableOpacity
+                    style={gallSt.deleteBtn}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); removeMyPhoto(photo.id); }}
+                  >
+                    <Ionicons name="close-circle" size={22} color="#ef4444" />
+                  </TouchableOpacity>
+                  {/* Toggle exclusive / free */}
+                  <TouchableOpacity
+                    style={gallSt.toggleBtn}
+                    onPress={() => { Haptics.selectionAsync(); togglePhotoExclusive(photo.id); }}
+                  >
+                    <Text style={gallSt.toggleText}>{photo.exclusive ? "Make Free" : "Make Excl."}</Text>
+                  </TouchableOpacity>
+                </>
+              ) : null}
+            </View>
+          ))}
+
+          {/* Add photo tile */}
+          <TouchableOpacity
+            style={[gallSt.tile, gallSt.addTile, { borderColor: colors.border, backgroundColor: colors.background }]}
+            onPress={() => setAddPhotoVisible(true)}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="add" size={30} color={colors.primary} />
+            <Text style={[gallSt.addLabel, { color: colors.mutedForeground }]}>Add photo</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Preferences */}
@@ -570,6 +697,51 @@ export default function ProfileScreen() {
     </ScrollView>
 
     </View>
+
+    {/* Add Photo modal */}
+    <Modal visible={addPhotoVisible} transparent animationType="fade" onRequestClose={() => setAddPhotoVisible(false)}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setAddPhotoVisible(false)}>
+        <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+          <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+          <Text style={[styles.modalTitle, { color: colors.foreground }]}>Add a Photo</Text>
+          <Text style={[{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: 8 }]}>
+            Choose whether this photo is free for everyone or exclusive (paid with ST points).
+          </Text>
+
+          <TouchableOpacity
+            style={[gallSt.addOptionBtn, { backgroundColor: "rgba(34,197,94,0.12)", borderColor: "rgba(34,197,94,0.4)" }]}
+            onPress={() => pickGalleryPhoto(false)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="image-outline" size={22} color="#22c55e" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontFamily: "Inter_700Bold", color: "#22c55e" }}>Free Photo</Text>
+              <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+                Visible to everyone for free
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[gallSt.addOptionBtn, { backgroundColor: "rgba(255,51,102,0.10)", borderColor: "rgba(255,51,102,0.4)" }]}
+            onPress={() => pickGalleryPhoto(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="lock-closed-outline" size={22} color="#FF3366" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontFamily: "Inter_700Bold", color: "#FF3366" }}>Exclusive Photo</Text>
+              <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+                Blurred — people pay 50 ST to unlock
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setAddPhotoVisible(false)} style={{ paddingVertical: 8 }}>
+            <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
 
     {/* Language picker modal */}
     <Modal
@@ -934,4 +1106,32 @@ const styles = StyleSheet.create({
   },
   langItemFlag: { fontSize: 24 },
   langItemText: { flex: 1, fontSize: 16, fontFamily: "Inter_500Medium" },
+});
+
+const GALLERY_TILE = (Dimensions.get("window").width - 48 - 8) / 3;
+const gallSt = StyleSheet.create({
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
+  tile: { width: GALLERY_TILE, height: GALLERY_TILE * 1.25, borderRadius: 10, overflow: "hidden", position: "relative" },
+  tileImg: { width: "100%", height: "100%" },
+  badge: {
+    position: "absolute", bottom: 4, left: 4,
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6,
+  },
+  badgeText: { color: "#fff", fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  deleteBtn: { position: "absolute", top: 4, right: 4, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 11 },
+  toggleBtn: {
+    position: "absolute", bottom: 4, right: 4,
+    backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 3,
+  },
+  toggleText: { color: "#fff", fontSize: 9, fontFamily: "Inter_600SemiBold" },
+  addTile: {
+    borderWidth: 1.5, borderStyle: "dashed",
+    alignItems: "center", justifyContent: "center", gap: 4,
+  },
+  addLabel: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  addOptionBtn: {
+    width: "100%", flexDirection: "row", alignItems: "center", gap: 14,
+    padding: 16, borderRadius: 14, borderWidth: 1.5, marginBottom: 10,
+  },
 });

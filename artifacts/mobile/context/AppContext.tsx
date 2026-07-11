@@ -5,6 +5,12 @@ import { useGetCurrentAuthUser, useActivateSubscription } from "@workspace/api-c
 import { useAuth } from "@clerk/expo";
 import { checkPendingWebTokenCheckout } from "@/config/payments";
 
+export interface MyPhoto {
+  id: string;
+  uri: string;
+  exclusive: boolean;
+}
+
 export interface Message {
   id: string;
   text: string;
@@ -26,6 +32,10 @@ export type AppMode = "dating" | "naughty" | "business" | "party" | "travel" | "
 interface AppContextType {
   isLoaded: boolean;
   isSubscribed: boolean;
+  myPhotos: MyPhoto[];
+  addMyPhoto: (uri: string, exclusive: boolean) => void;
+  removeMyPhoto: (id: string) => void;
+  togglePhotoExclusive: (id: string) => void;
   appMode: AppMode;
   setAppMode: (mode: AppMode) => void;
   setSubscribed: () => Promise<void>;
@@ -65,6 +75,7 @@ const KEYS = {
   COINS: "@spark/coins",
   IS_LIVE: "@spark/is_live",
   STRIPE_CONNECT_ACCOUNT_ID: "@spark/stripe_connect_account_id",
+  MY_PHOTOS: "@spark/my_photos",
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -79,6 +90,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [coinBalance, setCoinBalance] = useState(0);
   const [isLive, setIsLiveState] = useState(false);
   const [stripeConnectAccountId, setStripeConnectAccountIdState] = useState<string | null>(null);
+  const [myPhotos, setMyPhotos] = useState<MyPhoto[]>([]);
 
   const { isSignedIn } = useAuth();
   const { data: authUserData } = useGetCurrentAuthUser({
@@ -99,7 +111,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function load() {
       try {
-        const [matchesRaw, subscribedRaw, unlockedRaw, creatorModeRaw, creatorPriceRaw, earningsRaw, coinsRaw, isLiveRaw, stripeConnectAccountIdRaw] = await Promise.all([
+        const [matchesRaw, subscribedRaw, unlockedRaw, creatorModeRaw, creatorPriceRaw, earningsRaw, coinsRaw, isLiveRaw, stripeConnectAccountIdRaw, myPhotosRaw] = await Promise.all([
           AsyncStorage.getItem(KEYS.MATCHES),
           AsyncStorage.getItem(KEYS.SUBSCRIBED),
           AsyncStorage.getItem(KEYS.UNLOCKED_PHOTOS),
@@ -109,10 +121,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.COINS),
           AsyncStorage.getItem(KEYS.IS_LIVE),
           AsyncStorage.getItem(KEYS.STRIPE_CONNECT_ACCOUNT_ID),
+          AsyncStorage.getItem(KEYS.MY_PHOTOS),
         ]);
         if (matchesRaw) setMatches(JSON.parse(matchesRaw));
         if (subscribedRaw === "true") setIsSubscribedState(true);
         if (unlockedRaw) setUnlockedPhotos(JSON.parse(unlockedRaw));
+        if (myPhotosRaw) setMyPhotos(JSON.parse(myPhotosRaw));
         if (creatorModeRaw === "true") setCreatorModeState(true);
         if (creatorPriceRaw) setCreatorPriceState(Number(creatorPriceRaw));
         if (earningsRaw) setEarnings(parseFloat(earningsRaw));
@@ -282,6 +296,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(KEYS.STRIPE_CONNECT_ACCOUNT_ID, id);
   };
 
+  const addMyPhoto = (uri: string, exclusive: boolean) => {
+    const photo: MyPhoto = { id: Date.now().toString() + Math.random().toString(36).slice(2, 8), uri, exclusive };
+    setMyPhotos((prev) => {
+      const updated = [...prev, photo];
+      AsyncStorage.setItem(KEYS.MY_PHOTOS, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const removeMyPhoto = (id: string) => {
+    setMyPhotos((prev) => {
+      const updated = prev.filter((p) => p.id !== id);
+      AsyncStorage.setItem(KEYS.MY_PHOTOS, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const togglePhotoExclusive = (id: string) => {
+    setMyPhotos((prev) => {
+      const updated = prev.map((p) => (p.id === id ? { ...p, exclusive: !p.exclusive } : p));
+      AsyncStorage.setItem(KEYS.MY_PHOTOS, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const removeMatch = (profileId: string) => {
     setMatches((prev) => {
       const updated = prev.filter((m) => m.profileId !== profileId);
@@ -295,6 +334,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       value={{
         isLoaded,
         isSubscribed,
+        myPhotos,
+        addMyPhoto,
+        removeMyPhoto,
+        togglePhotoExclusive,
         appMode,
         setAppMode: setAppModeState,
         setSubscribed,
