@@ -21,8 +21,8 @@ function NativeTabLayout() {
         <Label>Explore</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="matches">
-        <Icon sf={{ default: "heart", selected: "heart.fill" }} />
-        <Label>Matches</Label>
+        <Icon sf={{ default: "message", selected: "message.fill" }} />
+        <Label>Messages</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="coaches">
         <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
@@ -103,12 +103,12 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="matches"
         options={{
-          title: "Matches",
+          title: "Messages",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="heart.fill" tintColor={color} size={24} />
+              <SymbolView name="message.fill" tintColor={color} size={22} />
             ) : (
-              <Ionicons name="heart" size={22} color={color} />
+              <Ionicons name="chatbubbles" size={22} color={color} />
             ),
         }}
       />
