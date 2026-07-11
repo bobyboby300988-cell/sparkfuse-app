@@ -5,3 +5,4 @@
 - [Client-only entitlement flags](client-only-entitlement-flags.md) — device-local (AsyncStorage) subscription/premium flags don't survive reinstall or new-device login; must be mirrored server-side on the user record.
 - [Mobile app mock/demo data audit](mobile-mock-data-audit.md) — SparkFuse's Live/Coaches/Explore tabs are built on static seed arrays, not real backend data; emptying them needs crash guards everywhere they're indexed.
 - [Expo web-browser access](expo-web-browser-access.md) — `expo export -p web` + route serve.js by `expo-platform` header to make an Expo Go-only app also work in regular browsers.
+- [i18n locale type safety](i18next-locale-types.md) — use DeepString<typeof en> not typeof en directly; avoid naming timer vars `t` inside components that use useTranslation.

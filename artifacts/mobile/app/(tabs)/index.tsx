@@ -20,12 +20,14 @@ import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocation } from "@/hooks/useLocation";
 import { getPhotoUrl } from "@/lib/api";
+import { useTranslation } from "react-i18next";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function DiscoverScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { addMatch } = useApp();
   const [matchedProfile, setMatchedProfile] = useState<SwipeProfile | null>(null);
   const [matchModalVisible, setMatchModalVisible] = useState(false);
@@ -131,7 +133,7 @@ export default function DiscoverScreen() {
           <View>
             <Text style={[styles.logoText, { color: colors.foreground }]}>SparkFuse</Text>
             <Text style={[styles.modeHint, { color: colors.mutedForeground }]}>
-              Find your person
+              {t("discover.findYourPerson")}
             </Text>
           </View>
         </View>
@@ -151,10 +153,10 @@ export default function DiscoverScreen() {
           <View style={styles.emptyState}>
             <Ionicons name="heart-dislike-outline" size={56} color={colors.mutedForeground} />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-              You've seen everyone
+              {t("discover.seenEveryone")}
             </Text>
             <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-              Check back later for new profiles nearby
+              {t("discover.checkBackLater")}
             </Text>
           </View>
         ) : (
@@ -172,8 +174,8 @@ export default function DiscoverScreen() {
                   profile.distanceKm == null
                     ? undefined
                     : profile.distanceKm < 1
-                      ? "Less than 1 km away"
-                      : `${Math.round(profile.distanceKm)} km away`
+                      ? t("discover.lessThan1km")
+                      : t("discover.kmAway", { n: Math.round(profile.distanceKm) })
                 }
               />
             ))
@@ -213,7 +215,7 @@ export default function DiscoverScreen() {
       {visible.length > 0 && (
         <View style={styles.swipeHint}>
           <Text style={[styles.hintText, { color: colors.mutedForeground }]}>
-            Swipe or use buttons to discover
+            {t("discover.swipeHint")}
           </Text>
         </View>
       )}

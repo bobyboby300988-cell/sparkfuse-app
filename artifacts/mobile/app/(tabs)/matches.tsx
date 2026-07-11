@@ -19,6 +19,7 @@ import { useGetMatches } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { getPhotoUrl } from "@/lib/api";
+import { useTranslation } from "react-i18next";
 
 const { width: W } = Dimensions.get("window");
 const SWIPE_THRESHOLD = 60;
@@ -36,7 +37,7 @@ function AdBanner({ adIndex }: { adIndex: number }) {
   const ad = ADS[adIndex % ADS.length];
   return (
     <View style={[adStyles.card, { borderColor: ad.accent + "40", backgroundColor: ad.accent + "12" }]}>
-      <Text style={adStyles.sponsoredLabel}>Sponsored</Text>
+      <Text style={adStyles.sponsoredLabel}>{/* Sponsored label — uses i18n in the parent component */}Sponsored</Text>
       <View style={adStyles.body}>
         <Text style={adStyles.emoji}>{ad.emoji}</Text>
         <View style={adStyles.textWrap}>
@@ -136,6 +137,7 @@ type ListItem = MatchItem | AdItem;
 export default function MatchesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { matches, removeMatch } = useApp();
   const { data } = useGetMatches();
 
@@ -177,9 +179,11 @@ export default function MatchesScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>Matches</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("matches.title")}</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {matchData.length} {matchData.length === 1 ? "match" : "matches"} · swipe photo to like or pass
+          {matchData.length === 1
+            ? t("matches.matchCount_one", { count: matchData.length })
+            : t("matches.matchCount_other", { count: matchData.length })} · {t("matches.swipeHint")}
         </Text>
       </View>
 
@@ -188,9 +192,9 @@ export default function MatchesScreen() {
           <View style={[styles.emptyIcon, { backgroundColor: colors.muted }]}>
             <Ionicons name="heart-outline" size={40} color={colors.mutedForeground} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No matches yet</Text>
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>{t("matches.noMatchesYet")}</Text>
           <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-            Start swiping to connect with people near you
+            {t("matches.startSwiping")}
           </Text>
         </View>
       ) : (
@@ -233,8 +237,8 @@ export default function MatchesScreen() {
                     numberOfLines={1}
                   >
                     {lastMsg
-                      ? lastMsg.text || "📎 Attachment"
-                      : `Say hello to ${profile.name}!`}
+                      ? lastMsg.text || t("matches.attachment")
+                      : t("matches.sayHello", { name: profile.name })}
                   </Text>
                 </TouchableOpacity>
 

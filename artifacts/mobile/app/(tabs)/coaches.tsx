@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MOCK_COACHES } from "@/data/coaches";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useTranslation } from "react-i18next";
 
 const FILTERS = ["All", "Confidence", "Online dating", "Healing", "Mindset work", "Conversation skills"];
 
@@ -39,6 +40,7 @@ function StarRating({ rating }: { rating: number }) {
 export default function CoachesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { coinBalance } = useApp();
   const [activeFilter, setActiveFilter] = useState("All");
 
@@ -53,9 +55,9 @@ export default function CoachesScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 16, borderBottomColor: colors.border }]}>
         <View>
-          <Text style={[styles.title, { color: colors.foreground }]}>Dating Coaches</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>{t("coaches.title")}</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Book with Spark Tokens · 1 ST = €0.10
+            {t("coaches.subtitle")}
           </Text>
         </View>
         {/* Wallet chip */}
@@ -109,9 +111,9 @@ export default function CoachesScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="people-outline" size={40} color={colors.mutedForeground} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No coaches yet</Text>
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>{t("coaches.noCoaches")}</Text>
             <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-              We're onboarding real dating coaches. Check back soon!
+              {t("coaches.onboardingCoaches")}
             </Text>
           </View>
         }
@@ -131,7 +133,7 @@ export default function CoachesScreen() {
                   <Text style={[styles.coachTitle, { color: colors.primary }]}>{coach.title}</Text>
                   <StarRating rating={coach.rating} />
                   <Text style={[styles.reviewCount, { color: colors.mutedForeground }]}>
-                    {coach.reviewCount} reviews · {coach.yearsExperience}y exp
+                    {coach.reviewCount} {t("coaches.reviews")} · {coach.yearsExperience}y {t("coaches.experience")}
                   </Text>
                 </View>
               </View>
@@ -152,7 +154,7 @@ export default function CoachesScreen() {
               {/* Price + CTA */}
               <View style={styles.cardBottom}>
                 <View>
-                  <Text style={[styles.fromText, { color: colors.mutedForeground }]}>From</Text>
+                  <Text style={[styles.fromText, { color: colors.mutedForeground }]}>{t("coaches.from")}</Text>
                   <View style={styles.stRow}>
                     <Text style={styles.stFire}>🔥</Text>
                     <Text style={[styles.stPrice, { color: colors.foreground }]}>
@@ -160,7 +162,7 @@ export default function CoachesScreen() {
                     </Text>
                   </View>
                   <Text style={[styles.stEur, { color: colors.mutedForeground }]}>
-                    ≈ €{(minST * 0.10).toFixed(0)} / session
+                    {t("coaches.perSession", { price: (minST * 0.10).toFixed(0) })}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -172,7 +174,7 @@ export default function CoachesScreen() {
                   activeOpacity={0.8}
                 >
                   {!canAfford && <Ionicons name="cart-outline" size={14} color="#fff" />}
-                  <Text style={styles.bookBtnText}>{canAfford ? "Book" : "Buy ST"}</Text>
+                  <Text style={styles.bookBtnText}>{canAfford ? t("coaches.book") : t("coaches.buyST")}</Text>
                   <Ionicons name="arrow-forward" size={14} color="#fff" />
                 </TouchableOpacity>
               </View>

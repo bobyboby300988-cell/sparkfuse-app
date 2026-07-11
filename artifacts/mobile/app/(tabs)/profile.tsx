@@ -5,6 +5,8 @@ import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  FlatList,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -22,14 +24,31 @@ import { useColors } from "@/hooks/useColors";
 import { getPhotoUrl } from "@/lib/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
+import { useTranslation } from "react-i18next";
+import i18n, { SUPPORTED_LANGUAGES, saveLanguage, type SupportedLanguage } from "@/i18n";
 
 const PRICE_OPTIONS = [1, 2, 3, 5, 10];
+
+const LANGUAGE_FLAGS: Record<string, string> = {
+  en: "🇬🇧", es: "🇪🇸", fr: "🇫🇷", de: "🇩🇪",
+  ro: "🇷🇴", hu: "🇭🇺", el: "🇬🇷", zh: "🇨🇳", ja: "🇯🇵",
+};
 
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, isLive, setIsLive } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [currentLang, setCurrentLang] = useState<SupportedLanguage>(i18n.language as SupportedLanguage || "en");
+
+  const handleLanguageChange = async (lang: SupportedLanguage) => {
+    await saveLanguage(lang);
+    await i18n.changeLanguage(lang);
+    setCurrentLang(lang);
+    setLanguageModalVisible(false);
+  };
 
   const { data: profileData } = useGetMyProfile();
   const userProfile = profileData?.profile ?? null;
@@ -63,12 +82,12 @@ export default function ProfileScreen() {
 
   const handleReset = () => {
     Alert.alert(
-      "Reset Profile",
-      "This will clear all your data and restart onboarding.",
+      t("profile.resetProfile"),
+      t("profile.resetConfirm"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Reset",
+          text: t("profile.reset"),
           style: "destructive",
           onPress: async () => {
             await AsyncStorage.clear();
@@ -134,7 +153,7 @@ export default function ProfileScreen() {
           </Text>
         )}
         <Text style={[styles.seekingText, { color: colors.mutedForeground }]}>
-          Looking for {userProfile?.seeking}
+          {t("profile.lookingFor", { gender: userProfile?.seeking ?? "" })}
         </Text>
       </View>
 
@@ -142,14 +161,14 @@ export default function ProfileScreen() {
       <View style={[styles.statsRow, { backgroundColor: colors.card }]}>
         <View style={styles.statItem}>
           <Text style={[styles.statNum, { color: colors.primary }]}>{matches.length}</Text>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Matches</Text>
+          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.matches")}</Text>
         </View>
         <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
         <View style={styles.statItem}>
           <Text style={[styles.statNum, { color: colors.primary }]}>
             {matches.reduce((acc, m) => acc + m.messages.length, 0)}
           </Text>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Messages</Text>
+          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{t("profile.messages")}</Text>
         </View>
         <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
         <View style={styles.statItem}>
@@ -161,7 +180,7 @@ export default function ProfileScreen() {
       {/* Bio */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>About me</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("profile.aboutMe")}</Text>
           {!editing && (
             <TouchableOpacity onPress={() => setEditing(true)}>
               <Ionicons name="pencil-outline" size={18} color={colors.primary} />
@@ -184,7 +203,7 @@ export default function ProfileScreen() {
               onChangeText={setEditBio}
               multiline
               maxLength={200}
-              placeholder="Tell people about yourself..."
+              placeholder={t("profile.bioPH")}
               placeholderTextColor={colors.mutedForeground}
             />
             <View style={styles.editActions}>
@@ -196,19 +215,19 @@ export default function ProfileScreen() {
                   setEditBio(userProfile?.bio ?? "");
                 }}
               >
-                <Text style={[styles.editBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
+                <Text style={[styles.editBtnText, { color: colors.mutedForeground }]}>{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.editBtn, styles.saveBtn, { backgroundColor: colors.primary }]}
                 onPress={handleSave}
               >
-                <Text style={[styles.editBtnText, { color: "#FFFFFF" }]}>Save</Text>
+                <Text style={[styles.editBtnText, { color: "#FFFFFF" }]}>{t("common.save")}</Text>
               </TouchableOpacity>
             </View>
           </>
         ) : (
           <Text style={[styles.bioText, { color: colors.mutedForeground }]}>
-            {userProfile?.bio || "No bio yet. Tap the pencil to add one."}
+            {userProfile?.bio || t("profile.noBio")}
           </Text>
         )}
       </View>
@@ -237,7 +256,7 @@ export default function ProfileScreen() {
         <View style={styles.sectionHeader}>
           <View style={styles.creatorTitleRow}>
             <Text style={{ fontSize: 18 }}>💰</Text>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>My Wallet</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("profile.wallet")}</Text>
           </View>
         </View>
 
@@ -245,17 +264,17 @@ export default function ProfileScreen() {
           <View style={[styles.walletCell, { borderRightColor: colors.border }]}>
             <Text style={styles.walletCoin}>🔥</Text>
             <Text style={[styles.walletValue, { color: colors.foreground }]}>{coinBalance} ST</Text>
-            <Text style={[styles.walletLabel, { color: colors.mutedForeground }]}>Spark Tokens</Text>
+            <Text style={[styles.walletLabel, { color: colors.mutedForeground }]}>{t("profile.sparkTokens")}</Text>
           </View>
           <View style={styles.walletCell}>
             <Text style={styles.walletCoin}>🎁</Text>
             <Text style={[styles.walletValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
-            <Text style={[styles.walletLabel, { color: colors.mutedForeground }]}>Gift balance</Text>
+            <Text style={[styles.walletLabel, { color: colors.mutedForeground }]}>{t("profile.giftBalance")}</Text>
           </View>
         </View>
 
         <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
-          Send & receive Spark Tokens (ST) as gifts. Platform fee: 10% from sender + 10% on withdrawal.
+          {t("profile.giftBalanceDesc")}
         </Text>
 
         <TouchableOpacity
@@ -272,12 +291,12 @@ export default function ProfileScreen() {
         >
           <Ionicons name="arrow-up-circle-outline" size={18} color="#FF3366" />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.earningsLabel, { color: colors.mutedForeground }]}>Available to withdraw</Text>
+            <Text style={[styles.earningsLabel, { color: colors.mutedForeground }]}>{t("profile.availableToWithdraw")}</Text>
             <Text style={[styles.earningsValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
           </View>
           <View style={[styles.withdrawChip, { backgroundColor: earnings >= 1 ? "#FF3366" : colors.muted }]}>
             <Ionicons name="arrow-up-outline" size={12} color="#fff" />
-            <Text style={styles.withdrawChipText}>Withdraw</Text>
+            <Text style={styles.withdrawChipText}>{t("profile.withdraw")}</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -287,7 +306,7 @@ export default function ProfileScreen() {
         <View style={styles.sectionHeader}>
           <View style={styles.creatorTitleRow}>
             <Text style={{ fontSize: 18 }}>🔴</Text>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Go Live</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("profile.goLive")}</Text>
           </View>
           <Switch
             value={isLive}
@@ -305,9 +324,7 @@ export default function ProfileScreen() {
           />
         </View>
         <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
-          {isLive
-            ? "You're live! Your profile shows a LIVE badge on Explore and in the Live tab."
-            : "Go live to broadcast your camera in real time — viewers can watch and send you gifts."}
+          {isLive ? t("profile.youAreLive") : t("profile.goLiveDesc")}
         </Text>
       </View>
 
@@ -316,7 +333,7 @@ export default function ProfileScreen() {
         <View style={styles.sectionHeader}>
           <View style={styles.creatorTitleRow}>
             <Text style={{ fontSize: 18 }}>🔒</Text>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Creator Mode</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("profile.creatorMode")}</Text>
           </View>
           <Switch
             value={creatorMode}
@@ -332,11 +349,11 @@ export default function ProfileScreen() {
         {creatorMode ? (
           <>
             <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
-              Your profile shows a 🔒 locked section. Others pay to see your exclusive photos.
+              {t("profile.creatorModeActive")}
             </Text>
 
             <Text style={[styles.prefText, { color: colors.foreground, marginTop: 12, marginBottom: 8 }]}>
-              Price per unlock
+              {t("profile.pricePerUnlock")}
             </Text>
             <View style={styles.priceRow}>
               {PRICE_OPTIONS.map((p) => (
@@ -365,10 +382,26 @@ export default function ProfileScreen() {
           </>
         ) : (
           <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
-            Turn on Creator Mode to lock exclusive photos behind a paywall and earn from your profile.
+            {t("profile.creatorModeDesc")}
           </Text>
         )}
       </View>
+
+      {/* Language */}
+      <TouchableOpacity
+        style={[styles.languageRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+        onPress={() => setLanguageModalVisible(true)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.langFlag}>{LANGUAGE_FLAGS[currentLang] ?? "🌐"}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>{t("profile.language")}</Text>
+          <Text style={[styles.langValue, { color: colors.foreground }]}>
+            {t(`languages.${currentLang}` as any)}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+      </TouchableOpacity>
 
       {/* Reset */}
       <TouchableOpacity
@@ -377,9 +410,51 @@ export default function ProfileScreen() {
         activeOpacity={0.7}
       >
         <Ionicons name="refresh-outline" size={16} color={colors.destructive} />
-        <Text style={[styles.resetText, { color: colors.destructive }]}>Reset Profile</Text>
+        <Text style={[styles.resetText, { color: colors.destructive }]}>{t("profile.resetProfile")}</Text>
       </TouchableOpacity>
     </ScrollView>
+
+    {/* Language picker modal */}
+    <Modal
+      visible={languageModalVisible}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setLanguageModalVisible(false)}
+    >
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={() => setLanguageModalVisible(false)}
+      >
+        <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+          <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+          <Text style={[styles.modalTitle, { color: colors.foreground }]}>{t("profile.selectLanguage")}</Text>
+          <FlatList
+            data={SUPPORTED_LANGUAGES}
+            keyExtractor={(item) => item}
+            renderItem={({ item: lang }) => (
+              <TouchableOpacity
+                style={[
+                  styles.langItem,
+                  { borderBottomColor: colors.border },
+                  currentLang === lang && { backgroundColor: colors.primary + "18" },
+                ]}
+                onPress={() => handleLanguageChange(lang)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.langItemFlag}>{LANGUAGE_FLAGS[lang]}</Text>
+                <Text style={[styles.langItemText, { color: colors.foreground }]}>
+                  {t(`languages.${lang}` as any)}
+                </Text>
+                {currentLang === lang && (
+                  <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </TouchableOpacity>
+    </Modal>
 
     <WithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} />
     </>
@@ -617,4 +692,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_500Medium",
   },
+  languageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  langFlag: { fontSize: 26 },
+  langLabel: { fontSize: 11, fontFamily: "Inter_400Regular", marginBottom: 2 },
+  langValue: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "#00000088",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingBottom: 40,
+    maxHeight: "70%",
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  langItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  langItemFlag: { fontSize: 24 },
+  langItemText: { flex: 1, fontSize: 16, fontFamily: "Inter_500Medium" },
 });

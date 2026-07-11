@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -118,11 +119,12 @@ function StreamCard({ item, onPress }: { item: StreamCardItem; onPress: () => vo
 
 export default function LiveTab() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [streams, setStreams] = useState<StreamCardItem[]>(LIVE_STREAMS);
 
   /* Fluctuate viewer counts */
   useEffect(() => {
-    const t = setInterval(() => {
+    const timer = setInterval(() => {
       setStreams((prev) =>
         prev.map((s) => ({
           ...s,
@@ -130,7 +132,7 @@ export default function LiveTab() {
         }))
       );
     }, 3000);
-    return () => clearInterval(t);
+    return () => clearInterval(timer);
   }, []);
 
   /* Poll for real people currently broadcasting */
@@ -146,7 +148,7 @@ export default function LiveTab() {
           name: s.name,
           age: 0,
           avatar: LIVE_STREAMS[0].avatar,
-          tagline: "Broadcasting live right now",
+          tagline: t("live.broadcastingLive"),
           category: (s.category as LiveStream["category"]) ?? "Dating",
           viewers: 1,
           tokens: 0,
@@ -158,14 +160,14 @@ export default function LiveTab() {
       });
     }
     poll();
-    const t = setInterval(poll, 8000);
-    return () => { cancelled = true; clearInterval(t); };
+    const timer = setInterval(poll, 8000);
+    return () => { cancelled = true; clearInterval(timer); };
   }, []);
 
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🔴  Live Now</Text>
+        <Text style={styles.headerTitle}>{t("live.title")}</Text>
         <TouchableOpacity
           style={styles.goLiveBtn}
           onPress={() => router.push("/live/go-live" as any)}
@@ -177,7 +179,7 @@ export default function LiveTab() {
             style={styles.goLiveGrad}
           >
             <Ionicons name="radio" size={14} color="#fff" />
-            <Text style={styles.goLiveText}>Go Live</Text>
+            <Text style={styles.goLiveText}>{t("live.goLive")}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -192,9 +194,9 @@ export default function LiveTab() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="radio-outline" size={40} color="#ffffff66" />
-            <Text style={styles.emptyTitle}>No one's live right now</Text>
+            <Text style={styles.emptyTitle}>{t("live.noOneLive")}</Text>
             <Text style={styles.emptySubtitle}>
-              Be the first — tap "Go Live" to start streaming, or check back later.
+              {t("live.beFirst")}
             </Text>
           </View>
         }

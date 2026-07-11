@@ -21,6 +21,7 @@ import { useAuth } from "@clerk/expo";
 import BrandLogo from "@/components/BrandLogo";
 import { useApp } from "@/context/AppContext";
 import { buildPayPalCheckoutUrl } from "@/config/payments";
+import { useTranslation } from "react-i18next";
 
 const { width: W } = Dimensions.get("window");
 
@@ -68,6 +69,7 @@ function Pill({ label, icon, color, delay }: { label: string; icon: string; colo
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { setSubscribed } = useApp();
   const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const isAuthenticated = !!isSignedIn;
@@ -193,12 +195,12 @@ export default function WelcomeScreen() {
             <BrandLogo size={56} />
           </View>
           <Text style={styles.appName}>SPARKFUSE</Text>
-          <Text style={styles.appSub}>Connect. Explore. Thrive.</Text>
+          <Text style={styles.appSub}>{t("welcome.tagline")}</Text>
         </Animated.View>
 
         {/* ── Keyword pills ── */}
         <View style={styles.pillsSection}>
-          <Text style={styles.pillsTitle}>Everything in one place</Text>
+          <Text style={styles.pillsTitle}>{t("welcome.everythingInOne")}</Text>
           <View style={styles.pillsRow}>
             {KEYWORDS.map((kw, i) => (
               <Pill key={kw.label} label={kw.label} icon={kw.icon} color={kw.color} delay={400 + i * 100} />
@@ -293,8 +295,8 @@ export default function WelcomeScreen() {
         {/* ── Already have an account? Big login card ── */}
         {!isAuthenticated && (
           <Animated.View style={[styles.loginCard, { opacity: cardOpacity, transform: [{ translateY: cardTY }] }]}>
-            <Text style={styles.loginCardTitle}>Already subscribed?</Text>
-            <Text style={styles.loginCardSubtitle}>Log in to pick up right where you left off — no need to pay again.</Text>
+            <Text style={styles.loginCardTitle}>{t("welcome.alreadySubscribed")}</Text>
+            <Text style={styles.loginCardSubtitle}>{t("welcome.loginDescription")}</Text>
             <TouchableOpacity
               style={styles.loginBtn}
               onPress={async () => {
@@ -305,7 +307,7 @@ export default function WelcomeScreen() {
               disabled={authLoading}
             >
               <Ionicons name="log-in-outline" size={20} color="#fff" />
-              <Text style={styles.loginBtnText}>Log In</Text>
+              <Text style={styles.loginBtnText}>{t("welcome.logIn")}</Text>
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -325,7 +327,7 @@ export default function WelcomeScreen() {
           disabled={authLoading}
         >
           <Text style={styles.skipText}>
-            {isAuthenticated ? "Browse first →" : "Or create a new account →"}
+            {isAuthenticated ? t("welcome.browseFirst") : t("welcome.createAccount")}
           </Text>
         </TouchableOpacity>
       </ScrollView>

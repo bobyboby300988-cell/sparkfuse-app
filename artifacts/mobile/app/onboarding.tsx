@@ -24,6 +24,7 @@ import { useRequestUploadUrl, useUpsertMyProfile } from "@workspace/api-client-r
 import BrandLogo from "@/components/BrandLogo";
 import { useColors } from "@/hooks/useColors";
 import { useLocation } from "@/hooks/useLocation";
+import { useTranslation } from "react-i18next";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -39,6 +40,7 @@ type Seeking = "men" | "women" | "everyone";
 export default function OnboardingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   const [step, setStep] = useState(0);
   const [photoUri, setPhotoUri] = useState<string | null>(null);

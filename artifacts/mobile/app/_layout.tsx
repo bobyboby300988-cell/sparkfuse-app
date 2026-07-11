@@ -19,6 +19,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
 import "@/lib/api";
+import i18n, { getSavedLanguage } from "@/i18n";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -89,6 +90,14 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+
+  useEffect(() => {
+    getSavedLanguage().then((lang) => {
+      if (i18n.language !== lang) {
+        i18n.changeLanguage(lang);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
