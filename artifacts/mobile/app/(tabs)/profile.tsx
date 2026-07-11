@@ -27,13 +27,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { useTranslation } from "react-i18next";
 import i18n, { SUPPORTED_LANGUAGES, saveLanguage, type SupportedLanguage } from "@/i18n";
+import { LANGUAGE_FLAGS, LANGUAGE_NATIVE_NAMES, type LanguageCode } from "@/i18n/locales/_languages";
 
 const PRICE_OPTIONS = [1, 2, 3, 5, 10];
-
-const LANGUAGE_FLAGS: Record<string, string> = {
-  en: "🇬🇧", es: "🇪🇸", fr: "🇫🇷", de: "🇩🇪",
-  ro: "🇷🇴", hu: "🇭🇺", el: "🇬🇷", zh: "🇨🇳", ja: "🇯🇵",
-};
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -76,6 +72,10 @@ export default function ProfileScreen() {
         bio: editBio.trim(),
         seeking: userProfile.seeking,
         photoUrl: userProfile.photoUrl,
+        city: userProfile.city ?? null,
+        country: userProfile.country ?? null,
+        latitude: userProfile.latitude ?? null,
+        longitude: userProfile.longitude ?? null,
       },
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -257,17 +257,17 @@ export default function ProfileScreen() {
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Preferences</Text>
         <View style={styles.prefRow}>
           <Ionicons name="location-outline" size={18} color={colors.mutedForeground} />
-          <Text style={[styles.prefText, { color: colors.foreground }]}>New York, NY</Text>
+          <Text style={[styles.prefText, { color: colors.foreground }]}>
+            {userProfile?.city
+              ? [userProfile.city, userProfile.country].filter(Boolean).join(", ")
+              : t("profile.noLocation")}
+          </Text>
         </View>
         <View style={styles.prefRow}>
           <Ionicons name="search-outline" size={18} color={colors.mutedForeground} />
           <Text style={[styles.prefText, { color: colors.foreground }]}>
             {userProfile?.seeking ? userProfile.seeking.charAt(0).toUpperCase() + userProfile.seeking.slice(1) : "Everyone"}
           </Text>
-        </View>
-        <View style={styles.prefRow}>
-          <Ionicons name="resize-outline" size={18} color={colors.mutedForeground} />
-          <Text style={[styles.prefText, { color: colors.foreground }]}>Within 25 miles</Text>
         </View>
       </View>
 

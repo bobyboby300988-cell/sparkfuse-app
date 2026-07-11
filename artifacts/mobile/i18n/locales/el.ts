@@ -1,4 +1,6 @@
 import type { Translations } from "./en";
+import { LANGUAGE_NATIVE_NAMES } from './_languages';
+
 
 const el: Translations = {
   common: {
@@ -56,9 +58,11 @@ const el: Translations = {
   onboarding: {
     step: "Βήμα {{current}} από {{total}}",
     steps: {
+      language: 'Choose your language',
       addPhoto: "Πρόσθεσε φωτογραφία",
       yourName: "Ποιο είναι το όνομά σου;",
       yourAge: "Πόσο χρονών είσαι;",
+      yourCity: 'Από πού είσαι;',
       aboutYou: "Πες μας για σένα",
     },
     tapToAddPhoto: "Πάτα για να προσθέσεις φωτογραφία",
@@ -68,6 +72,10 @@ const el: Translations = {
     namePlaceholder: "Το μικρό σου όνομα",
     agePlaceholder: "Η ηλικία σου",
     bioPlaceholder: "Γράψε κάτι ενδιαφέρον για σένα...",
+
+    cityPlaceholder: 'City (e.g. Paris, Lagos, Mumbai)',
+    countryPlaceholder: 'Country',
+    selectLanguage: 'Select your language',
     mustBe18: "Πρέπει να είσαι 18 ετών ή μεγαλύτερος",
     interestedIn: "Ενδιαφέρομαι για",
     men: "Άνδρες",
@@ -112,6 +120,12 @@ const el: Translations = {
     attachment: "📎 Συνημμένο",
     matchCount_one: "{{count}} ταίριασμα",
     matchCount_other: "{{count}} ταιριάσματα",
+
+    filterEverywhere: 'Worldwide',
+    filterMyCity: 'My city',
+    filterMyCountry: 'My country',
+    filterNearby: 'Nearby',
+    kmRadius: '{{n}} km',
   },
   profile: {
     title: "Προφίλ",
@@ -147,6 +161,9 @@ const el: Translations = {
     men: "άνδρες",
     women: "γυναίκες",
     everyone: "όλους",
+    location: 'Location',
+    noLocation: 'No location set',
+
   },
   explore: {
     title: "Εξερεύνηση",
@@ -220,17 +237,7 @@ const el: Translations = {
       erotic: "Ερωτικό",
     },
   },
-  languages: {
-    en: "English",
-    es: "Español",
-    zh: "中文",
-    ja: "日本語",
-    ro: "Română",
-    hu: "Magyar",
-    el: "Ελληνικά",
-    fr: "Français",
-    de: "Deutsch",
-  },
+  languages: { ...LANGUAGE_NATIVE_NAMES },
 };
 
 export default el;

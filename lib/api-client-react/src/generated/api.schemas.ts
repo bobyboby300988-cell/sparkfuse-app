@@ -51,6 +51,10 @@ export interface Profile {
   /** @nullable */
   photoUrl: string | null;
   /** @nullable */
+  city: string | null;
+  /** @nullable */
+  country: string | null;
+  /** @nullable */
   latitude: number | null;
   /** @nullable */
   longitude: number | null;
@@ -76,6 +80,10 @@ export interface UpsertProfileBody {
   seeking: string;
   /** @nullable */
   photoUrl: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  country?: string | null;
   /** @nullable */
   latitude?: number | null;
   /** @nullable */

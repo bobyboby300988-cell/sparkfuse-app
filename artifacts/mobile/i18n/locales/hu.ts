@@ -1,4 +1,6 @@
 import type { Translations } from "./en";
+import { LANGUAGE_NATIVE_NAMES } from './_languages';
+
 
 const hu: Translations = {
   common: {
@@ -56,9 +58,11 @@ const hu: Translations = {
   onboarding: {
     step: "{{current}}. lépés / {{total}}",
     steps: {
+      language: 'Choose your language',
       addPhoto: "Fénykép hozzáadása",
       yourName: "Mi a neved?",
       yourAge: "Hány éves vagy?",
+      yourCity: 'Honnan vagy?',
       aboutYou: "Mesélj magadról",
     },
     tapToAddPhoto: "Koppints fénykép hozzáadásához",
@@ -68,6 +72,10 @@ const hu: Translations = {
     namePlaceholder: "Keresztneved",
     agePlaceholder: "Korod",
     bioPlaceholder: "Írj valami érdekeset magadról...",
+
+    cityPlaceholder: 'City (e.g. Paris, Lagos, Mumbai)',
+    countryPlaceholder: 'Country',
+    selectLanguage: 'Select your language',
     mustBe18: "18 évesnek vagy idősebbnek kell lenned",
     interestedIn: "Érdekel",
     men: "Férfiak",
@@ -112,6 +120,12 @@ const hu: Translations = {
     attachment: "📎 Melléklet",
     matchCount_one: "{{count}} egyezés",
     matchCount_other: "{{count}} egyezés",
+
+    filterEverywhere: 'Worldwide',
+    filterMyCity: 'My city',
+    filterMyCountry: 'My country',
+    filterNearby: 'Nearby',
+    kmRadius: '{{n}} km',
   },
   profile: {
     title: "Profil",
@@ -147,6 +161,9 @@ const hu: Translations = {
     men: "férfiakat",
     women: "nőket",
     everyone: "mindenkit",
+    location: 'Location',
+    noLocation: 'No location set',
+
   },
   explore: {
     title: "Felfedezés",
@@ -220,17 +237,7 @@ const hu: Translations = {
       erotic: "Erotikus",
     },
   },
-  languages: {
-    en: "English",
-    es: "Español",
-    zh: "中文",
-    ja: "日本語",
-    ro: "Română",
-    hu: "Magyar",
-    el: "Ελληνικά",
-    fr: "Français",
-    de: "Deutsch",
-  },
+  languages: { ...LANGUAGE_NATIVE_NAMES },
 };
 
 export default hu;

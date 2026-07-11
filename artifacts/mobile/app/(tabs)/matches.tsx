@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -9,17 +9,21 @@ import {
   Image,
   PanResponder,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useGetMatches } from "@workspace/api-client-react";
+import { useGetMatches, useGetMyProfile } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { getPhotoUrl } from "@/lib/api";
 import { useTranslation } from "react-i18next";
+
+type LocationFilter = "everywhere" | "myCity" | "myCountry" | "nearby";
+const NEARBY_KM = 50;
 
 const { width: W } = Dimensions.get("window");
 const SWIPE_THRESHOLD = 60;
@@ -140,6 +144,9 @@ export default function MatchesScreen() {
   const { t } = useTranslation();
   const { matches, removeMatch } = useApp();
   const { data } = useGetMatches();
+  const { data: myProfileData } = useGetMyProfile();
+  const myProfile = myProfileData?.profile ?? null;
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>("everywhere");
 
   const matchData = useMemo(() => {
     const serverMatches = data?.matches ?? [];
@@ -152,6 +159,9 @@ export default function MatchesScreen() {
           id: serverProfile.userId,
           name: serverProfile.name,
           photo: photoUrl ? { uri: photoUrl } : require("../../assets/images/p1.png"),
+          city: serverProfile.city ?? null,
+          country: serverProfile.country ?? null,
+          distanceKm: serverProfile.distanceKm ?? null,
         };
         const lastMsg = m.messages[m.messages.length - 1];
         return { match: m, profile, lastMsg };
@@ -160,10 +170,28 @@ export default function MatchesScreen() {
       .sort((a, b) => b!.match.matchedAt - a!.match.matchedAt);
   }, [matches, data]);
 
+  const filteredMatchData = useMemo(() => {
+    if (locationFilter === "everywhere") return matchData;
+    return matchData.filter((item) => {
+      if (!item) return false;
+      const { city, country, distanceKm } = item.profile;
+      if (locationFilter === "myCity") {
+        return myProfile?.city && city && city.toLowerCase() === myProfile.city.toLowerCase();
+      }
+      if (locationFilter === "myCountry") {
+        return myProfile?.country && country && country.toLowerCase() === myProfile.country.toLowerCase();
+      }
+      if (locationFilter === "nearby") {
+        return distanceKm !== null && distanceKm <= NEARBY_KM;
+      }
+      return true;
+    });
+  }, [matchData, locationFilter, myProfile]);
+
   const listItems = useMemo<ListItem[]>(() => {
     const result: ListItem[] = [];
     let adCount = 0;
-    matchData.forEach((item, index) => {
+    filteredMatchData.forEach((item, index) => {
       result.push({ type: "match", ...item! } as MatchItem);
       if ((index + 1) % AD_EVERY === 0) {
         result.push({ type: "ad", adIndex: adCount, id: `ad_${adCount}` });
@@ -171,23 +199,63 @@ export default function MatchesScreen() {
       }
     });
     return result;
-  }, [matchData]);
+  }, [filteredMatchData]);
 
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+
+  const filterOptions: { key: LocationFilter; label: string }[] = [
+    { key: "everywhere", label: t("matches.filterEverywhere") },
+    { key: "myCity", label: t("matches.filterMyCity") },
+    { key: "myCountry", label: t("matches.filterMyCountry") },
+    { key: "nearby", label: t("matches.filterNearby") },
+  ];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>{t("matches.title")}</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {matchData.length === 1
-            ? t("matches.matchCount_one", { count: matchData.length })
-            : t("matches.matchCount_other", { count: matchData.length })} · {t("matches.swipeHint")}
+          {filteredMatchData.length === 1
+            ? t("matches.matchCount_one", { count: filteredMatchData.length })
+            : t("matches.matchCount_other", { count: filteredMatchData.length })} · {t("matches.swipeHint")}
         </Text>
+
+        {/* Location filter bar */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterBar}
+          style={{ marginTop: 10 }}
+        >
+          {filterOptions.map((opt) => {
+            const active = locationFilter === opt.key;
+            return (
+              <TouchableOpacity
+                key={opt.key}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: active ? colors.primary : colors.card,
+                    borderColor: active ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => {
+                  setLocationFilter(opt.key);
+                  Haptics.selectionAsync();
+                }}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.filterChipText, { color: active ? "#fff" : colors.foreground }]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
-      {matchData.length === 0 ? (
+      {filteredMatchData.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={[styles.emptyIcon, { backgroundColor: colors.muted }]}>
             <Ionicons name="heart-outline" size={40} color={colors.mutedForeground} />
@@ -266,9 +334,17 @@ const adStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 24, paddingBottom: 16 },
+  header: { paddingHorizontal: 24, paddingBottom: 8 },
   title: { fontSize: 32, fontWeight: "800", fontFamily: "Inter_700Bold", marginBottom: 2 },
   subtitle: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  filterBar: { paddingBottom: 12, gap: 8 },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  filterChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold", fontWeight: "600" },
   list: { paddingHorizontal: 20 },
 
   matchRow: {

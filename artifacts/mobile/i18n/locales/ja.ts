@@ -1,4 +1,6 @@
 import type { Translations } from "./en";
+import { LANGUAGE_NATIVE_NAMES } from './_languages';
+
 
 const ja: Translations = {
   common: {
@@ -56,9 +58,11 @@ const ja: Translations = {
   onboarding: {
     step: "ステップ {{current}} / {{total}}",
     steps: {
+      language: 'Choose your language',
       addPhoto: "写真を追加",
       yourName: "お名前は？",
       yourAge: "年齢は？",
+      yourCity: 'どこの出身ですか？',
       aboutYou: "自己紹介",
     },
     tapToAddPhoto: "タップして写真を追加",
@@ -68,6 +72,10 @@ const ja: Translations = {
     namePlaceholder: "名前",
     agePlaceholder: "年齢",
     bioPlaceholder: "自分について面白いことを書いてみてください...",
+
+    cityPlaceholder: 'City (e.g. Paris, Lagos, Mumbai)',
+    countryPlaceholder: 'Country',
+    selectLanguage: 'Select your language',
     mustBe18: "18歳以上である必要があります",
     interestedIn: "興味があるのは",
     men: "男性",
@@ -112,6 +120,12 @@ const ja: Translations = {
     attachment: "📎 添付",
     matchCount_one: "{{count}} マッチ",
     matchCount_other: "{{count}} マッチ",
+
+    filterEverywhere: 'Worldwide',
+    filterMyCity: 'My city',
+    filterMyCountry: 'My country',
+    filterNearby: 'Nearby',
+    kmRadius: '{{n}} km',
   },
   profile: {
     title: "プロフィール",
@@ -147,6 +161,9 @@ const ja: Translations = {
     men: "男性",
     women: "女性",
     everyone: "全員",
+    location: 'Location',
+    noLocation: 'No location set',
+
   },
   explore: {
     title: "探索",
@@ -220,17 +237,7 @@ const ja: Translations = {
       erotic: "エロティック",
     },
   },
-  languages: {
-    en: "English",
-    es: "Español",
-    zh: "中文",
-    ja: "日本語",
-    ro: "Română",
-    hu: "Magyar",
-    el: "Ελληνικά",
-    fr: "Français",
-    de: "Deutsch",
-  },
+  languages: { ...LANGUAGE_NATIVE_NAMES },
 };
 
 export default ja;

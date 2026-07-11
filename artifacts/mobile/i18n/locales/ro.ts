@@ -1,4 +1,6 @@
 import type { Translations } from "./en";
+import { LANGUAGE_NATIVE_NAMES } from './_languages';
+
 
 const ro: Translations = {
   common: {
@@ -56,9 +58,11 @@ const ro: Translations = {
   onboarding: {
     step: "Pasul {{current}} din {{total}}",
     steps: {
+      language: 'Choose your language',
       addPhoto: "Adaugă o fotografie",
       yourName: "Care este numele tău?",
       yourAge: "Câți ani ai?",
+      yourCity: 'De unde ești?',
       aboutYou: "Spune-ne despre tine",
     },
     tapToAddPhoto: "Apasă pentru a adăuga o fotografie",
@@ -68,6 +72,10 @@ const ro: Translations = {
     namePlaceholder: "Prenumele tău",
     agePlaceholder: "Vârsta ta",
     bioPlaceholder: "Scrie ceva interesant despre tine...",
+
+    cityPlaceholder: 'City (e.g. Paris, Lagos, Mumbai)',
+    countryPlaceholder: 'Country',
+    selectLanguage: 'Select your language',
     mustBe18: "Trebuie să ai 18 ani sau mai mult",
     interestedIn: "Interesat(ă) de",
     men: "Bărbați",
@@ -112,6 +120,12 @@ const ro: Translations = {
     attachment: "📎 Atașament",
     matchCount_one: "{{count}} potrivire",
     matchCount_other: "{{count}} potriviri",
+
+    filterEverywhere: 'Worldwide',
+    filterMyCity: 'My city',
+    filterMyCountry: 'My country',
+    filterNearby: 'Nearby',
+    kmRadius: '{{n}} km',
   },
   profile: {
     title: "Profil",
@@ -147,6 +161,9 @@ const ro: Translations = {
     men: "bărbați",
     women: "femei",
     everyone: "toți",
+    location: 'Location',
+    noLocation: 'No location set',
+
   },
   explore: {
     title: "Explorează",
@@ -220,17 +237,7 @@ const ro: Translations = {
       erotic: "Erotic",
     },
   },
-  languages: {
-    en: "English",
-    es: "Español",
-    zh: "中文",
-    ja: "日本語",
-    ro: "Română",
-    hu: "Magyar",
-    el: "Ελληνικά",
-    fr: "Français",
-    de: "Deutsch",
-  },
+  languages: { ...LANGUAGE_NATIVE_NAMES },
 };
 
 export default ro;

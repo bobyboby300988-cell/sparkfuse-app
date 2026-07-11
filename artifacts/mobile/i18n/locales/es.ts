@@ -1,4 +1,6 @@
 import type { Translations } from "./en";
+import { LANGUAGE_NATIVE_NAMES } from './_languages';
+
 
 const es: Translations = {
   common: {
@@ -56,9 +58,11 @@ const es: Translations = {
   onboarding: {
     step: "Paso {{current}} de {{total}}",
     steps: {
+      language: 'Choose your language',
       addPhoto: "Añade una foto",
       yourName: "¿Cómo te llamas?",
       yourAge: "¿Cuántos años tienes?",
+      yourCity: 'Where are you from?',
       aboutYou: "Cuéntanos sobre ti",
     },
     tapToAddPhoto: "Toca para añadir una foto",
@@ -68,6 +72,10 @@ const es: Translations = {
     namePlaceholder: "Tu nombre",
     agePlaceholder: "Tu edad",
     bioPlaceholder: "Escribe algo interesante sobre ti...",
+
+    cityPlaceholder: 'City (e.g. Paris, Lagos, Mumbai)',
+    countryPlaceholder: 'Country',
+    selectLanguage: 'Select your language',
     mustBe18: "Debes tener 18 años o más",
     interestedIn: "Me interesan",
     men: "Hombres",
@@ -112,6 +120,12 @@ const es: Translations = {
     attachment: "📎 Adjunto",
     matchCount_one: "{{count}} coincidencia",
     matchCount_other: "{{count}} coincidencias",
+
+    filterEverywhere: 'Worldwide',
+    filterMyCity: 'My city',
+    filterMyCountry: 'My country',
+    filterNearby: 'Nearby',
+    kmRadius: '{{n}} km',
   },
   profile: {
     title: "Perfil",
@@ -147,6 +161,9 @@ const es: Translations = {
     men: "hombres",
     women: "mujeres",
     everyone: "todos",
+    location: 'Location',
+    noLocation: 'No location set',
+
   },
   explore: {
     title: "Explorar",
@@ -220,17 +237,7 @@ const es: Translations = {
       erotic: "Erótico",
     },
   },
-  languages: {
-    en: "English",
-    es: "Español",
-    zh: "中文",
-    ja: "日本語",
-    ro: "Română",
-    hu: "Magyar",
-    el: "Ελληνικά",
-    fr: "Français",
-    de: "Deutsch",
-  },
+  languages: { ...LANGUAGE_NATIVE_NAMES },
 };
 
 export default es;

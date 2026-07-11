@@ -1,4 +1,6 @@
 import type { Translations } from "./en";
+import { LANGUAGE_NATIVE_NAMES } from './_languages';
+
 
 const zh: Translations = {
   common: {
@@ -56,9 +58,11 @@ const zh: Translations = {
   onboarding: {
     step: "第 {{current}} 步，共 {{total}} 步",
     steps: {
+      language: 'Choose your language',
       addPhoto: "添加照片",
       yourName: "您叫什么名字？",
       yourAge: "您多大了？",
+      yourCity: '你来自哪里？',
       aboutYou: "介绍一下自己",
     },
     tapToAddPhoto: "点击添加照片",
@@ -68,6 +72,10 @@ const zh: Translations = {
     namePlaceholder: "您的名字",
     agePlaceholder: "您的年龄",
     bioPlaceholder: "写一些关于您的有趣内容...",
+
+    cityPlaceholder: 'City (e.g. Paris, Lagos, Mumbai)',
+    countryPlaceholder: 'Country',
+    selectLanguage: 'Select your language',
     mustBe18: "必须年满 18 岁",
     interestedIn: "感兴趣的对象",
     men: "男性",
@@ -112,6 +120,12 @@ const zh: Translations = {
     attachment: "📎 附件",
     matchCount_one: "{{count}} 个匹配",
     matchCount_other: "{{count}} 个匹配",
+
+    filterEverywhere: 'Worldwide',
+    filterMyCity: 'My city',
+    filterMyCountry: 'My country',
+    filterNearby: 'Nearby',
+    kmRadius: '{{n}} km',
   },
   profile: {
     title: "个人资料",
@@ -147,6 +161,9 @@ const zh: Translations = {
     men: "男性",
     women: "女性",
     everyone: "所有人",
+    location: 'Location',
+    noLocation: 'No location set',
+
   },
   explore: {
     title: "探索",
@@ -220,17 +237,7 @@ const zh: Translations = {
       erotic: "情色",
     },
   },
-  languages: {
-    en: "English",
-    es: "Español",
-    zh: "中文",
-    ja: "日本語",
-    ro: "Română",
-    hu: "Magyar",
-    el: "Ελληνικά",
-    fr: "Français",
-    de: "Deutsch",
-  },
+  languages: { ...LANGUAGE_NATIVE_NAMES },
 };
 
 export default zh;

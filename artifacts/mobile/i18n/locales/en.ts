@@ -1,3 +1,5 @@
+import { LANGUAGE_NATIVE_NAMES } from "./_languages";
+
 const en = {
   common: {
     save: "Save",
@@ -54,9 +56,11 @@ const en = {
   onboarding: {
     step: "Step {{current}} of {{total}}",
     steps: {
+      language: "Choose your language",
       addPhoto: "Add a photo",
       yourName: "What's your name?",
       yourAge: "How old are you?",
+      yourCity: "Where are you from?",
       aboutYou: "Tell us about yourself",
     },
     tapToAddPhoto: "Tap to add a photo",
@@ -65,6 +69,8 @@ const en = {
       "Please allow photo library access to add a profile photo.",
     namePlaceholder: "Your first name",
     agePlaceholder: "Your age",
+    cityPlaceholder: "City (e.g. Paris, Lagos, Mumbai)",
+    countryPlaceholder: "Country",
     bioPlaceholder: "Write something interesting about yourself...",
     mustBe18: "Must be 18 or older",
     interestedIn: "Interested in",
@@ -72,6 +78,7 @@ const en = {
     women: "Women",
     everyone: "Everyone",
     getStarted: "Get Started",
+    selectLanguage: "Select your language",
   },
   paywall: {
     hero: "Find your person.",
@@ -110,6 +117,11 @@ const en = {
     attachment: "📎 Attachment",
     matchCount_one: "{{count}} match",
     matchCount_other: "{{count}} matches",
+    filterEverywhere: "Worldwide",
+    filterMyCity: "My city",
+    filterMyCountry: "My country",
+    filterNearby: "Nearby",
+    kmRadius: "{{n}} km",
   },
   profile: {
     title: "Profile",
@@ -145,6 +157,8 @@ const en = {
     men: "men",
     women: "women",
     everyone: "everyone",
+    location: "Location",
+    noLocation: "No location set",
   },
   explore: {
     title: "Explore",
@@ -218,20 +232,10 @@ const en = {
       erotic: "Erotic",
     },
   },
-  languages: {
-    en: "English",
-    es: "Español",
-    zh: "中文",
-    ja: "日本語",
-    ro: "Română",
-    hu: "Magyar",
-    el: "Ελληνικά",
-    fr: "Français",
-    de: "Deutsch",
-  },
+  languages: { ...LANGUAGE_NATIVE_NAMES },
 } as const;
 
 export default en;
 
 type DeepString<T> = { [K in keyof T]: T[K] extends Record<string, unknown> ? DeepString<T[K]> : string };
-export type Translations = DeepString<typeof en>;
+export type Translations = Omit<DeepString<typeof en>, "languages"> & { languages: Record<string, string> };

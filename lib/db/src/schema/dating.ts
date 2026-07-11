@@ -10,6 +10,8 @@ export const profilesTable = pgTable("profiles", {
   bio: text("bio").notNull().default(""),
   seeking: varchar("seeking").notNull().default(""),
   photoUrl: varchar("photo_url"),
+  city: varchar("city"),
+  country: varchar("country"),
   latitude: doublePrecision("latitude"),
   longitude: doublePrecision("longitude"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

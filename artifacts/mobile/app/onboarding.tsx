@@ -10,6 +10,7 @@ import {
   Alert,
   Animated,
   Dimensions,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -25,15 +26,18 @@ import BrandLogo from "@/components/BrandLogo";
 import { useColors } from "@/hooks/useColors";
 import { useLocation } from "@/hooks/useLocation";
 import { useTranslation } from "react-i18next";
+import i18n, {
+  SUPPORTED_LANGUAGES,
+  SupportedLanguage,
+  getSavedLanguage,
+  saveLanguage,
+} from "@/i18n";
+import { LANGUAGE_NATIVE_NAMES, LANGUAGE_FLAGS, LanguageCode } from "@/i18n/locales/_languages";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const STEPS = [
-  { id: 0, label: "Add a photo" },
-  { id: 1, label: "What's your name?" },
-  { id: 2, label: "How old are you?" },
-  { id: 3, label: "Tell us about yourself" },
-];
+// Steps: 0=language, 1=photo, 2=name, 3=age, 4=city/country, 5=bio
+const STEP_COUNT = 6;
 
 type Seeking = "men" | "women" | "everyone";
 
@@ -43,9 +47,14 @@ export default function OnboardingScreen() {
   const { t } = useTranslation();
 
   const [step, setStep] = useState(0);
+  const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>(
+    (i18n.language as SupportedLanguage) || "en"
+  );
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
   const [bio, setBio] = useState("");
   const [seeking, setSeeking] = useState<Seeking>("everyone");
   const [submitting, setSubmitting] = useState(false);
@@ -58,12 +67,16 @@ export default function OnboardingScreen() {
 
   const canAdvance =
     step === 0
-      ? !!photoUri
+      ? true // language always has a default
       : step === 1
-        ? name.trim().length >= 2
+        ? !!photoUri
         : step === 2
-          ? age.trim().length > 0 && Number(age) >= 18 && Number(age) <= 99
-          : bio.trim().length >= 10;
+          ? name.trim().length >= 2
+          : step === 3
+            ? age.trim().length > 0 && Number(age) >= 18 && Number(age) <= 99
+            : step === 4
+              ? true // city is optional
+              : bio.trim().length >= 10;
 
   const animateForward = (onComplete: () => void) => {
     Animated.sequence([
@@ -83,7 +96,10 @@ export default function OnboardingScreen() {
   const handlePickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Please allow photo library access to add a profile photo.");
+      Alert.alert(
+        t("onboarding.permissionNeeded"),
+        t("onboarding.photoPermissionMsg")
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -115,11 +131,18 @@ export default function OnboardingScreen() {
     return data.objectPath;
   };
 
+  const handleSelectLanguage = async (lang: SupportedLanguage) => {
+    setSelectedLanguage(lang);
+    await i18n.changeLanguage(lang);
+    await saveLanguage(lang);
+    Haptics.selectionAsync();
+  };
+
   const handleNext = () => {
     if (!canAdvance) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    if (step < STEPS.length - 1) {
+    if (step < STEP_COUNT - 1) {
       animateForward(() => setStep((s) => s + 1));
     } else {
       handleDone();
@@ -137,22 +160,33 @@ export default function OnboardingScreen() {
           bio: bio.trim(),
           seeking,
           photoUrl: objectPath,
+          city: city.trim() || null,
+          country: country.trim() || null,
           latitude: location?.latitude ?? null,
           longitude: location?.longitude ?? null,
         },
       });
       router.replace("/");
     } catch (err: any) {
-      Alert.alert("Error", err.message ?? "Failed to save your profile. Try again.");
+      Alert.alert(t("common.error"), err.message ?? "Failed to save your profile. Try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
   const seekingOptions: { label: string; value: Seeking }[] = [
-    { label: "Men", value: "men" },
-    { label: "Women", value: "women" },
-    { label: "Everyone", value: "everyone" },
+    { label: t("onboarding.men"), value: "men" },
+    { label: t("onboarding.women"), value: "women" },
+    { label: t("onboarding.everyone"), value: "everyone" },
+  ];
+
+  const stepLabels = [
+    t("onboarding.steps.language"),
+    t("onboarding.steps.addPhoto"),
+    t("onboarding.steps.yourName"),
+    t("onboarding.steps.yourAge"),
+    t("onboarding.steps.yourCity"),
+    t("onboarding.steps.aboutYou"),
   ];
 
   return (
@@ -173,16 +207,16 @@ export default function OnboardingScreen() {
           <Text style={[styles.logoText, { color: colors.primary }]}>SparkFuse</Text>
         </View>
 
+        {/* Step indicators */}
         <View style={styles.stepIndicator}>
-          {STEPS.map((s) => (
+          {Array.from({ length: STEP_COUNT }).map((_, i) => (
             <View
-              key={s.id}
+              key={i}
               style={[
                 styles.dot,
                 {
-                  backgroundColor:
-                    s.id <= step ? colors.primary : colors.border,
-                  width: s.id === step ? 24 : 8,
+                  backgroundColor: i <= step ? colors.primary : colors.border,
+                  width: i === step ? 24 : 8,
                 },
               ]}
             />
@@ -194,200 +228,320 @@ export default function OnboardingScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView
-          contentContainerStyle={styles.body}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
-            <Text style={[styles.stepLabel, { color: colors.mutedForeground }]}>
-              Step {step + 1} of {STEPS.length}
-            </Text>
-            <Text style={[styles.question, { color: colors.foreground }]}>
-              {STEPS[step].label}
-            </Text>
+        {/* Language step uses a FlatList — no ScrollView wrapper */}
+        {step === 0 ? (
+          <View style={{ flex: 1 }}>
+            <Animated.View style={[styles.stepHeader, { transform: [{ translateY: slideAnim }] }]}>
+              <Text style={[styles.stepLabel, { color: colors.mutedForeground }]}>
+                {t("onboarding.step", { current: 1, total: STEP_COUNT })}
+              </Text>
+              <Text style={[styles.question, { color: colors.foreground }]}>
+                {stepLabels[0]}
+              </Text>
+            </Animated.View>
 
-            {step === 0 && (
-              <View style={styles.photoStep}>
-                <TouchableOpacity
-                  style={[
-                    styles.photoPicker,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: photoUri ? colors.primary : colors.border,
-                    },
-                  ]}
-                  onPress={handlePickPhoto}
-                  activeOpacity={0.85}
-                >
-                  {photoUri ? (
-                    <Image source={{ uri: photoUri }} style={styles.photoPreview} contentFit="cover" />
-                  ) : (
-                    <View style={styles.photoPlaceholder}>
-                      <Ionicons name="camera-outline" size={36} color={colors.mutedForeground} />
-                      <Text style={[styles.photoPlaceholderText, { color: colors.mutedForeground }]}>
-                        Tap to add a photo
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {step === 1 && (
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: name.length > 0 ? colors.primary : colors.border,
-                    color: colors.foreground,
-                  },
-                ]}
-                placeholder="Your first name"
-                placeholderTextColor={colors.mutedForeground}
-                value={name}
-                onChangeText={setName}
-                autoFocus
-                maxLength={30}
-                returnKeyType="next"
-                onSubmitEditing={handleNext}
-              />
-            )}
-
-            {step === 2 && (
-              <>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: age.length > 0 ? colors.primary : colors.border,
-                      color: colors.foreground,
-                    },
-                  ]}
-                  placeholder="Your age"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={age}
-                  onChangeText={(v) => setAge(v.replace(/[^0-9]/g, ""))}
-                  keyboardType="number-pad"
-                  autoFocus
-                  maxLength={2}
-                  returnKeyType="next"
-                  onSubmitEditing={handleNext}
-                />
-                {Number(age) > 0 && Number(age) < 18 && (
-                  <Text style={[styles.errorText, { color: colors.destructive }]}>
-                    Must be 18 or older
-                  </Text>
-                )}
-              </>
-            )}
-
-            {step === 3 && (
-              <>
-                <TextInput
-                  style={[
-                    styles.bioInput,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: bio.length > 0 ? colors.primary : colors.border,
-                      color: colors.foreground,
-                    },
-                  ]}
-                  placeholder="Write something interesting about yourself..."
-                  placeholderTextColor={colors.mutedForeground}
-                  value={bio}
-                  onChangeText={setBio}
-                  multiline
-                  autoFocus
-                  maxLength={200}
-                  returnKeyType="done"
-                />
-                <Text style={[styles.charCount, { color: colors.mutedForeground }]}>
-                  {bio.length}/200
-                </Text>
-
-                <Text style={[styles.seekingLabel, { color: colors.foreground }]}>
-                  Interested in
-                </Text>
-                <View style={styles.seekingRow}>
-                  {seekingOptions.map((opt) => (
-                    <TouchableOpacity
-                      key={opt.value}
+            <FlatList
+              data={SUPPORTED_LANGUAGES}
+              keyExtractor={(item) => item}
+              numColumns={2}
+              contentContainerStyle={styles.languageGrid}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const isSelected = selectedLanguage === item;
+                const flag = LANGUAGE_FLAGS[item as LanguageCode] ?? "🌐";
+                const native = LANGUAGE_NATIVE_NAMES[item as LanguageCode] ?? item;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.langCard,
+                      {
+                        backgroundColor: isSelected ? colors.primary + "18" : colors.card,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => handleSelectLanguage(item as SupportedLanguage)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.langFlag}>{flag}</Text>
+                    <Text
                       style={[
-                        styles.seekingBtn,
+                        styles.langName,
+                        { color: isSelected ? colors.primary : colors.foreground },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {native}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={16} color={colors.primary} style={styles.langCheck} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+
+            <View
+              style={[
+                styles.footer,
+                { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 16) },
+              ]}
+            >
+              <TouchableOpacity
+                style={[styles.nextBtn, { backgroundColor: colors.primary }]}
+                onPress={handleNext}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.nextBtnText, { color: "#FFFFFF" }]}>
+                  {t("common.continue")}
+                </Text>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <>
+            <ScrollView
+              contentContainerStyle={styles.body}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
+                <Text style={[styles.stepLabel, { color: colors.mutedForeground }]}>
+                  {t("onboarding.step", { current: step + 1, total: STEP_COUNT })}
+                </Text>
+                <Text style={[styles.question, { color: colors.foreground }]}>
+                  {stepLabels[step]}
+                </Text>
+
+                {/* Step 1: Photo */}
+                {step === 1 && (
+                  <View style={styles.photoStep}>
+                    <TouchableOpacity
+                      style={[
+                        styles.photoPicker,
                         {
-                          backgroundColor:
-                            seeking === opt.value ? colors.primary : colors.card,
-                          borderColor:
-                            seeking === opt.value ? colors.primary : colors.border,
+                          backgroundColor: colors.card,
+                          borderColor: photoUri ? colors.primary : colors.border,
                         },
                       ]}
-                      onPress={() => {
-                        setSeeking(opt.value);
-                        Haptics.selectionAsync();
-                      }}
+                      onPress={handlePickPhoto}
+                      activeOpacity={0.85}
                     >
-                      <Text
-                        style={[
-                          styles.seekingBtnText,
-                          {
-                            color:
-                              seeking === opt.value
-                                ? "#FFFFFF"
-                                : colors.foreground,
-                          },
-                        ]}
-                      >
-                        {opt.label}
-                      </Text>
+                      {photoUri ? (
+                        <Image source={{ uri: photoUri }} style={styles.photoPreview} contentFit="cover" />
+                      ) : (
+                        <View style={styles.photoPlaceholder}>
+                          <Ionicons name="camera-outline" size={36} color={colors.mutedForeground} />
+                          <Text style={[styles.photoPlaceholderText, { color: colors.mutedForeground }]}>
+                            {t("onboarding.tapToAddPhoto")}
+                          </Text>
+                        </View>
+                      )}
                     </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
-          </Animated.View>
-        </ScrollView>
+                  </View>
+                )}
 
-        <View
-          style={[
-            styles.footer,
-            { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 16) },
-          ]}
-        >
-          <TouchableOpacity
-            style={[
-              styles.nextBtn,
-              {
-                backgroundColor: canAdvance && !submitting ? colors.primary : colors.muted,
-              },
-            ]}
-            onPress={handleNext}
-            disabled={!canAdvance || submitting}
-            activeOpacity={0.85}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Text
-                  style={[
-                    styles.nextBtnText,
-                    { color: canAdvance ? "#FFFFFF" : colors.mutedForeground },
-                  ]}
-                >
-                  {step === STEPS.length - 1 ? "Get Started" : "Continue"}
-                </Text>
-                <Ionicons
-                  name={step === STEPS.length - 1 ? "heart" : "arrow-forward"}
-                  size={18}
-                  color={canAdvance ? "#FFFFFF" : colors.mutedForeground}
-                />
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+                {/* Step 2: Name */}
+                {step === 2 && (
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: name.length > 0 ? colors.primary : colors.border,
+                        color: colors.foreground,
+                      },
+                    ]}
+                    placeholder={t("onboarding.namePlaceholder")}
+                    placeholderTextColor={colors.mutedForeground}
+                    value={name}
+                    onChangeText={setName}
+                    autoFocus
+                    maxLength={30}
+                    returnKeyType="next"
+                    onSubmitEditing={handleNext}
+                  />
+                )}
+
+                {/* Step 3: Age */}
+                {step === 3 && (
+                  <>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: age.length > 0 ? colors.primary : colors.border,
+                          color: colors.foreground,
+                        },
+                      ]}
+                      placeholder={t("onboarding.agePlaceholder")}
+                      placeholderTextColor={colors.mutedForeground}
+                      value={age}
+                      onChangeText={(v) => setAge(v.replace(/[^0-9]/g, ""))}
+                      keyboardType="number-pad"
+                      autoFocus
+                      maxLength={2}
+                      returnKeyType="next"
+                      onSubmitEditing={handleNext}
+                    />
+                    {Number(age) > 0 && Number(age) < 18 && (
+                      <Text style={[styles.errorText, { color: colors.destructive }]}>
+                        {t("onboarding.mustBe18")}
+                      </Text>
+                    )}
+                  </>
+                )}
+
+                {/* Step 4: City / Country */}
+                {step === 4 && (
+                  <>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: city.length > 0 ? colors.primary : colors.border,
+                          color: colors.foreground,
+                          marginBottom: 14,
+                        },
+                      ]}
+                      placeholder={t("onboarding.cityPlaceholder")}
+                      placeholderTextColor={colors.mutedForeground}
+                      value={city}
+                      onChangeText={setCity}
+                      autoFocus
+                      maxLength={80}
+                      returnKeyType="next"
+                    />
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: country.length > 0 ? colors.primary : colors.border,
+                          color: colors.foreground,
+                        },
+                      ]}
+                      placeholder={t("onboarding.countryPlaceholder")}
+                      placeholderTextColor={colors.mutedForeground}
+                      value={country}
+                      onChangeText={setCountry}
+                      maxLength={80}
+                      returnKeyType="done"
+                      onSubmitEditing={handleNext}
+                    />
+                    <Text style={[styles.hintText, { color: colors.mutedForeground }]}>
+                      This helps match you with nearby people. Optional.
+                    </Text>
+                  </>
+                )}
+
+                {/* Step 5: Bio */}
+                {step === 5 && (
+                  <>
+                    <TextInput
+                      style={[
+                        styles.bioInput,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: bio.length > 0 ? colors.primary : colors.border,
+                          color: colors.foreground,
+                        },
+                      ]}
+                      placeholder={t("onboarding.bioPlaceholder")}
+                      placeholderTextColor={colors.mutedForeground}
+                      value={bio}
+                      onChangeText={setBio}
+                      multiline
+                      autoFocus
+                      maxLength={200}
+                      returnKeyType="done"
+                    />
+                    <Text style={[styles.charCount, { color: colors.mutedForeground }]}>
+                      {bio.length}/200
+                    </Text>
+
+                    <Text style={[styles.seekingLabel, { color: colors.foreground }]}>
+                      {t("onboarding.interestedIn")}
+                    </Text>
+                    <View style={styles.seekingRow}>
+                      {seekingOptions.map((opt) => (
+                        <TouchableOpacity
+                          key={opt.value}
+                          style={[
+                            styles.seekingBtn,
+                            {
+                              backgroundColor:
+                                seeking === opt.value ? colors.primary : colors.card,
+                              borderColor:
+                                seeking === opt.value ? colors.primary : colors.border,
+                            },
+                          ]}
+                          onPress={() => {
+                            setSeeking(opt.value);
+                            Haptics.selectionAsync();
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.seekingBtnText,
+                              {
+                                color:
+                                  seeking === opt.value ? "#FFFFFF" : colors.foreground,
+                              },
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
+              </Animated.View>
+            </ScrollView>
+
+            <View
+              style={[
+                styles.footer,
+                { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 16) },
+              ]}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.nextBtn,
+                  {
+                    backgroundColor: canAdvance && !submitting ? colors.primary : colors.muted,
+                  },
+                ]}
+                onPress={handleNext}
+                disabled={!canAdvance || submitting}
+                activeOpacity={0.85}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Text
+                      style={[
+                        styles.nextBtnText,
+                        { color: canAdvance ? "#FFFFFF" : colors.mutedForeground },
+                      ]}
+                    >
+                      {step === STEP_COUNT - 1 ? t("onboarding.getStarted") : t("common.continue")}
+                    </Text>
+                    <Ionicons
+                      name={step === STEP_COUNT - 1 ? "heart" : "arrow-forward"}
+                      size={18}
+                      color={canAdvance ? "#FFFFFF" : colors.mutedForeground}
+                    />
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </KeyboardAvoidingView>
     </View>
   );
@@ -427,6 +581,39 @@ const styles = StyleSheet.create({
   dot: {
     height: 8,
     borderRadius: 4,
+  },
+  stepHeader: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  languageGrid: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  langCard: {
+    flex: 1,
+    margin: 5,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    position: "relative",
+  },
+  langFlag: {
+    fontSize: 22,
+  },
+  langName: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    fontWeight: "500",
+  },
+  langCheck: {
+    marginLeft: "auto",
   },
   photoStep: {
     alignItems: "center",
@@ -504,6 +691,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     marginTop: 8,
+  },
+  hintText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginTop: 10,
   },
   seekingLabel: {
     fontSize: 16,

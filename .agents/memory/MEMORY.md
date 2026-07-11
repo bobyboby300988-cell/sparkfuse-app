@@ -5,6 +5,7 @@
 - [Client-only entitlement flags](client-only-entitlement-flags.md) — device-local (AsyncStorage) subscription/premium flags don't survive reinstall or new-device login; must be mirrored server-side on the user record.
 - [Mobile app mock/demo data audit](mobile-mock-data-audit.md) — SparkFuse's Live/Coaches/Explore tabs are built on static seed arrays, not real backend data; emptying them needs crash guards everywhere they're indexed.
 - [Expo web-browser access](expo-web-browser-access.md) — `expo export -p web` + route serve.js by `expo-platform` header to make an Expo Go-only app also work in regular browsers.
-- [i18n locale type safety](i18next-locale-types.md) — use DeepString<typeof en> not typeof en directly; avoid naming timer vars `t` inside components that use useTranslation.
+- [i18n locale type safety](i18next-locale-types.md) — use DeepString<typeof en> not typeof en directly; languages section typed as Record<string,string> to avoid 50-key cascade; new locale files use spread { ...en as Translations } pattern.
+- [50-language i18n expansion](i18n-50-languages.md) — _languages.ts is the single source of truth for LANGUAGE_NATIVE_NAMES + LANGUAGE_FLAGS; new locales spread en; existing locales use Node.js batch script to add keys.
 - [Clerk Expo v3 / React v6 Signal API](clerk-expo-v3-api.md) — no setActive/isLoaded; use signIn.password()+finalize(), signUp.password()+verifications.sendEmailCode()/verifyEmailCode()+finalize().
 - [Clerk layout unmount during sign-up](clerk-layout-unmount.md) — _layout.tsx loading guard must exclude sign-up/sign-in pages or Clerk's mid-flow state change unmounts the form and wipes all state.

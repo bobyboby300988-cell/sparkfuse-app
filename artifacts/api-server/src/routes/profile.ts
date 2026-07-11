@@ -20,6 +20,8 @@ router.get("/profile", requireAuth, async (req: Request, res: Response) => {
             bio: row.bio,
             seeking: row.seeking,
             photoUrl: row.photoUrl,
+            city: row.city ?? null,
+            country: row.country ?? null,
             latitude: row.latitude,
             longitude: row.longitude,
             distanceKm: null,
@@ -40,14 +42,14 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
     return;
   }
 
-  const { name, age, bio, seeking, photoUrl, latitude, longitude } = parsed.data;
+  const { name, age, bio, seeking, photoUrl, city, country, latitude, longitude } = parsed.data;
 
   const [row] = await db
     .insert(profilesTable)
-    .values({ userId, name, age, bio, seeking, photoUrl, latitude, longitude })
+    .values({ userId, name, age, bio, seeking, photoUrl, city: city ?? null, country: country ?? null, latitude, longitude })
     .onConflictDoUpdate({
       target: profilesTable.userId,
-      set: { name, age, bio, seeking, photoUrl, latitude, longitude, updatedAt: new Date() },
+      set: { name, age, bio, seeking, photoUrl, city: city ?? null, country: country ?? null, latitude, longitude, updatedAt: new Date() },
     })
     .returning();
 
@@ -60,6 +62,8 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
         bio: row.bio,
         seeking: row.seeking,
         photoUrl: row.photoUrl,
+        city: row.city ?? null,
+        country: row.country ?? null,
         latitude: row.latitude,
         longitude: row.longitude,
         distanceKm: null,
