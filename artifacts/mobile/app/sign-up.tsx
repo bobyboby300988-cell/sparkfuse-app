@@ -32,10 +32,17 @@ export default function SignUpScreen() {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
 
-  const isLoading = fetchStatus === "fetching" || loading;
+  // Only block the button on user-triggered loading. fetchStatus can be
+  // "fetching" while Clerk re-initialises after a page reload (e.g. post-
+  // PayPal redirect), which would disable the button before the user ever
+  // presses it and make the form appear stuck.
+  const isLoading = loading;
 
   const handleSubmit = async () => {
-    if (!signUp) return;
+    if (!signUp) {
+      setErrorMsg("Still loading — please wait a moment and try again.");
+      return;
+    }
     if (!email.trim() || !password) {
       setErrorMsg("Please enter your email and password.");
       return;
