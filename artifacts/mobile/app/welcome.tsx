@@ -80,7 +80,7 @@ export default function WelcomeScreen() {
   const clerkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (authLoaded) return;
-    clerkTimerRef.current = setTimeout(() => setClerkTimedOut(true), 6000);
+    clerkTimerRef.current = setTimeout(() => setClerkTimedOut(true), 20000);
     return () => { if (clerkTimerRef.current) clearTimeout(clerkTimerRef.current); };
   }, [authLoaded]);
   const authLoading = !authLoaded && !clerkTimedOut;

@@ -520,7 +520,7 @@ function runCommand(command, args, env) {
   });
 }
 
-async function exportWebBuild(expoPublicDomain, expoPublicReplId) {
+async function exportWebBuild(expoPublicDomain, expoPublicReplId, clerkProxyUrl) {
   console.log("Exporting web build for browser access...");
 
   const webOutputDir = path.join(projectRoot, "static-build", "web");
@@ -529,6 +529,7 @@ async function exportWebBuild(expoPublicDomain, expoPublicReplId) {
     EXPO_PUBLIC_DOMAIN: expoPublicDomain,
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
     EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY,
+    EXPO_PUBLIC_CLERK_PROXY_URL: clerkProxyUrl,
   };
 
   if (!env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY) {
@@ -555,11 +556,15 @@ async function main() {
   const expoPublicReplId = getExpoPublicReplId();
   const baseUrl = `https://${domain}`;
   const timestamp = `${Date.now()}-${process.pid}`;
+  // Clerk proxy: empty in dev (Clerk hits FAPI directly), auto-set in prod.
+  const clerkProxyUrl = process.env.CLERK_PROXY_URL
+    ? `https://${domain}${process.env.CLERK_PROXY_URL}`
+    : "";
 
   prepareDirectories(timestamp);
   clearMetroCache();
 
-  await exportWebBuild(domain, expoPublicReplId);
+  await exportWebBuild(domain, expoPublicReplId, clerkProxyUrl);
 
   await startMetro(domain, expoPublicReplId);
 

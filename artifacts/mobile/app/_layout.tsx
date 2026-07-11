@@ -27,6 +27,10 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY as string;
+// In production, Clerk must route through the API proxy (/api/__clerk).
+// EXPO_PUBLIC_CLERK_PROXY_URL is empty in dev (Clerk hits FAPI directly)
+// and auto-populated at build time in prod. Do NOT gate on NODE_ENV.
+const CLERK_PROXY_URL = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 // On web, Clerk manages tokens via cookies/localStorage internally.
 // The native tokenCache (expo-secure-store) silently fails in a browser
 // and prevents Clerk from ever finishing initialisation.
@@ -55,7 +59,7 @@ function RootLayoutNav() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (authLoaded) return;
-    timeoutRef.current = setTimeout(() => setTimedOut(true), 6000);
+    timeoutRef.current = setTimeout(() => setTimedOut(true), 20000);
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
@@ -140,7 +144,7 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} proxyUrl={CLERK_PROXY_URL} tokenCache={tokenCache}>
       <SafeAreaProvider>
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>

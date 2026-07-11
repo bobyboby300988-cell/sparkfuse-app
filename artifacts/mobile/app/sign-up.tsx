@@ -32,13 +32,14 @@ export default function SignUpScreen() {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
 
-  // Mirror the 6-second timeout from _layout.tsx so the button becomes
-  // active even when Clerk's isLoaded stalls after a payment redirect.
+  // Safety-net timeout: in production Clerk initialises through the API proxy
+  // which may take a few seconds on a cold start. 20s gives it plenty of time;
+  // the button activates as soon as isLoaded becomes true (usually < 3s).
   const [clerkTimedOut, setClerkTimedOut] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (isLoaded) return;
-    timerRef.current = setTimeout(() => setClerkTimedOut(true), 6000);
+    timerRef.current = setTimeout(() => setClerkTimedOut(true), 20000);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [isLoaded]);
   const canSubmit = isLoaded || clerkTimedOut;
