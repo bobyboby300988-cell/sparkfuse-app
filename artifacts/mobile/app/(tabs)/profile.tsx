@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
+import { useAuth } from "@clerk/expo";
 import {
   Alert,
   FlatList,
@@ -38,6 +39,7 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { signOut } = useAuth();
   const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, isLive, setIsLive } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
@@ -78,6 +80,24 @@ export default function ProfileScreen() {
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setEditing(false);
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Log Out",
+          style: "destructive",
+          onPress: async () => {
+            await signOut();
+            router.replace("/welcome");
+          },
+        },
+      ]
+    );
   };
 
   const handleReset = () => {
@@ -401,6 +421,16 @@ export default function ProfileScreen() {
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+      </TouchableOpacity>
+
+      {/* Log Out */}
+      <TouchableOpacity
+        style={[styles.resetBtn, { borderColor: "#FF3366" }]}
+        onPress={handleLogout}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="log-out-outline" size={16} color="#FF3366" />
+        <Text style={[styles.resetText, { color: "#FF3366" }]}>Log Out</Text>
       </TouchableOpacity>
 
       {/* Reset */}
