@@ -17,47 +17,26 @@ import {
 import { useApp } from "@/context/AppContext";
 import { buyTokensWithStripe, buyTokensWithPayPal } from "@/config/payments";
 
-/* ─── 30 gift tiers — sweet → romantic → flirty → spicy → erotic ─── */
+/* ─── 9 gift tiers scaled to real euro values (1 ST = €0.01) ─── */
 const GIFTS = [
-  /* ── Sweet (1–15 ST) ── */
-  { tokens: 1,    label: "Rose",         emoji: "🌹", desc: "A sweet gesture",        tier: "Sweet",    grad: ["#FFD6E7","#FF8FAB"] as [string,string], glow: "#FF8FAB90", tierColor: "#FF6B9D" },
-  { tokens: 3,    label: "Blossom",      emoji: "🌸", desc: "Gentle and soft",         tier: "Sweet",    grad: ["#FFC8DD","#FF85A1"] as [string,string], glow: "#FF85A190", tierColor: "#FF6B9D" },
-  { tokens: 5,    label: "Love Letter",  emoji: "💌", desc: "From the heart",          tier: "Sweet",    grad: ["#FFAFCC","#FF5C8A"] as [string,string], glow: "#FF5C8A90", tierColor: "#FF6B9D" },
-  { tokens: 8,    label: "Two Hearts",   emoji: "💕", desc: "Feelings growing",        tier: "Sweet",    grad: ["#FF9EBC","#FF4D79"] as [string,string], glow: "#FF4D7990", tierColor: "#FF6B9D" },
-  { tokens: 10,   label: "Daisy",        emoji: "🌼", desc: "Pure and sunny",          tier: "Sweet",    grad: ["#FFF3B0","#FFD23F"] as [string,string], glow: "#FFD23F90", tierColor: "#FF6B9D" },
-  { tokens: 15,   label: "Cupid",        emoji: "💘", desc: "Love arrow struck",       tier: "Sweet",    grad: ["#FF7BAC","#E63974"] as [string,string], glow: "#E6397490", tierColor: "#FF6B9D" },
+  /* ── Sweet ── */
+  { tokens: 500,   label: "Rose",        emoji: "🌹", desc: "A sweet gesture",        tier: "Sweet",    grad: ["#FFD6E7","#FF8FAB"] as [string,string], glow: "#FF8FAB90", tierColor: "#FF6B9D" },
+  { tokens: 1000,  label: "Love Letter", emoji: "💌", desc: "From the heart",          tier: "Sweet",    grad: ["#FFAFCC","#FF5C8A"] as [string,string], glow: "#FF5C8A90", tierColor: "#FF6B9D" },
 
-  /* ── Romantic (20–75 ST) ── */
-  { tokens: 20,   label: "Butterfly",    emoji: "🦋", desc: "Flutter of feelings",    tier: "Romantic", grad: ["#BDB2FF","#7B2D8B"] as [string,string], glow: "#7B2D8B90", tierColor: "#C77DFF" },
-  { tokens: 30,   label: "Tulip",        emoji: "🌷", desc: "Delicate desire",         tier: "Romantic", grad: ["#E0AAFF","#9D4EDD"] as [string,string], glow: "#9D4EDD90", tierColor: "#C77DFF" },
-  { tokens: 40,   label: "Kiss",         emoji: "💋", desc: "Soft lips on yours",      tier: "Romantic", grad: ["#C77DFF","#7B2FBE"] as [string,string], glow: "#C77DFF90", tierColor: "#C77DFF" },
-  { tokens: 55,   label: "Wine",         emoji: "🍷", desc: "A sensual evening",       tier: "Romantic", grad: ["#9E2A2B","#540B0E"] as [string,string], glow: "#9E2A2B90", tierColor: "#C77DFF" },
-  { tokens: 65,   label: "Diamond",      emoji: "💎", desc: "You shine bright",        tier: "Romantic", grad: ["#48CAE4","#0077B6"] as [string,string], glow: "#48CAE490", tierColor: "#C77DFF" },
-  { tokens: 75,   label: "Night Glow",   emoji: "🌙", desc: "Under the stars",         tier: "Romantic", grad: ["#1E3A5F","#4895EF"] as [string,string], glow: "#4895EF90", tierColor: "#C77DFF" },
+  /* ── Romantic ── */
+  { tokens: 2000,  label: "Butterfly",   emoji: "🦋", desc: "Flutter of feelings",    tier: "Romantic", grad: ["#BDB2FF","#7B2D8B"] as [string,string], glow: "#7B2D8B90", tierColor: "#C77DFF" },
+  { tokens: 2500,  label: "Wine",        emoji: "🍷", desc: "A sensual evening",       tier: "Romantic", grad: ["#9E2A2B","#540B0E"] as [string,string], glow: "#9E2A2B90", tierColor: "#C77DFF" },
 
-  /* ── Flirty (100–300 ST) ── */
-  { tokens: 100,  label: "Cherries",     emoji: "🍒", desc: "Sweet & naughty",         tier: "Flirty",   grad: ["#FF4D6D","#C9184A"] as [string,string], glow: "#FF4D6D90", tierColor: "#FF6B35" },
-  { tokens: 125,  label: "Hot Pepper",   emoji: "🌶️", desc: "Getting spicy",           tier: "Flirty",   grad: ["#FF6B35","#D62828"] as [string,string], glow: "#FF6B3590", tierColor: "#FF6B35" },
-  { tokens: 150,  label: "Juicy Lips",   emoji: "🫦", desc: "Kiss me right now",       tier: "Flirty",   grad: ["#CC2936","#8B0000"] as [string,string], glow: "#CC293690", tierColor: "#FF6B35" },
-  { tokens: 200,  label: "Flame",        emoji: "🔥", desc: "Pure desire burning",     tier: "Flirty",   grad: ["#FF4500","#B22222"] as [string,string], glow: "#FF450090", tierColor: "#FF6B35" },
-  { tokens: 250,  label: "Bikini",       emoji: "👙", desc: "Strip it off for me",     tier: "Flirty",   grad: ["#FF69B4","#C2185B"] as [string,string], glow: "#FF69B490", tierColor: "#FF6B35" },
-  { tokens: 300,  label: "Lipstick",     emoji: "💄", desc: "Leave your mark",         tier: "Flirty",   grad: ["#C0392B","#922B21"] as [string,string], glow: "#C0392B90", tierColor: "#FF6B35" },
+  /* ── Flirty ── */
+  { tokens: 5000,  label: "Diamond",     emoji: "💎", desc: "You shine bright",        tier: "Flirty",   grad: ["#48CAE4","#0077B6"] as [string,string], glow: "#48CAE490", tierColor: "#FF6B35" },
+  { tokens: 8000,  label: "Flame",       emoji: "🔥", desc: "Pure desire burning",     tier: "Flirty",   grad: ["#FF4500","#B22222"] as [string,string], glow: "#FF450090", tierColor: "#FF6B35" },
 
-  /* ── Spicy (350–700 ST) ── */
-  { tokens: 350,  label: "Stiletto",     emoji: "👠", desc: "Dangerously attractive",  tier: "Spicy",    grad: ["#6B0000","#CC0000"] as [string,string], glow: "#CC000090", tierColor: "#FF1744" },
-  { tokens: 450,  label: "Wet",          emoji: "💦", desc: "All worked up",           tier: "Spicy",    grad: ["#0077B6","#023E8A"] as [string,string], glow: "#0077B690", tierColor: "#FF1744" },
-  { tokens: 500,  label: "Booty",        emoji: "🍑", desc: "That perfect shape",      tier: "Spicy",    grad: ["#FF8C69","#C1440E"] as [string,string], glow: "#FF8C6990", tierColor: "#FF1744" },
-  { tokens: 600,  label: "Titties",      emoji: "🍈", desc: "Can't stop staring",      tier: "Spicy",    grad: ["#FF6B9D","#A0003A"] as [string,string], glow: "#FF6B9D90", tierColor: "#FF1744" },
-  { tokens: 650,  label: "Handcuffs",    emoji: "⛓️", desc: "You're mine tonight",     tier: "Spicy",    grad: ["#2C0057","#6A00F4"] as [string,string], glow: "#6A00F490", tierColor: "#FF1744" },
-  { tokens: 700,  label: "Dark Moon",    emoji: "🌑", desc: "Forbidden pleasure",      tier: "Spicy",    grad: ["#0D0221","#1B1B3A"] as [string,string], glow: "#6B35FF90", tierColor: "#FF1744" },
+  /* ── Spicy ── */
+  { tokens: 10000, label: "Crown",       emoji: "👑", desc: "Royalty treatment",       tier: "Spicy",    grad: ["#FFD700","#C8860A"] as [string,string], glow: "#FFD70090", tierColor: "#FF1744" },
 
-  /* ── Erotic (750–2000 ST) ── */
-  { tokens: 750,  label: "Devil",        emoji: "😈", desc: "Embrace the naughty",    tier: "Erotic",   grad: ["#4A0000","#CC0000"] as [string,string], glow: "#CC000090", tierColor: "#FF3366" },
-  { tokens: 900,  label: "Dildo",        emoji: "🍆", desc: "The ultimate toy",        tier: "Erotic",   grad: ["#1A3A00","#4A7C00"] as [string,string], glow: "#4A7C0090", tierColor: "#FF3366" },
-  { tokens: 1000, label: "Ass",          emoji: "🍑", desc: "Thicc & irresistible",   tier: "Erotic",   grad: ["#7F1D1D","#CC3700"] as [string,string], glow: "#CC370090", tierColor: "#FF3366" },
-  { tokens: 1250, label: "OnlyFans",     emoji: "🔥", desc: "Exclusive content 🔞",   tier: "Erotic",   grad: ["#3A0000","#FF2D00"] as [string,string], glow: "#FF2D0090", tierColor: "#FF3366" },
-  { tokens: 1500, label: "Galaxy",       emoji: "🌌", desc: "Universe of desire",     tier: "Erotic",   grad: ["#0D0221","#3A0CA3"] as [string,string], glow: "#3A0CA390", tierColor: "#FF3366" },
-  { tokens: 2000, label: "Supernova",    emoji: "🚀", desc: "Explosive chemistry",    tier: "Erotic",   grad: ["#2D0057","#9B2FBE"] as [string,string], glow: "#9B2FBE90", tierColor: "#FF3366" },
+  /* ── Erotic ── */
+  { tokens: 15000, label: "Yacht",       emoji: "🛥️", desc: "Luxury on the waves",     tier: "Erotic",   grad: ["#0D0221","#3A0CA3"] as [string,string], glow: "#3A0CA390", tierColor: "#FF3366" },
+  { tokens: 30000, label: "Galaxy",      emoji: "🌌", desc: "Universe of desire",      tier: "Erotic",   grad: ["#2D0057","#9B2FBE"] as [string,string], glow: "#9B2FBE90", tierColor: "#FF3366" },
 ];
 
 const TIER_ORDER = ["Sweet", "Romantic", "Flirty", "Spicy", "Erotic"];
@@ -322,6 +301,9 @@ function GiftCard({
           <Text style={[styles.giftCost, { color: selected ? "#fff" : gift.tierColor }]}>
             {total} ST
           </Text>
+          <Text style={[styles.giftEur, { color: selected ? "rgba(255,255,255,0.7)" : "#666" }]}>
+            €{(total / 100).toFixed(0)}
+          </Text>
           <Text style={[styles.giftDesc, { color: selected ? "rgba(255,255,255,0.6)" : "#484860" }]} numberOfLines={1}>
             {gift.desc}
           </Text>
@@ -430,9 +412,9 @@ export default function GiftModal({ visible, onClose, recipientName }: Props) {
     );
   }
 
-  const MIN_TOKENS = 5; // €0.50 minimum, matches backend floor
+  const MIN_TOKENS = 50; // €0.50 minimum (Stripe floor)
   const customTokens = Math.floor(Number(customAmount)) || 0;
-  const customEur = parseFloat((customTokens * 0.1).toFixed(2));
+  const customEur = parseFloat((customTokens * 0.01).toFixed(2));
   const customValid = customTokens >= MIN_TOKENS;
 
   function handleBuyCustom() {
@@ -786,6 +768,7 @@ const styles = StyleSheet.create({
   giftEmoji: { fontSize: 40, marginBottom: 2 },
   giftName:  { fontSize: 12, fontFamily: "Inter_700Bold", textAlign: "center" },
   giftCost:  { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  giftEur:   { fontSize: 10, fontFamily: "Inter_400Regular" },
   giftDesc:  { fontSize: 9,  fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 13 },
 
   checkBadge: {
