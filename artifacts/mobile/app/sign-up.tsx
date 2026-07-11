@@ -33,10 +33,7 @@ export default function SignUpScreen() {
   const [verifyError, setVerifyError] = useState("");
 
   const handleSubmit = async () => {
-    if (!isLoaded || !signUp) {
-      setErrorMsg("Still loading — please wait a moment and try again.");
-      return;
-    }
+    if (!isLoaded || !signUp) return;
     if (!email.trim() || !password) {
       setErrorMsg("Please enter your email and password.");
       return;
@@ -114,6 +111,19 @@ export default function SignUpScreen() {
       setVerifyError("Could not resend. Please wait a moment and try again.");
     }
   };
+
+  // Show a spinner overlay while Clerk initialises. The component stays
+  // mounted (preserving form state) but the user can't submit until ready.
+  if (!isLoaded) {
+    return (
+      <LinearGradient colors={["#0D0D1A", "#15080F", "#0D0D1A"]} style={[styles.root, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color="#FF3366" />
+        <Text style={{ color: "rgba(255,255,255,0.4)", marginTop: 16, fontFamily: "Inter_400Regular", fontSize: 14 }}>
+          Getting ready…
+        </Text>
+      </LinearGradient>
+    );
+  }
 
   if (pendingVerification) {
     return (
