@@ -42,6 +42,7 @@ export default function ProfileScreen() {
   const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, addCoins, isLive, setIsLive } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
   const [currentLang, setCurrentLang] = useState<SupportedLanguage>(i18n.language as SupportedLanguage || "en");
 
   const handleLanguageChange = async (lang: SupportedLanguage) => {
@@ -92,21 +93,15 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      "Log Out",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Log Out",
-          style: "destructive",
-          onPress: async () => {
-            await signOut();
-            router.replace("/welcome");
-          },
-        },
-      ]
-    );
+    setLogoutConfirmVisible(true);
+  };
+
+  const confirmLogout = async () => {
+    setLogoutConfirmVisible(false);
+    try {
+      await signOut();
+    } catch (_) {}
+    router.replace("/welcome");
   };
 
   const handleReset = () => {
@@ -595,6 +590,29 @@ export default function ProfileScreen() {
     </Modal>
 
     <WithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} />
+
+    <Modal visible={logoutConfirmVisible} transparent animationType="fade" onRequestClose={() => setLogoutConfirmVisible(false)}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", padding: 32 }}>
+        <View style={{ backgroundColor: "#1A1A2E", borderRadius: 16, padding: 24, width: "100%", maxWidth: 320 }}>
+          <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700", marginBottom: 8, textAlign: "center" }}>Log Out</Text>
+          <Text style={{ color: "#aaa", fontSize: 14, marginBottom: 24, textAlign: "center" }}>Are you sure you want to log out?</Text>
+          <TouchableOpacity
+            style={{ backgroundColor: "#FF3366", borderRadius: 10, paddingVertical: 14, marginBottom: 10, alignItems: "center" }}
+            onPress={confirmLogout}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Log Out</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ borderRadius: 10, paddingVertical: 14, alignItems: "center" }}
+            onPress={() => setLogoutConfirmVisible(false)}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: "#aaa", fontSize: 15 }}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
     </>
   );
 }
