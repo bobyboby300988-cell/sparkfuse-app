@@ -8,6 +8,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@workspace/api-client-react": [
+        "./lib/api-client-react/src/index.ts"
       ]
     }
   },
@@ -16,10 +19,5 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-  ],
-  "references": [
-    {
-      "path": "../../lib/api-client-react"
-    }
   ]
 }

@@ -9,3 +9,4 @@
 - [50-language i18n expansion](i18n-50-languages.md) — _languages.ts is the single source of truth for LANGUAGE_NATIVE_NAMES + LANGUAGE_FLAGS; new locales spread en; existing locales use Node.js batch script to add keys.
 - [Clerk Expo v3 / React v6 Signal API](clerk-expo-v3-api.md) — no setActive/isLoaded; use signIn.password()+finalize(), signUp.password()+verifications.sendEmailCode()/verifyEmailCode()+finalize().
 - [Clerk layout unmount during sign-up](clerk-layout-unmount.md) — _layout.tsx loading guard must exclude sign-up/sign-in pages or Clerk's mid-flow state change unmounts the form and wipes all state.
+- [EAS build workspace dep fix](eas-build-workspace-dep.md) — EAS uploads only artifacts/mobile/, so @workspace/* deps break; fix: copy source into mobile/lib/, use Metro extraNodeModules + tsconfig paths to resolve locally.
