@@ -3,7 +3,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { Audio } from "expo-av";
+import { Audio, Video, ResizeMode } from "expo-av";
 import React, { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import {
   ActionSheetIOS,
@@ -487,18 +487,14 @@ export default function ChatScreen() {
                         contentFit="cover"
                       />
                     ) : (
-                      <View
-                        style={[
-                          styles.mediaImage,
-                          styles.videoPlaceholder,
-                          { backgroundColor: colors.card },
-                        ]}
-                      >
-                        <Ionicons name="play-circle" size={48} color={colors.primary} />
-                        <Text style={[styles.videoLabel, { color: colors.mutedForeground }]}>
-                          Video
-                        </Text>
-                      </View>
+                      <Video
+                        source={{ uri: item.mediaUri }}
+                        style={styles.mediaImage}
+                        resizeMode={ResizeMode.COVER}
+                        useNativeControls
+                        shouldPlay={false}
+                        isLooping={false}
+                      />
                     )}
                   </View>
                 ) : (

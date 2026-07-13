@@ -192,8 +192,7 @@ export default function ProfileScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: true,
-      videoMaxDuration: 60,
+      allowsEditing: false,
       quality: 0.8,
     });
     if (result.canceled) return;
