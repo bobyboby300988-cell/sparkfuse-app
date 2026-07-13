@@ -4,6 +4,7 @@ export interface LockedPhoto {
   id: string;
   photo: ReturnType<typeof require>;
   priceEur: number;
+  type?: "image" | "video";
 }
 
 export interface Profile {

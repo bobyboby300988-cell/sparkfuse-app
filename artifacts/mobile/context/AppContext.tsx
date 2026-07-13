@@ -34,7 +34,7 @@ interface AppContextType {
   isLoaded: boolean;
   isSubscribed: boolean;
   myPhotos: MyPhoto[];
-  addMyPhoto: (uri: string, exclusive: boolean) => void;
+  addMyPhoto: (uri: string, exclusive: boolean, type?: "image" | "video") => void;
   removeMyPhoto: (id: string) => void;
   togglePhotoExclusive: (id: string) => void;
   appMode: AppMode;

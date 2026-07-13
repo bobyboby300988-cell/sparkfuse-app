@@ -18,7 +18,15 @@ import { useColors } from "@/hooks/useColors";
 const { width: W } = Dimensions.get("window");
 const TILE = (W - 48 - 8) / 3;
 
-const UNLOCK_PRICE_ST = 20;
+const PHOTO_PRICE_ST = 20;
+const VIDEO_PRICE_ST = 500;
+
+function getPrice(lp: LockedPhoto) {
+  return lp.type === "video" ? VIDEO_PRICE_ST : PHOTO_PRICE_ST;
+}
+function getPriceEur(lp: LockedPhoto) {
+  return lp.type === "video" ? "€5.00" : "€0.20";
+}
 
 function UnlockModal({
   photo,
@@ -35,13 +43,17 @@ function UnlockModal({
 }) {
   const colors = useColors();
   const { coinBalance, spendCoins } = useApp();
-  const canAfford = coinBalance >= UNLOCK_PRICE_ST;
-  const needMore = UNLOCK_PRICE_ST - coinBalance;
 
   if (!photo) return null;
 
+  const price = getPrice(photo);
+  const priceEur = getPriceEur(photo);
+  const isVideo = photo.type === "video";
+  const canAfford = coinBalance >= price;
+  const needMore = price - coinBalance;
+
   const handleUnlock = () => {
-    spendCoins(UNLOCK_PRICE_ST);
+    spendCoins(price);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onUnlocked();
     onClose();
@@ -57,23 +69,22 @@ function UnlockModal({
       <View style={modalSt.overlay}>
         <View style={[modalSt.sheet, { backgroundColor: colors.card }]}>
 
-          {/* Lock icon */}
           <View style={modalSt.lockCircle}>
-            <Ionicons name="lock-closed" size={32} color="#FF3366" />
+            <Ionicons name={isVideo ? "videocam" : "lock-closed"} size={32} color="#FF3366" />
           </View>
 
-          <Text style={[modalSt.title, { color: colors.foreground }]}>Exclusive Photo</Text>
+          <Text style={[modalSt.title, { color: colors.foreground }]}>
+            Exclusive {isVideo ? "Video" : "Photo"}
+          </Text>
           <Text style={[modalSt.sub, { color: colors.mutedForeground }]}>
-            Unlock this exclusive photo from {profileName} using your ST points.
+            Unlock this exclusive {isVideo ? "video" : "photo"} from {profileName} using your ST points.
           </Text>
 
-          {/* Price badge */}
           <View style={[modalSt.priceBadge, { backgroundColor: "rgba(255,51,102,0.10)" }]}>
-            <Text style={modalSt.priceST}>🔥 {UNLOCK_PRICE_ST} ST</Text>
-            <Text style={[modalSt.priceHint, { color: colors.mutedForeground }]}>≈ €0.20</Text>
+            <Text style={modalSt.priceST}>🔥 {price} ST</Text>
+            <Text style={[modalSt.priceHint, { color: colors.mutedForeground }]}>≈ {priceEur}</Text>
           </View>
 
-          {/* Balance row */}
           <View style={[modalSt.balanceRow, { backgroundColor: colors.background }]}>
             <Text style={[modalSt.balanceLabel, { color: colors.mutedForeground }]}>Your balance</Text>
             <Text style={[modalSt.balanceValue, { color: canAfford ? "#22c55e" : "#ef4444" }]}>
@@ -84,14 +95,14 @@ function UnlockModal({
           {canAfford ? (
             <TouchableOpacity style={modalSt.unlockBtn} onPress={handleUnlock} activeOpacity={0.85}>
               <Ionicons name="lock-open-outline" size={18} color="#fff" />
-              <Text style={modalSt.unlockBtnText}>Unlock for {UNLOCK_PRICE_ST} ST</Text>
+              <Text style={modalSt.unlockBtnText}>Unlock for {price} ST</Text>
             </TouchableOpacity>
           ) : (
             <>
               <View style={[modalSt.warningBox, { backgroundColor: "rgba(239,68,68,0.10)" }]}>
                 <Ionicons name="warning-outline" size={16} color="#ef4444" />
                 <Text style={[modalSt.warningText, { color: "#ef4444" }]}>
-                  You need {needMore} more ST points to unlock this photo.
+                  You need {needMore} more ST points to unlock this {isVideo ? "video" : "photo"}.
                 </Text>
               </View>
               <TouchableOpacity style={modalSt.buyBtn} onPress={handleBuy} activeOpacity={0.85}>
@@ -118,18 +129,27 @@ export function LockedPhotoGrid({ profileName, lockedPhotos }: { profileName: st
 
   if (!lockedPhotos || lockedPhotos.length === 0) return null;
 
+  const photoCount = lockedPhotos.filter((lp) => lp.type !== "video").length;
+  const videoCount = lockedPhotos.filter((lp) => lp.type === "video").length;
+
+  const headerParts: string[] = [];
+  if (photoCount > 0) headerParts.push(`${photoCount} photo${photoCount > 1 ? "s" : ""} · 20 ST (€0.20) each`);
+  if (videoCount > 0) headerParts.push(`${videoCount} video${videoCount > 1 ? "s" : ""} · 500 ST (€5.00) each`);
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <Ionicons name="lock-closed" size={14} color="#FF3366" />
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-          Exclusive · {lockedPhotos.length} photo{lockedPhotos.length > 1 ? "s" : ""} · {UNLOCK_PRICE_ST} ST (€0.20) each
+          Exclusive · {headerParts.join(" · ")}
         </Text>
       </View>
 
       <View style={styles.grid}>
         {lockedPhotos.map((lp) => {
           const isUnlocked = unlockedPhotos.includes(lp.id);
+          const price = getPrice(lp);
+          const isVideo = lp.type === "video";
           return (
             <TouchableOpacity
               key={lp.id}
@@ -143,25 +163,28 @@ export function LockedPhotoGrid({ profileName, lockedPhotos }: { profileName: st
               }}
               activeOpacity={isUnlocked ? 1 : 0.9}
             >
-              {/* Photo — blurred when locked */}
               <Image
-                source={lp.photo}
+                source={lp.photo as any}
                 style={styles.tileImg}
                 contentFit="cover"
                 blurRadius={isUnlocked ? 0 : 18}
               />
 
-              {/* Lock overlay on blurred photo */}
-              {!isUnlocked && (
-                <View style={styles.lockedOverlay}>
-                  <View style={styles.lockIconWrap}>
-                    <Ionicons name="lock-closed" size={20} color="#fff" />
-                  </View>
-                  <Text style={styles.lockPrice}>{UNLOCK_PRICE_ST} ST</Text>
+              {isVideo && (
+                <View style={styles.videoIcon}>
+                  <Ionicons name="videocam" size={14} color="#fff" />
                 </View>
               )}
 
-              {/* Unlocked badge */}
+              {!isUnlocked && (
+                <View style={styles.lockedOverlay}>
+                  <View style={styles.lockIconWrap}>
+                    <Ionicons name={isVideo ? "videocam" : "lock-closed"} size={20} color="#fff" />
+                  </View>
+                  <Text style={styles.lockPrice}>{price} ST</Text>
+                </View>
+              )}
+
               {isUnlocked && (
                 <View style={styles.unlockedBadge}>
                   <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
@@ -186,10 +209,16 @@ export function LockedPhotoGrid({ profileName, lockedPhotos }: { profileName: st
 const styles = StyleSheet.create({
   container: { marginTop: 8 },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 },
-  sectionLabel: { fontSize: 12, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.8 },
+  sectionLabel: { fontSize: 12, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.8, flex: 1, flexWrap: "wrap" },
   grid: { flexDirection: "row", gap: 4, flexWrap: "wrap" },
   tile: { width: TILE, height: TILE * 1.3, borderRadius: 10, overflow: "hidden" },
   tileImg: { width: "100%", height: "100%" },
+
+  videoIcon: {
+    position: "absolute", top: 6, left: 6,
+    backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 8,
+    paddingHorizontal: 5, paddingVertical: 2,
+  },
 
   lockedOverlay: {
     ...StyleSheet.absoluteFillObject,

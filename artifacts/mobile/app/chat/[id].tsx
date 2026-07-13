@@ -10,8 +10,10 @@ import {
   Alert,
   FlatList,
   Keyboard,
+  Modal,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -183,6 +185,8 @@ export default function ChatScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const recordingStart = useRef<number>(0);
   const inputRef = useRef<TextInput>(null);
+
+  const [fullscreenVideo, setFullscreenVideo] = useState<string | null>(null);
 
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translating, setTranslating] = useState<Record<string, boolean>>({});
@@ -487,14 +491,22 @@ export default function ChatScreen() {
                         contentFit="cover"
                       />
                     ) : (
-                      <Video
-                        source={{ uri: item.mediaUri }}
-                        style={styles.mediaImage}
-                        resizeMode={ResizeMode.COVER}
-                        useNativeControls
-                        shouldPlay={false}
-                        isLooping={false}
-                      />
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => setFullscreenVideo(item.mediaUri!)}
+                      >
+                        <Video
+                          source={{ uri: item.mediaUri }}
+                          style={styles.mediaImage}
+                          resizeMode={ResizeMode.COVER}
+                          useNativeControls
+                          shouldPlay={false}
+                          isLooping={false}
+                        />
+                        <View style={styles.videoTapHint}>
+                          <Ionicons name="expand" size={16} color="#fff" />
+                        </View>
+                      </TouchableOpacity>
                     )}
                   </View>
                 ) : (
@@ -699,6 +711,38 @@ export default function ChatScreen() {
         recipientName={profile?.name}
         onHide={() => setGiftSplash(null)}
       />
+
+      {/* Fullscreen video player */}
+      <Modal
+        visible={!!fullscreenVideo}
+        transparent={false}
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setFullscreenVideo(null)}
+      >
+        <View style={styles.fullscreenContainer}>
+          <StatusBar hidden />
+          {fullscreenVideo && (
+            <Video
+              source={{ uri: fullscreenVideo }}
+              style={styles.fullscreenVideo}
+              resizeMode={ResizeMode.CONTAIN}
+              useNativeControls
+              shouldPlay
+              isLooping={false}
+            />
+          )}
+          <TouchableOpacity
+            style={styles.fullscreenClose}
+            onPress={() => setFullscreenVideo(null)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <View style={styles.fullscreenCloseCircle}>
+              <Ionicons name="close" size={22} color="#fff" />
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -752,6 +796,25 @@ const styles = StyleSheet.create({
   mediaImage: { width: 220, height: 220, borderRadius: 16 },
   videoPlaceholder: { justifyContent: "center", alignItems: "center", gap: 6 },
   videoLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  videoTapHint: {
+    position: "absolute", bottom: 8, right: 8,
+    backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 12,
+    padding: 4,
+  },
+  fullscreenContainer: {
+    flex: 1, backgroundColor: "#000",
+    justifyContent: "center", alignItems: "center",
+  },
+  fullscreenVideo: { width: "100%", height: "100%" },
+  fullscreenClose: {
+    position: "absolute", top: 48, right: 20,
+  },
+  fullscreenCloseCircle: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center", alignItems: "center",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.25)",
+  },
   timeText: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
