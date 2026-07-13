@@ -9,6 +9,7 @@ export interface MyPhoto {
   id: string;
   uri: string;
   exclusive: boolean;
+  type: "image" | "video";
 }
 
 export interface Message {
@@ -296,8 +297,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(KEYS.STRIPE_CONNECT_ACCOUNT_ID, id);
   };
 
-  const addMyPhoto = (uri: string, exclusive: boolean) => {
-    const photo: MyPhoto = { id: Date.now().toString() + Math.random().toString(36).slice(2, 8), uri, exclusive };
+  const addMyPhoto = (uri: string, exclusive: boolean, type: "image" | "video" = "image") => {
+    const photo: MyPhoto = { id: Date.now().toString() + Math.random().toString(36).slice(2, 8), uri, exclusive, type };
     setMyPhotos((prev) => {
       const updated = [...prev, photo];
       AsyncStorage.setItem(KEYS.MY_PHOTOS, JSON.stringify(updated));

@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
+import { Video, ResizeMode } from "expo-av";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/expo";
 import {
   Alert,
@@ -178,7 +179,25 @@ export default function ProfileScreen() {
       quality: 0.8,
     });
     if (result.canceled) return;
-    addMyPhoto(result.assets[0].uri, exclusive);
+    addMyPhoto(result.assets[0].uri, exclusive, "image");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setAddPhotoVisible(false);
+  };
+
+  const pickGalleryVideo = async (exclusive: boolean) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow photo/video access to add videos.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      allowsEditing: true,
+      videoMaxDuration: 60,
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    addMyPhoto(result.assets[0].uri, exclusive, "video");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setAddPhotoVisible(false);
   };
@@ -382,7 +401,27 @@ export default function ProfileScreen() {
         <View style={gallSt.grid}>
           {myPhotos.map((photo) => (
             <View key={photo.id} style={gallSt.tile}>
-              <Image source={{ uri: photo.uri }} style={gallSt.tileImg} contentFit="cover" />
+              {photo.type === "video" ? (
+                <Video
+                  source={{ uri: photo.uri }}
+                  style={gallSt.tileImg as any}
+                  resizeMode={ResizeMode.COVER}
+                  shouldPlay={false}
+                  isMuted
+                  isLooping={false}
+                />
+              ) : (
+                <Image source={{ uri: photo.uri }} style={gallSt.tileImg} contentFit="cover" />
+              )}
+
+              {/* Video play icon overlay */}
+              {photo.type === "video" && (
+                <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
+                  <View style={{ backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 20, padding: 4 }}>
+                    <Ionicons name="play" size={18} color="#fff" />
+                  </View>
+                </View>
+              )}
 
               {/* Free / Exclusive badge */}
               <View style={[gallSt.badge, { backgroundColor: photo.exclusive ? "rgba(255,51,102,0.85)" : "rgba(34,197,94,0.85)" }]}>
@@ -699,16 +738,17 @@ export default function ProfileScreen() {
 
     </View>
 
-    {/* Add Photo modal */}
+    {/* Add Photo/Video modal */}
     <Modal visible={addPhotoVisible} transparent animationType="fade" onRequestClose={() => setAddPhotoVisible(false)}>
       <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setAddPhotoVisible(false)}>
         <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
           <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
-          <Text style={[styles.modalTitle, { color: colors.foreground }]}>Add a Photo</Text>
-          <Text style={[{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: 8 }]}>
-            Choose whether this photo is free for everyone or exclusive (paid with ST points).
+          <Text style={[styles.modalTitle, { color: colors.foreground }]}>Add Photo or Video</Text>
+          <Text style={[{ color: colors.mutedForeground, fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: 12 }]}>
+            Free = visible to everyone. Exclusive = blurred, people pay 20 ST (€0.20) to unlock.
           </Text>
 
+          {/* Free Photo */}
           <TouchableOpacity
             style={[gallSt.addOptionBtn, { backgroundColor: "rgba(34,197,94,0.12)", borderColor: "rgba(34,197,94,0.4)" }]}
             onPress={() => pickGalleryPhoto(false)}
@@ -716,13 +756,12 @@ export default function ProfileScreen() {
           >
             <Ionicons name="image-outline" size={22} color="#22c55e" />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 16, fontFamily: "Inter_700Bold", color: "#22c55e" }}>Free Photo</Text>
-              <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
-                Visible to everyone for free
-              </Text>
+              <Text style={{ fontSize: 15, fontFamily: "Inter_700Bold", color: "#22c55e" }}>Free Photo</Text>
+              <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>Visible to everyone</Text>
             </View>
           </TouchableOpacity>
 
+          {/* Exclusive Photo */}
           <TouchableOpacity
             style={[gallSt.addOptionBtn, { backgroundColor: "rgba(255,51,102,0.10)", borderColor: "rgba(255,51,102,0.4)" }]}
             onPress={() => pickGalleryPhoto(true)}
@@ -730,14 +769,38 @@ export default function ProfileScreen() {
           >
             <Ionicons name="lock-closed-outline" size={22} color="#FF3366" />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 16, fontFamily: "Inter_700Bold", color: "#FF3366" }}>Exclusive Photo</Text>
-              <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
-                Blurred — people pay 50 ST to unlock
-              </Text>
+              <Text style={{ fontSize: 15, fontFamily: "Inter_700Bold", color: "#FF3366" }}>🔒 Exclusive Photo</Text>
+              <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>Blurred — pay 20 ST (€0.20) to unlock</Text>
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setAddPhotoVisible(false)} style={{ paddingVertical: 8 }}>
+          {/* Free Video */}
+          <TouchableOpacity
+            style={[gallSt.addOptionBtn, { backgroundColor: "rgba(99,102,241,0.10)", borderColor: "rgba(99,102,241,0.4)" }]}
+            onPress={() => pickGalleryVideo(false)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="videocam-outline" size={22} color="#6366f1" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontFamily: "Inter_700Bold", color: "#6366f1" }}>Free Video</Text>
+              <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>Short video, visible to everyone</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Exclusive Video */}
+          <TouchableOpacity
+            style={[gallSt.addOptionBtn, { backgroundColor: "rgba(168,85,247,0.10)", borderColor: "rgba(168,85,247,0.4)" }]}
+            onPress={() => pickGalleryVideo(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="lock-closed-outline" size={22} color="#a855f7" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontFamily: "Inter_700Bold", color: "#a855f7" }}>🔒 Exclusive Video</Text>
+              <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>Blurred — pay 20 ST (€0.20) to unlock</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setAddPhotoVisible(false)} style={{ paddingVertical: 8, marginTop: 4 }}>
             <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>Cancel</Text>
           </TouchableOpacity>
         </View>
