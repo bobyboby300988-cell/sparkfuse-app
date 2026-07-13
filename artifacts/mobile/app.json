@@ -57,8 +57,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
+        "projectId": "8bd18ad9-f048-41f8-8d72-43829703a389"
       }
-    }
+    },
+    "owner": "boby888"
   }
 }
