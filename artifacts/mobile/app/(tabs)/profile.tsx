@@ -375,7 +375,7 @@ export default function ProfileScreen() {
         </View>
 
         <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
-          Free photos are visible to everyone. Exclusive photos are blurred — people pay 50 ST to unlock them.
+          Free photos are visible to everyone. Exclusive photos are blurred — people pay 20 ST (€0.20) to unlock them.
         </Text>
 
         <View style={gallSt.grid}>

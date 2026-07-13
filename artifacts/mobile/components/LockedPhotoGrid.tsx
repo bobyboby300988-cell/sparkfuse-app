@@ -18,7 +18,7 @@ import { useColors } from "@/hooks/useColors";
 const { width: W } = Dimensions.get("window");
 const TILE = (W - 48 - 8) / 3;
 
-const UNLOCK_PRICE_ST = 50;
+const UNLOCK_PRICE_ST = 20;
 
 function UnlockModal({
   photo,
@@ -70,7 +70,7 @@ function UnlockModal({
           {/* Price badge */}
           <View style={[modalSt.priceBadge, { backgroundColor: "rgba(255,51,102,0.10)" }]}>
             <Text style={modalSt.priceST}>🔥 {UNLOCK_PRICE_ST} ST</Text>
-            <Text style={[modalSt.priceHint, { color: colors.mutedForeground }]}>≈ $0.50</Text>
+            <Text style={[modalSt.priceHint, { color: colors.mutedForeground }]}>≈ €0.20</Text>
           </View>
 
           {/* Balance row */}
@@ -123,7 +123,7 @@ export function LockedPhotoGrid({ profileName, lockedPhotos }: { profileName: st
       <View style={styles.headerRow}>
         <Ionicons name="lock-closed" size={14} color="#FF3366" />
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-          Exclusive · {lockedPhotos.length} photo{lockedPhotos.length > 1 ? "s" : ""} · {UNLOCK_PRICE_ST} ST each
+          Exclusive · {lockedPhotos.length} photo{lockedPhotos.length > 1 ? "s" : ""} · {UNLOCK_PRICE_ST} ST (€0.20) each
         </Text>
       </View>
 
