@@ -186,7 +186,8 @@ export default function ProfileScreen() {
   const initial = userProfile?.name?.[0]?.toUpperCase() ?? "?";
 
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
-  const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+  const tabBarHeight = Platform.OS === "web" ? 84 : 60;
+  const bottomPadding = insets.bottom + tabBarHeight + (Platform.OS === "web" ? 34 : 0);
 
   return (
     <>
