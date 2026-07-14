@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { useVideoPlayer } from '@/lib/video';
-import { speakScene, stopNarration } from '@/lib/video/useNarration';
+import { speakScene, stopNarration, preloadNarration } from '@/lib/video/useNarration';
 import { Scene1 } from './video_scenes/Scene1';
 import { Scene2 } from './video_scenes/Scene2';
 import { Scene3 } from './video_scenes/Scene3';
@@ -224,8 +224,9 @@ function VideoPlayer({
   const musicRef = useRef<AmbientMusic | null>(null);
   const { currentSceneKey } = useVideoPlayer({ durations, loop });
 
-  // Start music once on mount
+  // Start music + preload all narration audio on mount
   useEffect(() => {
+    preloadNarration();
     const music = new AmbientMusic();
     music.start();
     musicRef.current = music;
