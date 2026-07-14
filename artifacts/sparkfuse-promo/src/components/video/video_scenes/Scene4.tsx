@@ -117,7 +117,7 @@ function DmGiftBurst({ size, onDone }: { size: GiftSize; onDone: () => void }) {
           : 'drop-shadow(0 0 8px rgba(231,76,60,0.7))',
       }}
         initial={{ scale: 0, opacity: 0, rotate: -20 }}
-        animate={{ scale: [0, size === 'large' ? 1.8 : size === 'medium' ? 1.4 : 1.15, 1], opacity: [0, 1, 1], rotate: [−20, 10, 0] }}
+        animate={{ scale: [0, size === 'large' ? 1.8 : size === 'medium' ? 1.4 : 1.15, 1], opacity: [0, 1, 1], rotate: [-20, 10, 0] }}
         transition={{ duration: 0.55, ease: [0.175, 0.885, 0.32, 1.5] }}
       >{def.emoji}</motion.div>
 
