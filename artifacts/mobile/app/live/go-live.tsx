@@ -105,6 +105,57 @@ export default function GoLiveScreen() {
     router.back();
   }
 
+  // Live streaming uses Daily.co via WebView — not available in web browsers.
+  // Show a clear "download the app" screen instead of a broken experience.
+  if (Platform.OS === "web") {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center", paddingHorizontal: 28 }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          activeOpacity={0.8}
+          style={{ position: "absolute", top: (insets.top || 0) + 16, left: 16, width: 36, height: 36, borderRadius: 18, backgroundColor: "#ffffff18", alignItems: "center", justifyContent: "center" }}
+        >
+          <Ionicons name="close" size={22} color="#fff" />
+        </TouchableOpacity>
+
+        <Text style={{ fontSize: 56, marginBottom: 16 }}>📱</Text>
+
+        <Text style={{ fontSize: 26, fontFamily: "Inter_700Bold", color: "#fff", textAlign: "center", lineHeight: 32 }}>
+          Live Streaming is{"\n"}
+          <Text style={{ color: "#FF3366" }}>App Only</Text>
+        </Text>
+
+        <Text style={{ fontSize: 14, fontFamily: "Inter_400Regular", color: "#9A93B3", textAlign: "center", marginTop: 14, lineHeight: 22 }}>
+          Go Live with your real camera is only available in the SparkFuse mobile app. Download it to broadcast live to your audience — they can watch and send you gifts in real time.
+        </Text>
+
+        <View style={{ width: "100%", marginTop: 36, gap: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, padding: 18, backgroundColor: "#1a1a2e", borderRadius: 16, borderWidth: 1, borderColor: "#ffffff20" }}>
+            <Text style={{ fontSize: 34 }}>▶️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: "#F39C12", letterSpacing: 1.5, marginBottom: 3 }}>COMING SOON</Text>
+              <Text style={{ fontSize: 17, fontFamily: "Inter_700Bold", color: "#fff" }}>Google Play</Text>
+              <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.45)" }}>Android — full live streaming</Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, padding: 18, backgroundColor: "#13131f", borderRadius: 16, borderWidth: 1, borderColor: "#ffffff12" }}>
+            <Text style={{ fontSize: 34 }}>🍎</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 10, fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.35)", letterSpacing: 1.5, marginBottom: 3 }}>COMING LATER</Text>
+              <Text style={{ fontSize: 17, fontFamily: "Inter_700Bold", color: "rgba(255,255,255,0.5)" }}>App Store</Text>
+              <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.3)" }}>iOS — after Google Play launch</Text>
+            </View>
+          </View>
+        </View>
+
+        <Text style={{ marginTop: 24, fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.25)", textAlign: "center", lineHeight: 17 }}>
+          All other features — matches, chat, profiles, coaches —{"\n"}are fully available in your browser right now.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {phase === "connecting" && !started && (

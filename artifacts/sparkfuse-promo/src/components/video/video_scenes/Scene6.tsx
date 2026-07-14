@@ -152,13 +152,13 @@ export function Scene6() {
             }}>🌐</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#F39C12', fontWeight: 700, letterSpacing: '0.06em' }}>
-                AVAILABLE NOW — WEB ONLY
+                AVAILABLE NOW — WEB
               </div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                match-maker-2025ap.replit.app
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
+                Matches · Chat · Coaches · Content
               </div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,165,0,0.7)', marginTop: 2 }}>
-                ⚠️ Live streaming not available on web
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,140,0,0.8)', marginTop: 1 }}>
+                📱 Go Live → App Store / Play Store only
               </div>
             </div>
             <div style={{
@@ -169,8 +169,9 @@ export function Scene6() {
 
           {/* Google Play — SOON */}
           <div style={{
-            background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '10px 14px',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'linear-gradient(135deg, rgba(52,168,83,0.12), rgba(66,133,244,0.08))',
+            borderRadius: 14, padding: '10px 14px',
+            border: '1px solid rgba(52,168,83,0.35)',
             display: 'flex', alignItems: 'center', gap: 10,
           }}>
             <div style={{
@@ -185,45 +186,45 @@ export function Scene6() {
                 <path d="M17.5 6.5L21 9.5L21 14.5L17.5 17.5L12 12L17.5 6.5Z" fill="#EA4335"/>
               </svg>
             </div>
-            <div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#fff', fontWeight: 700 }}>
                 Google Play — Android
               </div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: '#F39C12', marginTop: 2 }}>
-                ⏳ Coming soon — first mobile launch
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: '#34A853', marginTop: 1 }}>
+                🔴 Full Go Live · Gifts · All features
               </div>
             </div>
             <div style={{
-              marginLeft: 'auto', flexShrink: 0,
-              background: 'rgba(243,156,18,0.15)', borderRadius: 20, padding: '3px 8px',
-              border: '1px solid rgba(243,156,18,0.35)',
-              fontFamily: 'Bebas Neue, sans-serif', fontSize: 12, color: '#F39C12', letterSpacing: '0.08em',
+              flexShrink: 0,
+              background: 'rgba(52,168,83,0.2)', borderRadius: 20, padding: '3px 8px',
+              border: '1px solid rgba(52,168,83,0.5)',
+              fontFamily: 'Bebas Neue, sans-serif', fontSize: 12, color: '#34A853', letterSpacing: '0.08em',
             }}>SOON</div>
           </div>
 
           {/* App Store — AFTER */}
           <div style={{
-            background: 'rgba(255,255,255,0.02)', borderRadius: 14, padding: '10px 14px',
-            border: '1px solid rgba(255,255,255,0.06)',
+            background: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: '10px 14px',
+            border: '1px solid rgba(255,255,255,0.08)',
             display: 'flex', alignItems: 'center', gap: 10,
           }}>
             <div style={{
               width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
             }}>🍎</div>
-            <div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: 600 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
                 App Store — iOS
               </div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.28)', marginTop: 2 }}>
-                After Google Play launch
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 1 }}>
+                🔴 Go Live + full features · After Play Store
               </div>
             </div>
             <div style={{
-              marginLeft: 'auto', flexShrink: 0,
-              background: 'rgba(255,255,255,0.05)', borderRadius: 20, padding: '3px 8px',
-              fontFamily: 'Bebas Neue, sans-serif', fontSize: 12, color: 'rgba(255,255,255,0.28)', letterSpacing: '0.08em',
+              flexShrink: 0,
+              background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '3px 8px',
+              fontFamily: 'Bebas Neue, sans-serif', fontSize: 12, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em',
             }}>LATER</div>
           </div>
         </motion.div>
