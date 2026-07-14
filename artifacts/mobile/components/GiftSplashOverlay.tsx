@@ -4,7 +4,6 @@ import React, { useEffect, useRef } from "react";
 import {
   Animated,
   Dimensions,
-  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -80,38 +79,42 @@ function SmallToast({ gift, onHide }: { gift: SplashGift; onHide: () => void }) 
 
 /* ══════════════════════════════════════════════
    BIG SPLASH  — gift ≥ €10
-   Full-screen Lottie animation + gift card
+   Slides up from the BOTTOM — streamer/chat still visible above
 ══════════════════════════════════════════════ */
 function BigSplash({ gift, recipientName, onHide }: { gift: SplashGift; recipientName?: string; onHide: () => void }) {
-  const overlayOp  = useRef(new Animated.Value(0)).current;
-  const cardScale  = useRef(new Animated.Value(0)).current;
-  const cardOp     = useRef(new Animated.Value(0)).current;
-  const labelOp    = useRef(new Animated.Value(0)).current;
-  const labelY     = useRef(new Animated.Value(24)).current;
-  const lottieRef  = useRef<LottieView>(null);
+  const slideY    = useRef(new Animated.Value(340)).current;
+  const cardScale = useRef(new Animated.Value(0.4)).current;
+  const cardOp    = useRef(new Animated.Value(0)).current;
+  const labelOp   = useRef(new Animated.Value(0)).current;
+  const panelOp   = useRef(new Animated.Value(0)).current;
+  const lottieRef = useRef<LottieView>(null);
 
   /* auto-hide duration: bigger gift = longer display */
-  const displayMs = gift.tokens >= MEGA_THRESHOLD ? 4200 : gift.tokens >= EPIC_THRESHOLD ? 3600 : 3000;
+  const displayMs = gift.tokens >= MEGA_THRESHOLD ? 4000 : gift.tokens >= EPIC_THRESHOLD ? 3400 : 2800;
 
   useEffect(() => {
-    overlayOp.setValue(0); cardScale.setValue(0.4); cardOp.setValue(0);
-    labelOp.setValue(0); labelY.setValue(24);
+    slideY.setValue(340);
+    cardScale.setValue(0.4);
+    cardOp.setValue(0);
+    labelOp.setValue(0);
+    panelOp.setValue(0);
 
     Animated.parallel([
-      Animated.timing(overlayOp, { toValue: 1, duration: 220, useNativeDriver: true }),
-      Animated.spring(cardScale, { toValue: 1, useNativeDriver: true, speed: 6, bounciness: 18 }),
-      Animated.timing(cardOp,    { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.timing(panelOp, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.spring(slideY,  { toValue: 0, useNativeDriver: true, speed: 16, bounciness: 8 }),
+      Animated.spring(cardScale, { toValue: 1, useNativeDriver: true, speed: 7, bounciness: 18 }),
+      Animated.timing(cardOp,  { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
 
-    Animated.parallel([
-      Animated.timing(labelOp, { toValue: 1, duration: 350, delay: 350, useNativeDriver: true }),
-      Animated.timing(labelY,  { toValue: 0,  duration: 350, delay: 350, useNativeDriver: true }),
-    ]).start();
+    Animated.timing(labelOp, { toValue: 1, duration: 320, delay: 300, useNativeDriver: true }).start();
 
-    setTimeout(() => lottieRef.current?.play(), 80);
+    setTimeout(() => lottieRef.current?.play(), 60);
 
     const timer = setTimeout(() => {
-      Animated.timing(overlayOp, { toValue: 0, duration: 500, useNativeDriver: true }).start(() => onHide());
+      Animated.parallel([
+        Animated.timing(panelOp, { toValue: 0, duration: 380, useNativeDriver: true }),
+        Animated.timing(slideY,  { toValue: 340, duration: 380, useNativeDriver: true }),
+      ]).start(() => onHide());
     }, displayMs);
 
     return () => clearTimeout(timer);
@@ -122,47 +125,58 @@ function BigSplash({ gift, recipientName, onHide }: { gift: SplashGift; recipien
     : `€${(gift.tokens / 100).toFixed(2)}`;
 
   return (
-    <Modal transparent animationType="none" visible statusBarTranslucent>
-      <Animated.View style={[styles.bigOverlay, { opacity: overlayOp }]} pointerEvents="none">
+    /* Positioned at the BOTTOM only — chat/stream visible above */
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.bigPanel,
+        {
+          opacity: panelOp,
+          transform: [{ translateY: slideY }],
+          borderColor: gift.grad[0] + "55",
+        },
+      ]}
+    >
+      {/* Lottie confined to the bottom panel */}
+      <LottieView
+        ref={lottieRef}
+        source={getLottieSource(gift.tokens)}
+        style={StyleSheet.absoluteFillObject}
+        autoPlay={false}
+        loop={false}
+        resizeMode="cover"
+        renderMode={Platform.OS === "web" ? "AUTOMATIC" : "HARDWARE"}
+      />
 
-        {/* Dark scrim */}
-        <LinearGradient
-          colors={["rgba(0,0,0,0.80)", "rgba(0,0,0,0.50)", "rgba(0,0,0,0.80)"]}
-          style={StyleSheet.absoluteFillObject}
-          pointerEvents="none"
-        />
+      {/* Dark gradient scrim — only on the panel */}
+      <LinearGradient
+        colors={["rgba(0,0,0,0.78)", "rgba(0,0,0,0.55)"]}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
 
-        {/* ── Lottie full-screen background animation ── */}
-        <LottieView
-          ref={lottieRef}
-          source={getLottieSource(gift.tokens)}
-          style={styles.lottieFullscreen}
-          autoPlay={false}
-          loop={false}
-          resizeMode="cover"
-          renderMode={Platform.OS === "web" ? "AUTOMATIC" : "HARDWARE"}
-        />
-
-        {/* ── Gift info card ── */}
+      {/* Content row */}
+      <View style={styles.bigPanelContent}>
+        {/* Gift card */}
         <Animated.View style={[styles.bigCard, { transform: [{ scale: cardScale }], opacity: cardOp }]}>
           <LinearGradient colors={gift.grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bigCardGrad}>
-            <View style={[styles.bigGlow, { backgroundColor: gift.grad[1] + "66" }]} />
             <Text style={styles.bigEmoji}>{gift.emoji}</Text>
             <Text style={styles.bigName}>{gift.label}</Text>
             <Text style={styles.bigValue}>{gift.tokens.toLocaleString()} ST · {eurLabel}</Text>
           </LinearGradient>
         </Animated.View>
 
-        {/* ── Sender label ── */}
-        <Animated.View style={[styles.bigLabel, { opacity: labelOp, transform: [{ translateY: labelY }] }]}>
+        {/* Label */}
+        <Animated.View style={{ opacity: labelOp, flex: 1 }}>
           <Text style={styles.bigLabelText}>
-            🎁 You gifted{recipientName ? ` ${recipientName}` : ""} a{" "}
-            <Text style={{ fontFamily: "Inter_700Bold" }}>{gift.label}</Text>!
+            🎁 {recipientName ? `${recipientName} received` : "Gift sent"}{"\n"}
+            <Text style={{ fontFamily: "Inter_700Bold", color: "#fff" }}>{gift.label}</Text>
+            {"  "}
+            <Text style={{ color: "rgba(255,255,255,0.55)" }}>{gift.tokens.toLocaleString()} ST</Text>
           </Text>
         </Animated.View>
-
-      </Animated.View>
-    </Modal>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -205,73 +219,72 @@ const styles = StyleSheet.create({
   toastLabel: { fontSize: 13, fontFamily: "Inter_700Bold",      color: "#fff" },
   toastST:    { fontSize: 11, fontFamily: "Inter_400Regular",   color: "rgba(255,255,255,0.8)" },
 
-  /* ── Big splash ── */
-  bigOverlay: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 26,
+  /* ── Big splash (bottom panel — does NOT cover the stream/chat above) ── */
+  bigPanel: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 240,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: "hidden",
+    zIndex: 9990,
+    borderTopWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 24,
   },
-  lottieFullscreen: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
+  bigPanelContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    gap: 16,
+    zIndex: 2,
   },
   bigCard: {
-    width: width * 0.60,
-    borderRadius: 26,
+    width: width * 0.38,
+    borderRadius: 18,
     overflow: "hidden",
-    zIndex: 1,
+    flexShrink: 0,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.65,
-    shadowRadius: 32,
-    elevation: 28,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.55,
+    shadowRadius: 16,
+    elevation: 18,
   },
   bigCardGrad: {
     alignItems: "center",
-    paddingVertical: 40,
-    paddingHorizontal: 22,
-    gap: 10,
-  },
-  bigGlow: {
-    position: "absolute",
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    top: "10%",
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+    gap: 6,
   },
   bigEmoji: {
-    fontSize: 96,
-    lineHeight: 112,
-    zIndex: 1,
+    fontSize: 52,
+    lineHeight: 60,
   },
   bigName: {
-    fontSize: 26,
+    fontSize: 14,
     fontFamily: "Inter_700Bold",
     color: "#fff",
     textAlign: "center",
     textShadowColor: "rgba(0,0,0,0.4)",
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
-    zIndex: 1,
+    textShadowRadius: 4,
   },
   bigValue: {
-    fontSize: 15,
+    fontSize: 11,
     fontFamily: "Inter_600SemiBold",
     color: "rgba(255,255,255,0.85)",
-    zIndex: 1,
-  },
-  bigLabel: {
-    paddingHorizontal: 26,
-    paddingVertical: 12,
-    backgroundColor: "rgba(255,255,255,0.13)",
-    borderRadius: 22,
-    zIndex: 1,
   },
   bigLabelText: {
-    fontSize: 16,
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
-    color: "#fff",
+    color: "rgba(255,255,255,0.75)",
     textAlign: "center",
   },
 });

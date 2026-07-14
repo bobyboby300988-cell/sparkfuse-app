@@ -222,6 +222,12 @@ export default function WelcomeScreen() {
           </View>
           <Text style={styles.appName}>SPARKFUSE</Text>
           <Text style={styles.appSub}>{t("welcome.tagline")}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <View style={{ backgroundColor: "#C0392B", borderRadius: 7, paddingHorizontal: 10, paddingVertical: 4, shadowColor: "#C0392B", shadowOpacity: 0.6, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } }}>
+              <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14, letterSpacing: 1.5 }}>18+</Text>
+            </View>
+            <Text style={{ color: "rgba(255,255,255,0.45)", fontFamily: "Inter_400Regular", fontSize: 12, letterSpacing: 0.5 }}>Adult Content</Text>
+          </View>
         </Animated.View>
 
         {/* ── Keyword pills ── */}

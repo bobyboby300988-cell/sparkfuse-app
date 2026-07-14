@@ -8,6 +8,7 @@ import { Scene3 } from './video_scenes/Scene3';
 import { Scene4 } from './video_scenes/Scene4';
 import { Scene5 } from './video_scenes/Scene5';
 import { Scene6 } from './video_scenes/Scene6';
+import { SceneUrl } from './video_scenes/SceneUrl';
 import { SceneWithdraw } from './video_scenes/SceneWithdraw';
 
 /* ─── Scene durations — locked to audio lengths + 500ms buffer ─── */
@@ -19,6 +20,7 @@ export const SCENE_DURATIONS: Record<string, number> = {
   content:  22200,
   tokens:   21000,
   outro:    15700,
+  url:       7500,
 };
 
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
@@ -29,6 +31,7 @@ const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
   content:  Scene4,
   tokens:   Scene5,
   outro:    Scene6,
+  url:      SceneUrl,
 };
 
 const ORB_CONFIGS = [
@@ -205,7 +208,7 @@ function TapToPlay({ onStart }: { onStart: () => void }) {
           marginTop: 14, fontFamily: 'Inter, sans-serif', fontSize: 10,
           color: 'rgba(255,255,255,0.22)', letterSpacing: '0.1em',
           position: 'relative', zIndex: 5,
-        }}>~65 SECONDS · 7 SCENES</div>
+        }}>~73 SECONDS · 8 SCENES</div>
       </div>
     </div>
   );

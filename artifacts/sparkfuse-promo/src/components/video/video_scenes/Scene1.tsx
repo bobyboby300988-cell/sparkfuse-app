@@ -148,6 +148,24 @@ export function Scene1() {
         </motion.div>
       </div>
 
+      {/* 18+ Adult Content badge — top right */}
+      <motion.div style={{
+        position: 'absolute', top: '4%', right: '5%',
+        display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'none',
+      }}
+        initial={{ opacity: 0, x: 16 }}
+        animate={phase >= 1 ? { opacity: 1, x: 0 } : { opacity: 0, x: 16 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <div style={{
+          background: '#C0392B', borderRadius: 6, padding: '3px 9px',
+          boxShadow: '0 0 12px rgba(192,57,43,0.6)',
+        }}>
+          <span style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 16, color: '#fff', letterSpacing: '0.1em' }}>18+</span>
+        </div>
+        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 500 }}>ADULT CONTENT</span>
+      </motion.div>
+
       {/* Copyright */}
       <motion.div style={{
         position: 'absolute', bottom: '4%', left: 0, right: 0,

@@ -2,10 +2,10 @@ import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 
 const steps = [
-  { icon: '💳', label: 'Buy ST Tokens',  sub: 'Card · PayPal · More coming soon', color: '#C0392B' },
-  { icon: '⚡', label: 'Spend ST',        sub: 'Gifts · Content · Live',           color: '#F39C12' },
-  { icon: '💸', label: 'Creators Earn',  sub: 'ST credited instantly',             color: '#27ae60' },
-  { icon: '🏦', label: 'Withdraw Cash',  sub: '10% platform fee',                  color: '#3498db' },
+  { icon: '💳', label: 'Buy ST Tokens',  sub: 'Card · PayPal · Crypto · Stores — 5 ways to pay', color: '#C0392B' },
+  { icon: '⚡', label: 'Spend ST',        sub: 'Gifts · Content · Live · Calls',                  color: '#F39C12' },
+  { icon: '💸', label: 'Creators Earn',  sub: 'ST credited instantly per gift/content',            color: '#27ae60' },
+  { icon: '🏦', label: 'Withdraw Cash',  sub: '10% platform fee · bank transfer',                  color: '#3498db' },
 ];
 
 const stPacks = [
