@@ -4,13 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 /* ─── 6 gifts shown in the live stream promo ─── */
 type GiftKey = 'lollipop' | 'beer' | 'teddy' | 'fireworks' | 'dragon' | 'rocket';
 
-const GIFTS: Record<GiftKey, { emoji: string; label: string; eur: string; tier: 'tiny'|'small'|'medium'|'big'|'mega'; color: string }> = {
-  lollipop:  { emoji: '🍭', label: 'Lollipop',  eur: '€0.50', tier: 'tiny',   color: '#FF5CA8' },
-  beer:      { emoji: '🍺', label: 'Beer',       eur: '€2',    tier: 'small',  color: '#FFA000' },
-  teddy:     { emoji: '🧸', label: 'Teddy Bear', eur: '€3',    tier: 'small',  color: '#FF7043' },
-  fireworks: { emoji: '🎆', label: 'Fireworks',  eur: '€50',   tier: 'medium', color: '#FF6D00' },
-  dragon:    { emoji: '🐉', label: 'Dragon',     eur: '€100',  tier: 'big',    color: '#BF360C' },
-  rocket:    { emoji: '🚀', label: 'Rocket',     eur: '€200',  tier: 'mega',   color: '#1565C0' },
+const GIFTS: Record<GiftKey, { emoji: string; label: string; st: number; tier: 'tiny'|'small'|'medium'|'big'|'mega'; color: string }> = {
+  lollipop:  { emoji: '🍭', label: 'Lollipop',  st: 50,    tier: 'tiny',   color: '#FF5CA8' },
+  beer:      { emoji: '🍺', label: 'Beer',       st: 200,   tier: 'small',  color: '#FFA000' },
+  teddy:     { emoji: '🧸', label: 'Teddy Bear', st: 300,   tier: 'small',  color: '#FF7043' },
+  fireworks: { emoji: '🎆', label: 'Fireworks',  st: 5000,  tier: 'medium', color: '#FF6D00' },
+  dragon:    { emoji: '🐉', label: 'Dragon',     st: 10000, tier: 'big',    color: '#BF360C' },
+  rocket:    { emoji: '🚀', label: 'Rocket',     st: 20000, tier: 'mega',   color: '#1565C0' },
 };
 
 const GIFT_ORDER: GiftKey[] = ['lollipop','beer','teddy','fireworks','dragon','rocket'];
@@ -106,7 +106,7 @@ function GiftBurst({ ag, onDone }: { ag: ActiveGift; onDone: () => void }) {
         transition={{ duration: 0.6, ease: [0.175, 0.885, 0.32, 1.275] }}
       >{def.emoji}</motion.div>
 
-      {/* EUR label */}
+      {/* ST label */}
       <motion.div style={{
         fontFamily: 'Bebas Neue', fontSize: isMega ? 22 : isBig ? 17 : 13,
         color: isMega ? '#0D0B12' : '#fff', marginTop: 6, textAlign: 'center',
@@ -115,7 +115,7 @@ function GiftBurst({ ag, onDone }: { ag: ActiveGift; onDone: () => void }) {
         boxShadow: isMega ? `0 0 24px ${def.color}99` : undefined,
       }}
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
-      >{def.label} · {def.eur}</motion.div>
+      >{def.label} · {def.st.toLocaleString()} ST</motion.div>
 
       {/* Ghost floater */}
       <motion.div style={{ fontSize: cfg.eSize * 0.45, position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)' }}
@@ -148,10 +148,10 @@ export function Scene3() {
   const addMsg = (msg: Omit<ChatMsg, 'id'>) =>
     setChatMsgs(prev => [...prev.slice(-5), { ...msg, id: nextId.current++ }]);
 
-  const sendGift = (key: GiftKey, eurValue: number, viewerBoost: number) => {
+  const sendGift = (key: GiftKey, stValue: number, viewerBoost: number) => {
     setActiveGifts(prev => [...prev, { id: nextId.current++, key, x: 28 + Math.random() * 44 }]);
     setSentKeys(prev => new Set([...prev, key]));
-    setEarnings(prev => prev + eurValue);
+    setEarnings(prev => prev + stValue);
     setViewers(prev => prev + viewerBoost);
   };
 
@@ -162,47 +162,47 @@ export function Scene3() {
       setTimeout(() => { setPhase(2); addMsg({ user: 'Alex',  text: 'OMG you look amazing! 😍',   color: USER_COLORS[0] }); }, 700),
       setTimeout(() => addMsg({ user: 'Mia',   text: 'First time here — love this! ✨',            color: USER_COLORS[1] }), 1500),
 
-      // 3s — 🍭 Lollipop €0.50
+      // 3s — 🍭 Lollipop 50 ST
       setTimeout(() => {
-        sendGift('lollipop', 0.5, 8);
-        addMsg({ user: 'Jake',  text: '🍭 Sent a Lollipop!',                    color: USER_COLORS[2], isGift: true });
+        sendGift('lollipop', 50, 8);
+        addMsg({ user: 'Jake',  text: '🍭 Sent a Lollipop! 50 ST 💗',           color: USER_COLORS[2], isGift: true });
       }, 3000),
 
-      // 5s — 🍺 Beer €2
+      // 5s — 🍺 Beer 200 ST
       setTimeout(() => {
-        sendGift('beer', 2, 22);
-        addMsg({ user: 'Carlos', text: '🍺 Cheers!! Beer for you! ❤️',         color: USER_COLORS[3], isGift: true });
+        sendGift('beer', 200, 22);
+        addMsg({ user: 'Carlos', text: '🍺 Cheers!! 200 ST for you! ❤️',        color: USER_COLORS[3], isGift: true });
       }, 5000),
 
-      // 7s — 🧸 Teddy €3
+      // 7s — 🧸 Teddy 300 ST
       setTimeout(() => {
-        sendGift('teddy', 3, 30);
-        addMsg({ user: 'Luna',  text: '🧸 A warm hug for you! So cute',         color: USER_COLORS[4], isGift: true });
+        sendGift('teddy', 300, 30);
+        addMsg({ user: 'Luna',  text: '🧸 A warm hug! 300 ST 🥰',               color: USER_COLORS[4], isGift: true });
       }, 7000),
       setTimeout(() => addMsg({ user: 'Sam', text: 'She\'s adorable!! 🔥🔥',    color: USER_COLORS[1] }), 8200),
 
-      // 9.5s — 🎆 Fireworks €50
+      // 9.5s — 🎆 Fireworks 5,000 ST
       setTimeout(() => {
-        sendGift('fireworks', 50, 180);
-        addMsg({ user: '🎆 Ryan',  text: 'FIREWORKS!!! 50 euros!! 💥💥',        color: '#FF6D00', isGift: true });
+        sendGift('fireworks', 5000, 180);
+        addMsg({ user: '🎆 Ryan',  text: 'FIREWORKS!!! 5,000 ST!! 💥💥',        color: '#FF6D00', isGift: true });
       }, 9500),
       setTimeout(() => addMsg({ user: 'Sofia', text: 'WOW she is worth it!! 🥰', color: USER_COLORS[5] }), 10800),
 
-      // 13s — 🐉 Dragon €100
+      // 13s — 🐉 Dragon 10,000 ST
       setTimeout(() => {
         setPhase(3);
-        sendGift('dragon', 100, 320);
-        addMsg({ user: '🐉 VIP Mark', text: 'DRAGON! €100 for the queen!! 🔥🔥🔥', color: '#FF6B35', isGift: true });
+        sendGift('dragon', 10000, 320);
+        addMsg({ user: '🐉 VIP Mark', text: 'DRAGON! 10,000 ST for the queen!! 🔥🔥🔥', color: '#FF6B35', isGift: true });
       }, 13000),
-      setTimeout(() => addMsg({ user: 'EVERYONE', text: '🔥🔥🔥 €100!! WOW!!!',   color: '#e74c3c' }), 14500),
+      setTimeout(() => addMsg({ user: 'EVERYONE', text: '🔥🔥🔥 10,000 ST!! WOW!!!', color: '#e74c3c' }), 14500),
 
-      // 17s — 🚀 Rocket €200 — HERO MOMENT
+      // 17s — 🚀 Rocket 20,000 ST — HERO MOMENT
       setTimeout(() => {
         setPhase(4);
-        sendGift('rocket', 200, 750);
-        addMsg({ user: '⭐ VIP Tyler', text: '🚀🚀 ROCKET!! €200!! YOU\'RE THE BEST!! 🚀🚀', color: '#64B5F6', isGift: true });
+        sendGift('rocket', 20000, 750);
+        addMsg({ user: '⭐ VIP Tyler', text: '🚀🚀 ROCKET!! 20,000 ST!! YOU\'RE THE BEST!! 🚀🚀', color: '#64B5F6', isGift: true });
       }, 17000),
-      setTimeout(() => addMsg({ user: 'EVERYONE', text: '😱😱😱 €200 ROCKET!!!!! 🚀🚀🚀', color: '#F39C12' }), 18600),
+      setTimeout(() => addMsg({ user: 'EVERYONE', text: '😱😱😱 20,000 ST ROCKET!!!!! 🚀🚀🚀', color: '#F39C12' }), 18600),
 
       // 20s — "many more" banner
       setTimeout(() => setShowMore(true), 20000),
@@ -280,7 +280,7 @@ export function Scene3() {
               initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} key={earnings}
             >
               <span style={{ fontSize: 10 }}>💰</span>
-              <span style={{ fontFamily: 'Bebas Neue', fontSize: 14, color: '#F39C12' }}>+€{earnings.toFixed(2)}</span>
+              <span style={{ fontFamily: 'Bebas Neue', fontSize: 14, color: '#F39C12' }}>+{earnings.toLocaleString()} ST</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -316,6 +316,26 @@ export function Scene3() {
         </AnimatePresence>
       </motion.div>
 
+      {/* ── Chat input bar ── */}
+      <motion.div style={{ padding: '0 8px 4px', display: 'flex', alignItems: 'center', gap: 6, zIndex: 10 }}
+        initial={{ opacity: 0, y: 12 }} animate={phase >= 2 ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.35 }}
+      >
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+          background: 'rgba(255,255,255,0.06)', borderRadius: 22, padding: '6px 11px',
+          border: '1px solid rgba(255,255,255,0.1)',
+        }}>
+          <span style={{ fontSize: 13 }}>😊</span>
+          <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'rgba(255,255,255,0.3)', flex: 1 }}>
+            {phase >= 3 ? 'Send a message…' : 'Say something…'}
+          </span>
+          <span style={{ fontSize: 11 }}>@</span>
+        </div>
+        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(192,57,43,0.35)', border: '1px solid rgba(192,57,43,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <span style={{ fontSize: 14 }}>🎁</span>
+        </div>
+      </motion.div>
+
       {/* ── Gift buttons ── */}
       <motion.div style={{ padding: '0 8px 6px', display: 'flex', gap: 4, zIndex: 10 }}
         initial={{ opacity: 0, y: 20 }} animate={phase >= 2 ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.4 }}
@@ -339,7 +359,7 @@ export function Scene3() {
               )}
               <div style={{ fontSize: [14, 16, 17, 22, 26, 30][GIFT_ORDER.indexOf(key)], position: 'relative', zIndex: 1 }}>{g.emoji}</div>
               <div style={{ fontFamily: 'Bebas Neue', fontSize: 9, color: sent ? g.color : 'rgba(255,255,255,0.6)', letterSpacing: '0.04em', marginTop: 1, position: 'relative', zIndex: 1 }}>{g.label}</div>
-              <div style={{ fontFamily: 'Inter', fontSize: 7, color: 'rgba(255,255,255,0.4)', marginTop: 1, position: 'relative', zIndex: 1 }}>{g.eur}</div>
+              <div style={{ fontFamily: 'Inter', fontSize: 7, color: 'rgba(255,255,255,0.4)', marginTop: 1, position: 'relative', zIndex: 1 }}>{g.st >= 1000 ? `${(g.st/1000).toFixed(g.st % 1000 === 0 ? 0 : 1)}K` : g.st} ST</div>
               {sent && (
                 <motion.div style={{ position: 'absolute', top: 2, right: 2, background: '#27ae60', borderRadius: '50%', width: 11, height: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: '#fff' }}
                   initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 14 }}
@@ -355,8 +375,7 @@ export function Scene3() {
         initial={{ opacity: 0 }} animate={phase >= 2 ? { opacity: 1 } : {}} transition={{ duration: 0.4, delay: 0.3 }}
       >
         <span style={{ fontSize: 11 }}>⚡</span>
-        <span style={{ fontFamily: 'Inter', fontSize: 9, color: 'rgba(255,255,255,0.55)' }}>Min. </span>
-        <span style={{ fontFamily: 'Bebas Neue', fontSize: 12, color: '#F39C12' }}>50 ST = €0.50</span>
+        <span style={{ fontFamily: 'Bebas Neue', fontSize: 12, color: '#F39C12' }}>50 ST minimum</span>
         <span style={{ fontFamily: 'Inter', fontSize: 9, color: 'rgba(255,255,255,0.35)', marginLeft: 4 }}>· many more gifts available</span>
       </motion.div>
 
@@ -368,7 +387,7 @@ export function Scene3() {
           >
             <div style={{ fontFamily: 'Bebas Neue', fontSize: 15, color: '#F39C12', letterSpacing: '0.08em', marginBottom: 6 }}>🎁 AND MANY MORE BEAUTIFUL GIFTS!</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {['🍭€0.50','🧁€1','🍺€2','🧸€3','🍓€5','🌙€10','🦋€15','🎩€25','🍷€40','🎆€50','🔮€75','🐉€100','🦁€150','🚀€200','🌌€300'].map(g => (
+              {['🍭 50ST','🧁 100ST','🍺 200ST','🧸 300ST','🍓 500ST','🌙 1K ST','🦋 1.5K ST','🎩 2.5K ST','🍷 4K ST','🎆 5K ST','🔮 7.5K ST','🐉 10K ST','🦁 15K ST','🚀 20K ST','🌌 30K ST'].map(g => (
                 <div key={g} style={{ fontFamily: 'Inter', fontSize: 9, color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.07)', borderRadius: 20, padding: '2px 7px', border: '1px solid rgba(255,255,255,0.1)' }}>{g}</div>
               ))}
             </div>
@@ -385,14 +404,14 @@ export function Scene3() {
             <motion.div style={{ textAlign: 'center' }} initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}>
               <div style={{ fontSize: 44, marginBottom: 6 }}>💰</div>
               <div style={{ fontFamily: 'Bebas Neue', fontSize: 'clamp(18px,5.5vw,28px)', color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em' }}>THIS SESSION YOU EARNED</div>
-              <motion.div style={{ fontFamily: 'Bebas Neue', fontSize: 'clamp(50px,15vw,70px)', color: '#F39C12', letterSpacing: '0.06em', lineHeight: 1 }}
+              <motion.div style={{ fontFamily: 'Bebas Neue', fontSize: 'clamp(40px,12vw,60px)', color: '#F39C12', letterSpacing: '0.06em', lineHeight: 1 }}
                 initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.3, type: 'spring', stiffness: 300, damping: 18 }}
-              >€{earnings.toFixed(2)}</motion.div>
-              <div style={{ fontFamily: 'Inter', fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 4 }}>from gifts · 15 gift types available</div>
+              >{earnings.toLocaleString()} ST</motion.div>
+              <div style={{ fontFamily: 'Inter', fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 4 }}>from gifts · convert to cash when you withdraw</div>
             </motion.div>
             <motion.div style={{ fontFamily: 'Bebas Neue', fontSize: 16, color: '#27ae60', letterSpacing: '0.1em', background: 'rgba(39,174,96,0.15)', borderRadius: 30, padding: '7px 22px', border: '1px solid rgba(39,174,96,0.4)' }}
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-            >WITHDRAW TO BANK →</motion.div>
+            >WITHDRAW → €{(earnings / 100).toFixed(2)}</motion.div>
           </motion.div>
         )}
       </AnimatePresence>

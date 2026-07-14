@@ -776,7 +776,7 @@ const styles = StyleSheet.create({
   },
   tierBadgeText: { fontSize: 9, fontFamily: "Inter_600SemiBold" },
 
-  giftEmoji: { fontSize: 40, marginBottom: 2 },
+  giftEmoji: { fontSize: 56, marginBottom: 2 },
   giftName:  { fontSize: 12, fontFamily: "Inter_700Bold", textAlign: "center" },
   giftCost:  { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   giftEur:   { fontSize: 10, fontFamily: "Inter_400Regular" },

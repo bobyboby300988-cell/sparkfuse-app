@@ -2,10 +2,10 @@ import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 
 const steps = [
-  { icon: '💳', label: 'Buy ST Tokens',  sub: 'Card or PayPal',         color: '#C0392B' },
-  { icon: '⚡', label: 'Spend ST',        sub: 'Gifts · Content · Live', color: '#F39C12' },
-  { icon: '💸', label: 'Creators Earn',  sub: 'ST credited instantly',   color: '#27ae60' },
-  { icon: '🏦', label: 'Withdraw Cash',  sub: '10% platform fee',        color: '#3498db' },
+  { icon: '💳', label: 'Buy ST Tokens',  sub: 'Card · PayPal · More coming soon', color: '#C0392B' },
+  { icon: '⚡', label: 'Spend ST',        sub: 'Gifts · Content · Live',           color: '#F39C12' },
+  { icon: '💸', label: 'Creators Earn',  sub: 'ST credited instantly',             color: '#27ae60' },
+  { icon: '🏦', label: 'Withdraw Cash',  sub: '10% platform fee',                  color: '#3498db' },
 ];
 
 const stPacks = [
@@ -158,6 +158,39 @@ export function Scene5() {
             )}
             <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 16, color: '#F39C12', letterSpacing: '0.04em' }}>{pack.st}</div>
             <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 1 }}>{pack.price}</div>
+          </div>
+        ))}
+      </motion.div>
+
+      {/* Coming Soon — Crypto + AST */}
+      <motion.div style={{
+        width: '88%', marginTop: 8, position: 'relative', zIndex: 10,
+        display: 'flex', gap: 6,
+      }}
+        initial={{ opacity: 0, y: 8 }}
+        animate={phase >= 5 ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+        transition={{ duration: 0.4, delay: 0.15 }}
+      >
+        {[
+          { icon: '₿', label: 'Crypto Deposit', sub: 'BTC · ETH · soon', color: '#F7931A' },
+          { icon: '🪙', label: 'Buy AST Token', sub: 'via crypto · soon',  color: '#9b59b6' },
+        ].map((item, i) => (
+          <div key={i} style={{
+            flex: 1, borderRadius: 10, padding: '7px 8px',
+            background: 'rgba(20,16,30,0.7)',
+            border: `1px dashed ${item.color}40`,
+            display: 'flex', alignItems: 'center', gap: 7, opacity: 0.72,
+          }}>
+            <div style={{
+              width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+              background: `${item.color}18`, border: `1px solid ${item.color}35`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'Inter, sans-serif', fontSize: 13, color: item.color, fontWeight: 700,
+            }}>{item.icon}</div>
+            <div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{item.label}</div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: item.color, letterSpacing: '0.06em' }}>{item.sub}</div>
+            </div>
           </div>
         ))}
       </motion.div>

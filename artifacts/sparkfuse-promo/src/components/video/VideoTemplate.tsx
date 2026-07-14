@@ -13,11 +13,11 @@ import { SceneWithdraw } from './video_scenes/SceneWithdraw';
 /* ─── Scene durations — locked to audio lengths + 500ms buffer ─── */
 export const SCENE_DURATIONS: Record<string, number> = {
   hook:      6500,
-  verify:   15700,
-  live:     23500,
+  verify:   16600,
+  live:     36800,
   withdraw: 18200,
-  content:  12600,
-  tokens:   13700,
+  content:  22200,
+  tokens:   21000,
   outro:    15700,
 };
 
