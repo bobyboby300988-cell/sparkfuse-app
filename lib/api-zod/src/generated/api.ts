@@ -149,6 +149,14 @@ export const GetFeedResponse = zod.object({
 
 
 /**
+ * @summary Clear all swipes made by the current user (resets discover feed)
+ */
+export const DeleteMySwipesResponse = zod.object({
+  "deleted": zod.number()
+})
+
+
+/**
  * @summary Record a swipe on another user; creates a match if mutual
  */
 

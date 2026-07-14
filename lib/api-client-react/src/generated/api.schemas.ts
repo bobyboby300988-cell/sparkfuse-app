@@ -127,3 +127,7 @@ export interface BlocksResponse {
   blockedUserIds: string[];
 }
 
+export type DeleteMySwipes200 = {
+  deleted: number;
+};
+

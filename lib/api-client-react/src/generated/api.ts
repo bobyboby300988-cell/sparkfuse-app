@@ -23,6 +23,7 @@ import type {
   AuthUserEnvelope,
   BlockInput,
   BlocksResponse,
+  DeleteMySwipes200,
   ErrorEnvelope,
   FeedResponse,
   HealthStatus,
@@ -567,6 +568,76 @@ export function useGetFeed<TData = Awaited<ReturnType<typeof getFeed>>, TError =
 
 
 
+
+export const getDeleteMySwipesUrl = () => {
+
+
+
+
+  return `/api/swipes`
+}
+
+/**
+ * @summary Clear all swipes made by the current user (resets discover feed)
+ */
+export const deleteMySwipes = async ( options?: RequestInit): Promise<DeleteMySwipes200> => {
+
+  return customFetch<DeleteMySwipes200>(getDeleteMySwipesUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteMySwipesMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMySwipes>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMySwipes>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteMySwipes'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMySwipes>>, void> = () => {
+
+
+          return  deleteMySwipes(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteMySwipesMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMySwipes>>>
+
+    export type DeleteMySwipesMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Clear all swipes made by the current user (resets discover feed)
+ */
+export const useDeleteMySwipes = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMySwipes>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteMySwipes>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteMySwipesMutationOptions(options));
+    }
 
 export const getCreateSwipeUrl = () => {
 

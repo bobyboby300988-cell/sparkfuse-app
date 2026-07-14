@@ -46,6 +46,12 @@ function toApiProfile(
   };
 }
 
+router.delete("/swipes", requireAuth, async (req: Request, res: Response) => {
+  const userId = req.dbUser!.id;
+  const result = await db.delete(swipesTable).where(eq(swipesTable.swiperId, userId));
+  res.json({ deleted: result.rowCount ?? 0 });
+});
+
 router.get("/feed", requireAuth, async (req: Request, res: Response) => {
   const userId = req.dbUser!.id;
 

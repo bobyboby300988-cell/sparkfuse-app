@@ -26,7 +26,7 @@ import { useGetMyProfile, useUpsertMyProfile } from "@workspace/api-client-react
 import { useApp } from "@/context/AppContext";
 import WithdrawModal from "@/components/WithdrawModal";
 import { useColors } from "@/hooks/useColors";
-import { getPhotoUrl } from "@/lib/api";
+import { getPhotoUrl, getApiUrl } from "@/lib/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { useTranslation } from "react-i18next";
@@ -111,16 +111,21 @@ export default function ProfileScreen() {
 
   const handleReset = () => {
     Alert.alert(
-      t("profile.resetProfile"),
-      t("profile.resetConfirm"),
+      "Reset Discover",
+      "This clears your swipe history so everyone reappears in Discover.\n\nYour profile, matches, and messages are NOT deleted.",
       [
-        { text: t("common.cancel"), style: "cancel" },
+        { text: "Cancel", style: "cancel" },
         {
-          text: t("profile.reset"),
+          text: "Reset Discover",
           style: "destructive",
           onPress: async () => {
-            await AsyncStorage.clear();
-            router.replace("/onboarding");
+            try {
+              // Clear server-side swipes so dismissed users reappear in feed
+              await fetch("/api/swipes", { method: "DELETE", credentials: "include" });
+            } catch {}
+            // Clear local state
+            await AsyncStorage.multiRemove(["discover_filters_v1"]);
+            Alert.alert("Done", "Your Discover feed has been reset. Everyone will appear again.");
           },
         },
       ]
@@ -730,7 +735,7 @@ export default function ProfileScreen() {
           })}
         >
           <Ionicons name="refresh-outline" size={14} color={colors.mutedForeground} />
-          <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_500Medium" }}>{t("profile.resetProfile")}</Text>
+          <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_500Medium" }}>Reset Discover</Text>
         </Pressable>
       </View>
     </ScrollView>

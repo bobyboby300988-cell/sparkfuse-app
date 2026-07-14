@@ -133,6 +133,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /swipes:
+    delete:
+      tags: [Matching]
+      operationId: deleteMySwipes
+      summary: Clear all swipes made by the current user (resets discover feed)
+      responses:
+        '200':
+          description: Swipes cleared.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: integer
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /swipe:
     post:
       tags: [Matching]
