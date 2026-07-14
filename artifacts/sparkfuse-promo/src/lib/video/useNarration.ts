@@ -1,124 +1,131 @@
-import { useEffect, useRef } from 'react';
-
-/* ─── Scene narration scripts ─── */
+/* ─── Narration scripts for each scene ─── */
 const NARRATIONS: Record<string, string> = {
-  hook: `Welcome to SparkFuse — the dating app that actually pays you.`,
+  hook: `Welcome to SparkFuse. The dating app that actually pays you real money.`,
 
-  verify: `Getting started is simple. Pay just two euros, once, to verify your account.
-           You can use a credit card or PayPal. That's it — full access, unlocked forever.`,
+  verify: `Getting started is simple and safe. Just pay two euros — one single time — to verify your account. 
+           Watch as you enter your card details, press pay, and in seconds your payment is confirmed. 
+           Your account is now verified. Full access unlocked. You are ready to start earning.`,
 
-  live: `Go live and let the world see you.
-         Fans join your stream and send gifts — a Rose, a Diamond, or a Crown.
-         Every gift puts real money in your pocket.
-         When you're ready, cash out directly to your bank.`,
+  live: `Now go live and let the world see you. 
+         Fans join your stream and they start sending gifts. 
+         First a Rose for five tokens. Then a Diamond for fifty tokens. 
+         Then a Crown for two hundred tokens! 
+         And then the biggest gift of all — a Mega Star worth five hundred tokens! 
+         Every single gift puts real money directly into your pocket. 
+         When you are ready, just press withdraw and cash out to your bank.`,
 
-  content: `Chat privately with your matches.
-            Share free photos to get them interested — then sell your exclusive content.
-            Fans unlock your premium photos and videos using tokens.
-            They can also send you gifts in chat — small, medium, or large.
-            Every gift converts to real cash for you.`,
+  withdraw: `Here is your earnings dashboard. This month you earned one hundred and twenty seven euros and fifty cents. 
+             From live streams, from DM gifts, and from content sales. 
+             Press withdraw, enter your bank account number, and confirm. 
+             Watch as the transfer processes in real time. 
+             One hundred and fourteen euros and seventy five cents — sent directly to your bank. 
+             Only a ten percent platform fee is deducted. The rest is all yours.`,
 
-  tokens: `SparkFuse runs on ST tokens.
-           Fans buy tokens and spend them on gifts, live streams, and exclusive content.
-           You earn tokens instantly every time someone supports you.
-           When you're ready to withdraw, just a ten percent platform fee applies.
-           The rest goes straight to your bank.`,
+  content: `In private chat, you can share exclusive photos and videos. 
+            Fans pay to unlock your premium content using tokens. 
+            They can also send you gifts in private messages — small, medium, or large. 
+            Every gift, every unlock, every tip — it all converts to real cash for you.`,
 
-  outro: `SparkFuse is available right now on the web.
-          The Android app on Google Play is coming very soon.
-          The iPhone App Store version follows after that.
-          Find your spark. Start earning today.`,
+  tokens: `SparkFuse runs on ST tokens. Fans buy token packs — one hundred, five hundred, or one thousand tokens. 
+           They spend those tokens on gifts, live streams, and exclusive content. 
+           You earn tokens instantly every time someone supports you. 
+           Withdraw anytime with just a ten percent platform fee. The rest goes straight to your bank.`,
+
+  outro: `SparkFuse is available right now on the web. 
+          The Android app on Google Play is coming very soon. 
+          The iPhone App Store version follows shortly after. 
+          Sign up today. Start earning tomorrow. Find your spark.`,
 };
 
-/* ─── Pick the best available female voice ─── */
+/* ─── Voice selector: picks best female voice ─── */
 function pickFemaleVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  // Priority list — best female voices across platforms
   const preferred = [
-    'Samantha',               // iOS / macOS — natural, warm
-    'Google UK English Female',
-    'Microsoft Aria Online',
-    'Microsoft Aria',
-    'Microsoft Zira',
-    'Karen',                  // macOS AU
-    'Moira',                  // macOS IE
-    'Tessa',                  // macOS ZA
-    'Serena',                 // iOS
+    'Samantha', 'Google UK English Female', 'Microsoft Aria Online',
+    'Microsoft Aria', 'Microsoft Zira', 'Karen', 'Moira', 'Tessa', 'Serena',
+    'Google US English', 'Victoria',
   ];
-
   for (const name of preferred) {
     const v = voices.find(v => v.name.includes(name));
     if (v) return v;
   }
-
-  // Fall back: any English female-sounding voice
-  const enFemale = voices.find(
-    v => v.lang.startsWith('en') && /female|woman|girl/i.test(v.name)
-  );
+  const enFemale = voices.find(v => v.lang.startsWith('en') && /female|woman/i.test(v.name));
   if (enFemale) return enFemale;
-
-  // Last resort: first English voice
   return voices.find(v => v.lang.startsWith('en')) ?? voices[0] ?? null;
 }
 
-/* ─── Hook ─── */
-export function useNarration(sceneKey: string, enabled = true) {
-  const voicesReadyRef = useRef(false);
-  const pendingRef     = useRef<{ key: string } | null>(null);
+/* ─── ResponsiveVoice wrapper (declared globally via CDN in index.html) ─── */
+declare const responsiveVoice: {
+  speak: (text: string, voice: string, params?: {
+    pitch?: number; rate?: number; volume?: number;
+    onstart?: () => void; onend?: () => void;
+  }) => void;
+  cancel: () => void;
+  isPlaying: () => boolean;
+  voiceSupport: () => boolean;
+} | undefined;
 
-  // Speak helper
-  function speak(key: string) {
-    const synth = window.speechSynthesis;
-    const baseKey = key.replace(/_r\d+$/, '');
-    const text    = NARRATIONS[baseKey];
-    if (!text || !enabled) return;
+let voicesLoaded = false;
+let pendingSpeak: (() => void) | null = null;
 
-    synth.cancel();
+function ensureVoicesLoaded(cb: () => void) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return;
+  if (voicesLoaded) { cb(); return; }
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length > 0) { voicesLoaded = true; cb(); return; }
+  window.speechSynthesis.addEventListener('voiceschanged', function handler() {
+    voicesLoaded = true;
+    window.speechSynthesis.removeEventListener('voiceschanged', handler);
+    cb();
+  });
+}
 
-    const utterance     = new SpeechSynthesisUtterance(text.replace(/\s+/g, ' ').trim());
-    const voice         = pickFemaleVoice(synth.getVoices());
-    if (voice) utterance.voice = voice;
+/* ─── Main speak function ─── */
+export function speakScene(sceneKey: string) {
+  const baseKey = sceneKey.replace(/_r\d+$/, '');
+  const text = NARRATIONS[baseKey];
+  if (!text) return;
 
-    utterance.rate   = 0.90;   // slightly slower — clear and calm
-    utterance.pitch  = 1.08;   // a touch higher — female warmth
-    utterance.volume = 1.0;
+  const clean = text.replace(/\s+/g, ' ').trim();
 
-    // Small pause so the scene's entrance animation plays first
-    setTimeout(() => synth.speak(utterance), 250);
+  // Try ResponsiveVoice first (best mobile support, real Google TTS)
+  if (typeof responsiveVoice !== 'undefined') {
+    try {
+      responsiveVoice.cancel();
+      setTimeout(() => {
+        responsiveVoice.speak(clean, 'UK English Female', {
+          pitch: 1.05,
+          rate: 0.88,
+          volume: 1,
+        });
+      }, 300);
+      return;
+    } catch (_) { /* fall through */ }
   }
 
-  // Wait for voices to load on first mount (async in Chrome)
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+  // Fallback: Web Speech API
+  if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
-    const synth = window.speechSynthesis;
+  const doSpeak = () => {
+    window.speechSynthesis.cancel();
+    setTimeout(() => {
+      const utter = new SpeechSynthesisUtterance(clean);
+      const voice = pickFemaleVoice(window.speechSynthesis.getVoices());
+      if (voice) utter.voice = voice;
+      utter.rate   = 0.88;
+      utter.pitch  = 1.08;
+      utter.volume = 1;
+      window.speechSynthesis.speak(utter);
+    }, 300);
+  };
 
-    if (synth.getVoices().length > 0) {
-      voicesReadyRef.current = true;
-    } else {
-      const handler = () => {
-        voicesReadyRef.current = true;
-        if (pendingRef.current) {
-          speak(pendingRef.current.key);
-          pendingRef.current = null;
-        }
-        synth.removeEventListener('voiceschanged', handler);
-      };
-      synth.addEventListener('voiceschanged', handler);
-    }
+  ensureVoicesLoaded(doSpeak);
+}
 
-    return () => { synth.cancel(); };
-  }, []);
-
-  // Speak whenever the scene changes
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    if (!enabled) { window.speechSynthesis.cancel(); return; }
-
-    if (voicesReadyRef.current) {
-      speak(sceneKey);
-    } else {
-      // Voices not loaded yet — queue it
-      pendingRef.current = { key: sceneKey };
-    }
-  }, [sceneKey, enabled]);
+export function stopNarration() {
+  if (typeof responsiveVoice !== 'undefined') {
+    try { responsiveVoice.cancel(); } catch (_) {}
+  }
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
 }
