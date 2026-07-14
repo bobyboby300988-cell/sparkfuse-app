@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -17,65 +18,129 @@ import {
 import { useApp } from "@/context/AppContext";
 import { buyTokensWithStripe, buyTokensWithPayPal } from "@/config/payments";
 
-/* ─── 15 gifts — 1 ST = €0.01 ─── */
-const GIFTS = [
-  /* ── Sweet ── */
-  { tokens: 50,    label: "Lollipop",   emoji: "🍭", desc: "Sugar rush!",         tier: "Sweet",     grad: ["#FF9BE2","#FF5CA8"] as [string,string], glow: "#FF5CA890", tierColor: "#FF6B9D" },
-  { tokens: 100,   label: "Cupcake",    emoji: "🧁", desc: "Sweet & delicious",   tier: "Sweet",     grad: ["#FFD6B0","#FF9F68"] as [string,string], glow: "#FF9F6890", tierColor: "#FF6B9D" },
-  { tokens: 200,   label: "Beer",       emoji: "🍺", desc: "Cheers! ❤️",          tier: "Sweet",     grad: ["#FFE082","#FFA000"] as [string,string], glow: "#FFA00090", tierColor: "#FF6B9D" },
-  { tokens: 300,   label: "Teddy Bear", emoji: "🧸", desc: "A soft hug",          tier: "Sweet",     grad: ["#FFCCBC","#FF7043"] as [string,string], glow: "#FF704390", tierColor: "#FF6B9D" },
-  { tokens: 500,   label: "Strawberry", emoji: "🍓", desc: "Sweet & juicy",       tier: "Sweet",     grad: ["#FF8A80","#FF1744"] as [string,string], glow: "#FF174490", tierColor: "#FF6B9D" },
-
-  /* ── Dreamy ── */
-  { tokens: 1000,  label: "Moon",       emoji: "🌙", desc: "You light my night",  tier: "Dreamy",    grad: ["#B39DDB","#673AB7"] as [string,string], glow: "#673AB790", tierColor: "#9C27B0" },
-  { tokens: 1500,  label: "Butterfly",  emoji: "🦋", desc: "Flutter of feelings", tier: "Dreamy",    grad: ["#80DEEA","#0097A7"] as [string,string], glow: "#0097A790", tierColor: "#9C27B0" },
-  { tokens: 2500,  label: "Magic Hat",  emoji: "🎩", desc: "You're magical",      tier: "Dreamy",    grad: ["#CE93D8","#7B1FA2"] as [string,string], glow: "#7B1FA290", tierColor: "#9C27B0" },
-  { tokens: 4000,  label: "Wine",       emoji: "🍷", desc: "A sensual evening",   tier: "Dreamy",    grad: ["#EF9A9A","#C62828"] as [string,string], glow: "#C6282890", tierColor: "#9C27B0" },
-
-  /* ── Power ── */
-  { tokens: 5000,  label: "Fireworks",  emoji: "🎆", desc: "You're explosive!",   tier: "Power",     grad: ["#FFD740","#FF6D00"] as [string,string], glow: "#FF6D0090", tierColor: "#FF6B35" },
-  { tokens: 7500,  label: "Crystal",    emoji: "🔮", desc: "Mysterious desires",  tier: "Power",     grad: ["#80CBC4","#00695C"] as [string,string], glow: "#00695C90", tierColor: "#FF6B35" },
-  { tokens: 10000, label: "Dragon",     emoji: "🐉", desc: "Fierce & powerful",   tier: "Power",     grad: ["#FF7043","#BF360C"] as [string,string], glow: "#BF360C90", tierColor: "#FF6B35" },
-
-  /* ── Legendary ── */
-  { tokens: 15000, label: "Lion King",  emoji: "🦁", desc: "King of hearts",      tier: "Legendary", grad: ["#FFD700","#C8860A"] as [string,string], glow: "#C8860A90", tierColor: "#FFD700" },
-  { tokens: 20000, label: "Rocket",     emoji: "🚀", desc: "Sky's the limit!",    tier: "Legendary", grad: ["#64B5F6","#1565C0"] as [string,string], glow: "#1565C090", tierColor: "#FFD700" },
-  { tokens: 30000, label: "Galaxy",     emoji: "🌌", desc: "Out of this world",   tier: "Legendary", grad: ["#CE93D8","#1A0033"] as [string,string], glow: "#9C27B090", tierColor: "#FFD700" },
-];
-
-const TIER_ORDER = ["Sweet", "Dreamy", "Power", "Legendary"];
-const TIER_ICONS: Record<string, string> = {
-  Sweet: "🍭", Dreamy: "🌙", Power: "⚡", Legendary: "🌌",
+/* ─── Image URLs ─── */
+const I = {
+  rose:        "https://static.vecteezy.com/system/resources/thumbnails/063/104/555/small/hyper-realistic-rose-petals-vivid-colors-macro-artistic-floral-image-free-photo.jpeg",
+  chocolate:   "https://asiriblooms.com/cdn/shop/products/81pI2SWoFiL._SL1500_0ff5e4d0-0884-463b-ba6d-b1e2d3099cd4.jpg?v=1675259612&width=400",
+  strawberry:  "https://thumbs.dreamstime.com/b/macro-chocolate-strawberry-fondue-stick-13394953.jpg",
+  perfume:     "https://i.pinimg.com/originals/94/40/a2/9440a26cada25d725f60a514b5ecdc64.jpg",
+  heels:       "https://thumbs.dreamstime.com/b/red-high-heels-carpet-red-high-heels-carpet-closeup-photo-390103019.jpg",
+  champagne:   "https://static.vecteezy.com/system/resources/thumbnails/059/554/174/small/sparkling-gold-champagne-bottle-festive-celebration-drink-luxury-alcohol-elegant-design-free-png.png",
+  lips:        "https://static.vecteezy.com/system/resources/thumbnails/033/863/267/small/closeup-shot-of-beautiful-female-lips-with-glossy-red-lipstick-red-lips-makeup-ultra-close-up-view-of-beautiful-sexy-female-lips-ai-generated-free-photo.jpg",
+  lingerie:    "https://images.pexels.com/photos/4118947/pexels-photo-4118947.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500",
+  crown:       "https://static.vecteezy.com/system/resources/thumbnails/045/388/189/small/gold-ornate-crown-with-gemstones-symbol-of-royalty-and-luxury-intricate-craftsmanship-detail-photo.jpg",
+  diamond:     "https://lerajewellery.com/cdn/shop/files/3-6997_1.jpg?v=1718713830&width=533",
+  watch:       "https://images.pexels.com/photos/3809175/pexels-photo-3809175.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500",
+  bag:         "https://png.pngtree.com/png-vector/20250220/ourmid/pngtree-luxury-designer-handbag-for-women-premium-leather-bag-fashionable-ladies-png-image_15533589.png",
+  yacht:       "https://static.vecteezy.com/system/resources/thumbnails/055/978/578/small/sunset-over-the-ocean-viewed-from-a-luxury-yacht-showcasing-vibrant-colors-and-peaceful-waters-free-photo.jpeg",
+  jet:         "https://thumbs.dreamstime.com/b/generated-image-luxury-private-jet-interior-champagne-glasses-table-440304177.jpg",
+  ferrari:     "https://images.pexels.com/photos/37284552/pexels-photo-37284552/free-photo-of-red-ferrari-sports-car-parked-on-a-city-street.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500",
+  island:      "https://media.istockphoto.com/id/1459590636/photo/aerial-view-of-a-tropical-paradise-luxury-resort-on-cousine-island-villas-and-private-beach.webp?a=1&b=1&s=612x612&w=0&k=20&c=NE94J3q8d-OhG7yw7DzJlCy_jTToKdtO7_y3k1jK0co=",
+  castle:      "https://thumbs.dreamstime.com/b/pena-palace-sintra-lisbon-portugal-night-lights-famous-landmark-most-beautiful-castles-europe-162995510.jpg",
+  lamborghini: "https://w0.peakpx.com/wallpaper/129/612/HD-wallpaper-lamborghini-huracan-2018-yellow-sports-car-vag-performante-yellow-huracan-luxury-tuning-supercar-new-yellow-huracan-italian-cars-lamborghini-thumbnail.jpg",
+  galaxy:      "https://static.vecteezy.com/system/resources/thumbnails/057/282/604/small/the-launch-of-spacecraft-deep-cosmos-mission-in-an-open-galaxy-photo.jpg",
 };
 
+/* ─── 50 gifts — 1 ST = €0.01, biggest = 30,000 ST = €300 ─── */
+const GIFTS = [
+  /* ══ SWEET ══ */
+  { tokens: 50,   label: "Lollipop",    emoji: "🍭", desc: "Sugar rush!",          tier: "Sweet",     grad: ["#FF9BE2","#FF5CA8"] as [string,string], glow: "#FF5CA880", tierColor: "#FF6B9D", img: null,        erotic: false },
+  { tokens: 100,  label: "Love Letter", emoji: "💌", desc: "Sweet note",            tier: "Sweet",     grad: ["#FFB7C5","#FF5CA8"] as [string,string], glow: "#FF5CA870", tierColor: "#FF6B9D", img: null,        erotic: false },
+  { tokens: 150,  label: "Chocolate",   emoji: "🍫", desc: "Dark & delicious",      tier: "Sweet",     grad: ["#7B3F00","#3E1A00"] as [string,string], glow: "#7B3F0080", tierColor: "#FF6B9D", img: I.chocolate, erotic: false },
+  { tokens: 200,  label: "Strawberry",  emoji: "🍓", desc: "Dipped in chocolate",   tier: "Sweet",     grad: ["#FF4757","#C0392B"] as [string,string], glow: "#FF475780", tierColor: "#FF6B9D", img: I.strawberry,erotic: false },
+  { tokens: 250,  label: "Candle",      emoji: "🕯️", desc: "Romantic glow",         tier: "Sweet",     grad: ["#FFECD2","#FCB69F"] as [string,string], glow: "#FCB69F80", tierColor: "#FF6B9D", img: null,        erotic: false },
+  { tokens: 300,  label: "Macarons",    emoji: "🫐", desc: "Delicate & sweet",       tier: "Sweet",     grad: ["#E0B0FF","#9B59B6"] as [string,string], glow: "#9B59B680", tierColor: "#FF6B9D", img: null,        erotic: false },
+  { tokens: 350,  label: "Perfume",     emoji: "✨", desc: "Irresistible scent",     tier: "Sweet",     grad: ["#F8CDDA","#1D2B64"] as [string,string], glow: "#F8CDDA80", tierColor: "#FF6B9D", img: I.perfume,   erotic: false },
+  { tokens: 400,  label: "Red Rose",    emoji: "🌹", desc: "Timeless beauty",        tier: "Sweet",     grad: ["#FF416C","#FF4B2B"] as [string,string], glow: "#FF416C80", tierColor: "#FF6B9D", img: I.rose,      erotic: false },
+  { tokens: 450,  label: "Teddy Bear",  emoji: "🧸", desc: "Soft hug for you",       tier: "Sweet",     grad: ["#FFCCBC","#FF7043"] as [string,string], glow: "#FF704380", tierColor: "#FF6B9D", img: null,        erotic: false },
+  { tokens: 500,  label: "Bouquet",     emoji: "💐", desc: "Blooming feelings",      tier: "Sweet",     grad: ["#FEC89A","#FD79A8"] as [string,string], glow: "#FD79A880", tierColor: "#FF6B9D", img: null,        erotic: false },
+
+  /* ══ DREAMY ══ */
+  { tokens: 750,  label: "High Heels",  emoji: "👠", desc: "Dangerous elegance",     tier: "Dreamy",    grad: ["#C0392B","#7F0000"] as [string,string], glow: "#C0392B90", tierColor: "#9C27B0", img: I.heels,     erotic: true  },
+  { tokens: 1000, label: "Champagne",   emoji: "🥂", desc: "Pop for the star",        tier: "Dreamy",    grad: ["#F7DC6F","#D4A017"] as [string,string], glow: "#D4A01790", tierColor: "#9C27B0", img: I.champagne, erotic: false },
+  { tokens: 1500, label: "Red Lips",    emoji: "💋", desc: "A kiss just for you",     tier: "Dreamy",    grad: ["#FF416C","#C0392B"] as [string,string], glow: "#FF416C90", tierColor: "#9C27B0", img: I.lips,      erotic: true  },
+  { tokens: 2000, label: "Lingerie",    emoji: "🔥", desc: "Dangerously beautiful",   tier: "Dreamy",    grad: ["#1A1A2E","#E94560"] as [string,string], glow: "#E9456090", tierColor: "#9C27B0", img: I.lingerie,  erotic: true  },
+  { tokens: 2500, label: "Diamond ✦",  emoji: "💎", desc: "Rare & precious",         tier: "Dreamy",    grad: ["#74EAEA","#0078FF"] as [string,string], glow: "#74EAEA90", tierColor: "#9C27B0", img: I.diamond,   erotic: false },
+  { tokens: 3000, label: "Red Wine",    emoji: "🍷", desc: "A sensual evening",       tier: "Dreamy",    grad: ["#8B0000","#2D0000"] as [string,string], glow: "#8B000090", tierColor: "#9C27B0", img: null,        erotic: false },
+  { tokens: 3500, label: "Crown",       emoji: "👑", desc: "You're royalty",          tier: "Dreamy",    grad: ["#FFD700","#C8860A"] as [string,string], glow: "#FFD70090", tierColor: "#9C27B0", img: I.crown,     erotic: false },
+  { tokens: 4000, label: "Crystal Ball",emoji: "🔮", desc: "Mysterious desires",      tier: "Dreamy",    grad: ["#80CBC4","#00695C"] as [string,string], glow: "#00695C90", tierColor: "#9C27B0", img: null,        erotic: false },
+  { tokens: 4500, label: "Ring",        emoji: "💍", desc: "Sparkling promise",       tier: "Dreamy",    grad: ["#E0E0E0","#9E9E9E"] as [string,string], glow: "#E0E0E090", tierColor: "#9C27B0", img: I.diamond,   erotic: false },
+  { tokens: 5000, label: "Rolex",       emoji: "⌚", desc: "Time is precious",        tier: "Dreamy",    grad: ["#FFD700","#8B6914"] as [string,string], glow: "#FFD70090", tierColor: "#9C27B0", img: I.watch,     erotic: false },
+
+  /* ══ LUXURY ══ */
+  { tokens: 6000,  label: "Designer Bag",emoji: "👜", desc: "Iconic style",            tier: "Luxury",    grad: ["#2C3E50","#BDC3C7"] as [string,string], glow: "#BDC3C790", tierColor: "#FF6B35", img: I.bag,       erotic: false },
+  { tokens: 7000,  label: "Penthouse",   emoji: "🏙️", desc: "Skyline views",           tier: "Luxury",    grad: ["#0F2027","#2C5364"] as [string,string], glow: "#2C536490", tierColor: "#FF6B35", img: null,        erotic: false },
+  { tokens: 8000,  label: "Yacht",       emoji: "🛥️", desc: "Sail into the sunset",    tier: "Luxury",    grad: ["#1CB5E0","#000851"] as [string,string], glow: "#1CB5E090", tierColor: "#FF6B35", img: I.yacht,     erotic: false },
+  { tokens: 9000,  label: "Private Jet", emoji: "✈️", desc: "Fly first class",          tier: "Luxury",    grad: ["#1A1A2E","#16213E"] as [string,string], glow: "#4CC9F090", tierColor: "#FF6B35", img: I.jet,       erotic: false },
+  { tokens: 10000, label: "Ferrari",     emoji: "🏎️", desc: "Power & passion",          tier: "Luxury",    grad: ["#C0392B","#7B0000"] as [string,string], glow: "#C0392B90", tierColor: "#FF6B35", img: I.ferrari,   erotic: false },
+  { tokens: 11000, label: "Tropic Isle", emoji: "🏝️", desc: "Private paradise",         tier: "Luxury",    grad: ["#00B4DB","#0083B0"] as [string,string], glow: "#00B4DB90", tierColor: "#FF6B35", img: I.island,    erotic: false },
+  { tokens: 12000, label: "Castle",      emoji: "🏰", desc: "Live like royalty",        tier: "Luxury",    grad: ["#654EA3","#EAAFC8"] as [string,string], glow: "#654EA390", tierColor: "#FF6B35", img: I.castle,    erotic: false },
+  { tokens: 13000, label: "Gold Bar",    emoji: "🪙", desc: "Pure gold",                tier: "Luxury",    grad: ["#F7971E","#FFD200"] as [string,string], glow: "#FFD20090", tierColor: "#FF6B35", img: null,        erotic: false },
+  { tokens: 14000, label: "Helicopter",  emoji: "🚁", desc: "Rise above it all",        tier: "Luxury",    grad: ["#373B44","#4286F4"] as [string,string], glow: "#4286F490", tierColor: "#FF6B35", img: null,        erotic: false },
+  { tokens: 15000, label: "Superyacht",  emoji: "⛵", desc: "Ocean royalty",            tier: "Luxury",    grad: ["#1CB5E0","#003366"] as [string,string], glow: "#1CB5E090", tierColor: "#FF6B35", img: I.yacht,     erotic: false },
+
+  /* ══ ELITE ══ */
+  { tokens: 16000, label: "Erotic Toy",  emoji: "🌙", desc: "Pleasure device 🔞",       tier: "Elite",     grad: ["#1A1A2E","#E94560"] as [string,string], glow: "#E9456090", tierColor: "#C0392B", img: null,        erotic: true  },
+  { tokens: 17000, label: "Rolls Royce", emoji: "🚗", desc: "The pinnacle of luxury",   tier: "Elite",     grad: ["#1A1A1A","#C0C0C0"] as [string,string], glow: "#C0C0C090", tierColor: "#C0392B", img: null,        erotic: false },
+  { tokens: 18000, label: "Mega Yacht",  emoji: "🛳️", desc: "Your private ocean",       tier: "Elite",     grad: ["#005C97","#363795"] as [string,string], glow: "#005C9790", tierColor: "#C0392B", img: I.yacht,     erotic: false },
+  { tokens: 19000, label: "Chalet",      emoji: "⛷️", desc: "Alpine luxury",             tier: "Elite",     grad: ["#FFFFFF","#6DD5FA"] as [string,string], glow: "#6DD5FA90", tierColor: "#C0392B", img: null,        erotic: false },
+  { tokens: 20000, label: "Priv Island", emoji: "🌺", desc: "Your own paradise",         tier: "Elite",     grad: ["#11998E","#38EF7D"] as [string,string], glow: "#38EF7D90", tierColor: "#C0392B", img: I.island,    erotic: false },
+  { tokens: 21000, label: "Dragon",      emoji: "🐉", desc: "Fierce & majestic",         tier: "Elite",     grad: ["#FF4500","#8B0000"] as [string,string], glow: "#FF450090", tierColor: "#C0392B", img: null,        erotic: false },
+  { tokens: 22000, label: "Crown Jewels",emoji: "👑", desc: "Imperial treasure",         tier: "Elite",     grad: ["#FFD700","#FFA500"] as [string,string], glow: "#FFD70090", tierColor: "#C0392B", img: I.crown,     erotic: false },
+  { tokens: 23000, label: "Space Rocket",emoji: "🚀", desc: "Into the cosmos",           tier: "Elite",     grad: ["#0F0C29","#302B63"] as [string,string], glow: "#302B6390", tierColor: "#C0392B", img: I.galaxy,    erotic: false },
+  { tokens: 24000, label: "Palace",      emoji: "🏯", desc: "Rule your kingdom",         tier: "Elite",     grad: ["#654EA3","#EAAFC8"] as [string,string], glow: "#654EA390", tierColor: "#C0392B", img: I.castle,    erotic: false },
+  { tokens: 25000, label: "Galaxy",      emoji: "🌌", desc: "Infinite & beautiful",      tier: "Elite",     grad: ["#1A1A2E","#4CC9F0"] as [string,string], glow: "#4CC9F090", tierColor: "#C0392B", img: I.galaxy,    erotic: false },
+
+  /* ══ LEGENDARY ══ */
+  { tokens: 26000, label: "Phoenix",     emoji: "🦅", desc: "Rise from the flames",      tier: "Legendary", grad: ["#FF4500","#FFD700"] as [string,string], glow: "#FF450090", tierColor: "#FFD700", img: null,        erotic: false },
+  { tokens: 27000, label: "Unicorn",     emoji: "🦄", desc: "Rare & magical",            tier: "Legendary", grad: ["#DA70D6","#FF69B4"] as [string,string], glow: "#DA70D690", tierColor: "#FFD700", img: null,        erotic: false },
+  { tokens: 27500, label: "Space Sta.",  emoji: "🛰️", desc: "Command the orbit",         tier: "Legendary", grad: ["#0F0C29","#4CC9F0"] as [string,string], glow: "#4CC9F090", tierColor: "#FFD700", img: I.galaxy,    erotic: false },
+  { tokens: 28000, label: "Cobra",       emoji: "🐍", desc: "Deadly attraction 🔞",       tier: "Legendary", grad: ["#00B09B","#005A47"] as [string,string], glow: "#00B09B90", tierColor: "#FFD700", img: null,        erotic: true  },
+  { tokens: 28500, label: "Lambo Urus",  emoji: "🏎️", desc: "Beast on roads",             tier: "Legendary", grad: ["#FF6B00","#CC2B00"] as [string,string], glow: "#FF6B0090", tierColor: "#FFD700", img: I.lamborghini,erotic:false },
+  { tokens: 29000, label: "Trophy",      emoji: "🏆", desc: "You are the champion",      tier: "Legendary", grad: ["#FFD700","#C8860A"] as [string,string], glow: "#FFD70090", tierColor: "#FFD700", img: null,        erotic: false },
+  { tokens: 29200, label: "Crown Fire",  emoji: "🔥", desc: "Queen of all flames",       tier: "Legendary", grad: ["#C0392B","#FFD700"] as [string,string], glow: "#C0392B90", tierColor: "#FFD700", img: null,        erotic: false },
+  { tokens: 29500, label: "God's Gift",  emoji: "⚡", desc: "Sent from above",            tier: "Legendary", grad: ["#8360C3","#2EBF91"] as [string,string], glow: "#8360C390", tierColor: "#FFD700", img: null,        erotic: false },
+  { tokens: 29800, label: "Diamond God", emoji: "💎", desc: "Beyond priceless",           tier: "Legendary", grad: ["#74EAEA","#FFD700"] as [string,string], glow: "#FFD70090", tierColor: "#FFD700", img: I.diamond,   erotic: false },
+  { tokens: 30000, label: "Lamborghini", emoji: "🏎️", desc: "€300 — Ultimate gift 🔥",   tier: "Legendary", grad: ["#F7971E","#FFD200"] as [string,string], glow: "#FFD20099", tierColor: "#FFD700", img: I.lamborghini,erotic:false },
+];
+
+const TIER_ORDER = ["Sweet", "Dreamy", "Luxury", "Elite", "Legendary"];
+const TIER_ICONS: Record<string, string> = {
+  Sweet: "🌸", Dreamy: "💜", Luxury: "✨", Elite: "🔥", Legendary: "👑",
+};
+const TIER_COLORS: Record<string, string> = {
+  Sweet: "#FF6B9D", Dreamy: "#9C27B0", Luxury: "#FF6B35", Elite: "#C0392B", Legendary: "#FFD700",
+};
 
 const FEE = 0.10;
 
-/* ── Per-tier animation config ── */
-const TIER_CFG: Record<string, { floatDur: number; floatH: number; breathAmt: number; breathDur: number; shimmerInterval: number; particleCount: number; swayDeg: number; glowSpeed: number }> = {
-  Sweet:     { floatDur: 1500, floatH:  8, breathAmt: 1.02, breathDur: 2200, shimmerInterval: 4200, particleCount: 2, swayDeg: 0,  glowSpeed: 900 },
-  Dreamy:    { floatDur: 1200, floatH:  9, breathAmt: 1.03, breathDur: 1800, shimmerInterval: 3400, particleCount: 2, swayDeg: 3,  glowSpeed: 750 },
-  Power:     { floatDur:  900, floatH: 12, breathAmt: 1.05, breathDur: 1200, shimmerInterval: 2400, particleCount: 4, swayDeg: 8,  glowSpeed: 550 },
-  Legendary: { floatDur:  650, floatH: 15, breathAmt: 1.08, breathDur:  700, shimmerInterval: 1600, particleCount: 6, swayDeg: 12, glowSpeed: 320 },
+/* ── Per-tier animation config (TikTok-style: scales with price) ── */
+const TIER_CFG: Record<string, {
+  floatDur: number; floatH: number; breathAmt: number; breathDur: number;
+  shimmerInterval: number; particleCount: number; swayDeg: number; glowSpeed: number; rings: number;
+}> = {
+  Sweet:     { floatDur: 1600, floatH:  7, breathAmt: 1.02, breathDur: 2400, shimmerInterval: 4800, particleCount: 1, swayDeg: 0,  glowSpeed: 1000, rings: 0 },
+  Dreamy:    { floatDur: 1200, floatH:  9, breathAmt: 1.03, breathDur: 1900, shimmerInterval: 3200, particleCount: 2, swayDeg: 3,  glowSpeed: 750,  rings: 1 },
+  Luxury:    { floatDur:  900, floatH: 12, breathAmt: 1.05, breathDur: 1300, shimmerInterval: 2200, particleCount: 4, swayDeg: 6,  glowSpeed: 520,  rings: 2 },
+  Elite:     { floatDur:  700, floatH: 15, breathAmt: 1.07, breathDur:  900, shimmerInterval: 1500, particleCount: 6, swayDeg: 10, glowSpeed: 360,  rings: 3 },
+  Legendary: { floatDur:  520, floatH: 18, breathAmt: 1.10, breathDur:  600, shimmerInterval: 1100, particleCount: 8, swayDeg: 14, glowSpeed: 220,  rings: 4 },
 };
 
 const RANK_LABEL: Record<string, { text: string; color: string } | undefined> = {
   Sweet: undefined, Dreamy: undefined,
-  Power:     { text: "🔥 HOT",       color: "#FF6B35" },
-  Legendary: { text: "⚡ LEGENDARY", color: "#FFD700" },
+  Luxury:    { text: "⭐ LUXURY",    color: "#FF6B35" },
+  Elite:     { text: "🔥 ELITE",     color: "#C0392B" },
+  Legendary: { text: "👑 LEGENDARY", color: "#FFD700" },
 };
 
-/* ── Single floating particle ── */
+/* ── Floating particle ── */
 function Particle({ color }: { color: string }) {
-  const y   = useRef(new Animated.Value(0)).current;
-  const op  = useRef(new Animated.Value(0)).current;
-  const x   = useRef(new Animated.Value((Math.random() - 0.5) * 70)).current;
-
+  const y  = useRef(new Animated.Value(0)).current;
+  const op = useRef(new Animated.Value(0)).current;
+  const x  = useRef(new Animated.Value((Math.random() - 0.5) * 70)).current;
   useEffect(() => {
     const run = () => {
-      y.setValue(0);
-      op.setValue(0);
-      x.setValue((Math.random() - 0.5) * 70);
+      y.setValue(0); op.setValue(0); x.setValue((Math.random() - 0.5) * 70);
       Animated.parallel([
         Animated.timing(y,  { toValue: -55, duration: 1900 + Math.random() * 600, useNativeDriver: true }),
         Animated.sequence([
@@ -87,35 +152,29 @@ function Particle({ color }: { color: string }) {
     const t = setTimeout(run, Math.random() * 2000);
     return () => clearTimeout(t);
   }, []);
-
   return (
     <Animated.View
+      pointerEvents="none"
       style={{
-        position: "absolute",
-        bottom: 10,
-        left: "50%",
-        width: 5,
-        height: 5,
-        borderRadius: 3,
+        position: "absolute", bottom: 10, left: "50%",
+        width: 5, height: 5, borderRadius: 3,
         backgroundColor: color,
         transform: [{ translateX: x }, { translateY: y }],
         opacity: op,
       }}
-      pointerEvents="none"
     />
   );
 }
 
-/* ══ Animated gift card ══ */
+/* ── Gift card — real image + TikTok-style tiered effects ── */
 function GiftCard({
   gift, selected, canAfford, onPress,
 }: {
-  gift: typeof GIFTS[0];
-  selected: boolean;
-  canAfford: boolean;
-  onPress: () => void;
+  gift: typeof GIFTS[0]; selected: boolean; canAfford: boolean; onPress: () => void;
 }) {
   const cfg = TIER_CFG[gift.tier];
+  const [imgErr, setImgErr] = useState(false);
+  const showImg = !!gift.img && !imgErr;
 
   const floatY     = useRef(new Animated.Value(0)).current;
   const breathS    = useRef(new Animated.Value(1)).current;
@@ -125,21 +184,20 @@ function GiftCard({
   const shakeX     = useRef(new Animated.Value(0)).current;
   const selectS    = useRef(new Animated.Value(selected ? 1 : 0)).current;
   const glowOp     = useRef(new Animated.Value(0)).current;
-  const cardEntryS = useRef(new Animated.Value(0.7)).current;
+  const ringS      = useRef(new Animated.Value(0.8)).current;
+  const cardEntryS = useRef(new Animated.Value(0.6)).current;
   const cardEntryO = useRef(new Animated.Value(0)).current;
 
-  /* Card entry pop */
   useEffect(() => {
-    const delay = (gift.tokens % 17) * 28;
+    const delay = (gift.tokens % 19) * 22;
     setTimeout(() => {
       Animated.parallel([
-        Animated.spring(cardEntryS, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 14 }),
+        Animated.spring(cardEntryS, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 16 }),
         Animated.timing(cardEntryO, { toValue: 1, duration: 280, useNativeDriver: true }),
       ]).start();
     }, delay);
   }, []);
 
-  /* Float */
   useEffect(() => {
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(floatY, { toValue: -cfg.floatH, duration: cfg.floatDur, useNativeDriver: true }),
@@ -149,7 +207,6 @@ function GiftCard({
     return () => loop.stop();
   }, []);
 
-  /* Breath */
   useEffect(() => {
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(breathS, { toValue: cfg.breathAmt, duration: cfg.breathDur, useNativeDriver: true }),
@@ -159,7 +216,6 @@ function GiftCard({
     return () => loop.stop();
   }, []);
 
-  /* Shimmer sweep */
   useEffect(() => {
     const run = () => {
       shimmerX.setValue(-160);
@@ -167,35 +223,40 @@ function GiftCard({
         setTimeout(run, cfg.shimmerInterval);
       });
     };
-    const t = setTimeout(run, (gift.tokens * 37) % cfg.shimmerInterval);
+    const t = setTimeout(run, (gift.tokens * 31) % cfg.shimmerInterval);
     return () => clearTimeout(t);
   }, []);
 
-  /* Emoji sway (Flirty → Erotic) */
   useEffect(() => {
     if (cfg.swayDeg === 0) return;
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(swayR, { toValue:  1, duration: 520, useNativeDriver: true }),
-      Animated.timing(swayR, { toValue: -1, duration: 520, useNativeDriver: true }),
-      Animated.timing(swayR, { toValue:  0, duration: 260, useNativeDriver: true }),
+      Animated.timing(swayR, { toValue:  1, duration: 480, useNativeDriver: true }),
+      Animated.timing(swayR, { toValue: -1, duration: 480, useNativeDriver: true }),
+      Animated.timing(swayR, { toValue:  0, duration: 240, useNativeDriver: true }),
     ]));
     loop.start();
     return () => loop.stop();
   }, []);
 
-  /* Glow on select */
   useEffect(() => {
     if (selected) {
       Animated.spring(selectS, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 12 }).start();
-      const loop = Animated.loop(Animated.sequence([
+      const gLoop = Animated.loop(Animated.sequence([
         Animated.timing(glowOp, { toValue: 1,   duration: cfg.glowSpeed, useNativeDriver: true }),
         Animated.timing(glowOp, { toValue: 0.3, duration: cfg.glowSpeed, useNativeDriver: true }),
       ]));
-      loop.start();
-      return () => loop.stop();
+      gLoop.start();
+      if (cfg.rings > 0) {
+        const rLoop = Animated.loop(Animated.sequence([
+          Animated.timing(ringS, { toValue: 1.4, duration: cfg.glowSpeed * 1.2, useNativeDriver: true }),
+          Animated.timing(ringS, { toValue: 0.8, duration: cfg.glowSpeed * 1.2, useNativeDriver: true }),
+        ]));
+        rLoop.start();
+      }
+      return () => { gLoop.stop(); };
     } else {
       Animated.spring(selectS, { toValue: 0, useNativeDriver: true, speed: 14 }).start();
-      glowOp.setValue(0);
+      glowOp.setValue(0); ringS.setValue(0.8);
     }
   }, [selected]);
 
@@ -220,17 +281,19 @@ function GiftCard({
     onPress();
   }
 
-  const emojiRot = swayR.interpolate({ inputRange: [-1, 1], outputRange: [`-${cfg.swayDeg}deg`, `${cfg.swayDeg}deg`] });
-  const glowOpInterp = glowOp.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] });
+  const emojiRot   = swayR.interpolate({ inputRange: [-1, 1], outputRange: [`-${cfg.swayDeg}deg`, `${cfg.swayDeg}deg`] });
+  const glowOpI    = glowOp.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] });
   const fee   = Math.round(gift.tokens * FEE);
   const total = gift.tokens + fee;
   const rank  = RANK_LABEL[gift.tier];
+  const isLegendary = gift.tier === "Legendary";
+  const isElite     = gift.tier === "Elite";
 
   return (
     <TouchableOpacity
       activeOpacity={1}
       onPress={handlePress}
-      style={[styles.giftCardWrap, { opacity: canAfford ? 1 : 0.28 }]}
+      style={[styles.giftCardWrap, { opacity: canAfford ? 1 : 0.3 }]}
     >
       <Animated.View style={{
         transform: [
@@ -239,23 +302,50 @@ function GiftCard({
         ],
         opacity: cardEntryO,
       }}>
-        {/* Outer glow ring */}
-        {selected && (
-          <Animated.View style={[
-            styles.glowRing,
-            { borderColor: gift.glow, shadowColor: gift.grad[1], shadowRadius: 18, opacity: glowOpInterp },
-          ]} />
-        )}
 
-        <LinearGradient
-          colors={selected ? gift.grad : ["#141428", "#1E1E38"]}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={[styles.giftCard, {
-            borderColor: selected ? gift.grad[0] : gift.tierColor + "22",
-            borderWidth: selected ? 2 : 1,
-          }]}
-        >
-          {/* ── Shimmer sweep overlay ── */}
+        {/* Outer glow ring(s) */}
+        {selected && Array.from({ length: cfg.rings }).map((_, ri) => (
+          <Animated.View key={ri} style={[
+            styles.glowRing,
+            {
+              borderColor: gift.glow,
+              shadowColor: gift.grad[1],
+              shadowRadius: 18 + ri * 8,
+              opacity: glowOpI,
+              transform: [{ scale: Animated.add(ringS, new Animated.Value(ri * 0.15)) }],
+            },
+          ]} />
+        ))}
+
+        <View style={[styles.giftCard, {
+          borderColor: selected ? gift.grad[0] : gift.tierColor + "22",
+          borderWidth: selected ? 2 : 1,
+          overflow: "hidden",
+        }]}>
+
+          {/* ── Real Image background ── */}
+          {showImg && (
+            <Image
+              source={{ uri: gift.img! }}
+              style={StyleSheet.absoluteFillObject}
+              resizeMode="cover"
+              onError={() => setImgErr(true)}
+            />
+          )}
+
+          {/* ── Gradient overlay (darkens image bottom for readability, or fills card without image) ── */}
+          <LinearGradient
+            colors={showImg
+              ? (selected
+                  ? ["transparent", gift.grad[1] + "BB"] as [string,string]
+                  : ["rgba(0,0,0,0.08)", "rgba(0,0,0,0.78)"] as [string,string])
+              : (selected ? gift.grad : ["#141428", "#1E1E38"] as [string,string])
+            }
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+
+          {/* ── Shimmer sweep ── */}
           <Animated.View
             pointerEvents="none"
             style={[
@@ -264,20 +354,20 @@ function GiftCard({
             ]}
           >
             <LinearGradient
-              colors={["transparent", "rgba(255,255,255,0.14)", "rgba(255,255,255,0.07)", "transparent"]}
+              colors={["transparent", "rgba(255,255,255,0.16)", "rgba(255,255,255,0.08)", "transparent"]}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={{ width: 90, height: "100%", transform: [{ rotate: "18deg" }] }}
             />
           </Animated.View>
 
-          {/* ── Particles ── */}
-          {Array.from({ length: cfg.particleCount }).map((_, i) => (
-            <Particle key={i} color={gift.grad[0]} />
+          {/* ── Particles (higher tiers only) ── */}
+          {Array.from({ length: cfg.particleCount }).map((_, pi) => (
+            <Particle key={pi} color={gift.grad[0]} />
           ))}
 
-          {/* ── Rank badge (HOT / RARE / LEGENDARY) ── */}
+          {/* ── Rank badge ── */}
           {rank && (
-            <View style={[styles.rankBadge, { backgroundColor: rank.color + "25", borderColor: rank.color + "60" }]}>
+            <View style={[styles.rankBadge, { backgroundColor: rank.color + "22", borderColor: rank.color + "55" }]}>
               <Text style={[styles.rankBadgeText, { color: rank.color }]}>{rank.text}</Text>
             </View>
           )}
@@ -289,26 +379,39 @@ function GiftCard({
             </Text>
           </View>
 
-          {/* ── Emoji — float + sway ── */}
-          <Animated.Text style={[
-            styles.giftEmoji,
-            { transform: [{ translateY: floatY }, { rotate: emojiRot }] },
-          ]}>
-            {gift.emoji}
-          </Animated.Text>
+          {/* ── Emoji (shown only when no real image) ── */}
+          {!showImg && (
+            <Animated.Text style={[
+              styles.giftEmoji,
+              { transform: [{ translateY: floatY }, { rotate: emojiRot }] },
+            ]}>
+              {gift.emoji}
+            </Animated.Text>
+          )}
 
-          <Text style={[styles.giftName, { color: selected ? "#fff" : "#ccc" }]} numberOfLines={1}>
-            {gift.label}
-          </Text>
-          <Text style={[styles.giftCost, { color: selected ? "#fff" : gift.tierColor }]}>
-            {total} ST
-          </Text>
-          <Text style={[styles.giftEur, { color: selected ? "rgba(255,255,255,0.7)" : "#666" }]}>
-            €{(total / 100).toFixed(0)}
-          </Text>
-          <Text style={[styles.giftDesc, { color: selected ? "rgba(255,255,255,0.6)" : "#484860" }]} numberOfLines={1}>
-            {gift.desc}
-          </Text>
+          {/* ── Float animation overlay on image ── */}
+          {showImg && (
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                position: "absolute", inset: 0,
+                transform: [{ translateY: Animated.multiply(floatY, new Animated.Value(0.3)) }],
+              }}
+            />
+          )}
+
+          {/* ── Text overlay at bottom ── */}
+          <View style={styles.giftTextBottom}>
+            <Text style={[styles.giftName, { color: "#fff" }]} numberOfLines={1}>
+              {gift.label}
+            </Text>
+            <Text style={[styles.giftCost, { color: isLegendary ? "#FFD700" : isElite ? "#FF6B6B" : "#fff" }]}>
+              {total.toLocaleString()} ST
+            </Text>
+            <Text style={styles.giftEur}>
+              €{(total / 100).toFixed(0)}
+            </Text>
+          </View>
 
           {selected && (
             <Animated.View style={[styles.checkBadge, { backgroundColor: gift.grad[1] + "cc", transform: [{ scale: selectS }] }]}>
@@ -320,20 +423,25 @@ function GiftCard({
               <Ionicons name="lock-closed" size={9} color="#fff" />
             </View>
           )}
-        </LinearGradient>
+
+          {/* Legendary: extra golden shimmer ring */}
+          {isLegendary && selected && (
+            <Animated.View pointerEvents="none" style={[
+              StyleSheet.absoluteFillObject,
+              { borderRadius: 18, borderWidth: 2, borderColor: "#FFD700", opacity: glowOpI },
+            ]} />
+          )}
+        </View>
       </Animated.View>
     </TouchableOpacity>
   );
 }
 
-/* ══ Tier section header ══ */
+/* ── Tier section header ── */
 function TierHeader({ tier }: { tier: string }) {
-  const colors: Record<string, string> = {
-    Sweet: "#FF6B9D", Dreamy: "#9C27B0", Power: "#FF6B35", Legendary: "#FFD700",
-  };
   return (
-    <View style={[styles.tierHeader, { borderLeftColor: colors[tier] }]}>
-      <Text style={[styles.tierHeaderText, { color: colors[tier] }]}>
+    <View style={[styles.tierHeader, { borderLeftColor: TIER_COLORS[tier] }]}>
+      <Text style={[styles.tierHeaderText, { color: TIER_COLORS[tier] }]}>
         {TIER_ICONS[tier]}  {tier}
       </Text>
     </View>
@@ -342,27 +450,19 @@ function TierHeader({ tier }: { tier: string }) {
 
 /* ══ Main modal ══ */
 export interface GiftSentInfo {
-  emoji: string;
-  label: string;
-  tokens: number;
-  grad: [string, string];
+  emoji: string; label: string; tokens: number; grad: [string, string];
 }
-
 interface Props {
-  visible: boolean;
-  onClose: () => void;
-  recipientName: string;
+  visible: boolean; onClose: () => void; recipientName: string;
   onGiftSent?: (gift: GiftSentInfo) => void;
 }
 
 export default function GiftModal({ visible, onClose, recipientName, onGiftSent }: Props) {
   const { coinBalance, addCoins, spendCoins, addEarning } = useApp();
-
   const [step,         setStep]         = useState<"buy" | "send">("send");
   const [selectedGift, setSelectedGift] = useState(GIFTS[0]);
   const [sent,         setSent]         = useState(false);
   const [customAmount, setCustomAmount] = useState("");
-
   const successAnim = useRef(new Animated.Value(0)).current;
   const successRot  = useRef(new Animated.Value(0)).current;
 
@@ -374,8 +474,7 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
     if (visible) {
       setSent(false);
       setStep(coinBalance > 0 ? "send" : "buy");
-      successAnim.setValue(0);
-      successRot.setValue(0);
+      successAnim.setValue(0); successRot.setValue(0);
     }
   }, [visible]);
 
@@ -395,8 +494,7 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
       addCoins(tokens);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Spark Tokens added! 🔥", `${tokens} ST added to your wallet!`);
-      setCustomAmount("");
-      setStep("send");
+      setCustomAmount(""); setStep("send");
     } catch (err: any) {
       Alert.alert("Payment failed", err.message ?? "Something went wrong. Try again.");
     }
@@ -404,41 +502,25 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
 
   function handleBuy(tokens: number, eur: number) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // React Native's Alert doesn't support custom multi-button choices on
-    // web, so the "choose a payment method" dialog never actually shows
-    // there — go straight to Stripe checkout on web instead of a picker.
-    if (Platform.OS === "web") {
-      completeBuy(tokens, eur, "stripe");
-      return;
-    }
-    Alert.alert(
-      `Buy ${tokens} ST · €${eur.toFixed(2)}`,
-      "Choose a payment method",
-      [
-        { text: "Card (Stripe)", onPress: () => completeBuy(tokens, eur, "stripe") },
-        { text: "PayPal", onPress: () => completeBuy(tokens, eur, "paypal") },
-        { text: "Cancel", style: "cancel" },
-      ]
-    );
+    if (Platform.OS === "web") { completeBuy(tokens, eur, "stripe"); return; }
+    Alert.alert(`Buy ${tokens} ST · €${eur.toFixed(2)}`, "Choose a payment method", [
+      { text: "💳 Card (Stripe)", onPress: () => completeBuy(tokens, eur, "stripe") },
+      { text: "💸 PayPal",        onPress: () => completeBuy(tokens, eur, "paypal") },
+      { text: "Cancel", style: "cancel" },
+    ]);
   }
 
-  const MIN_TOKENS = 50; // €0.50 minimum (Stripe floor)
+  const MIN_TOKENS = 50;
   const customTokens = Math.floor(Number(customAmount)) || 0;
-  const customEur = parseFloat((customTokens * 0.01).toFixed(2));
-  const customValid = customTokens >= MIN_TOKENS;
-
-  function handleBuyCustom() {
-    if (!customValid) return;
-    handleBuy(customTokens, customEur);
-  }
+  const customEur    = parseFloat((customTokens * 0.01).toFixed(2));
+  const customValid  = customTokens >= MIN_TOKENS;
 
   function handleSend() {
     if (!canSend) { setStep("buy"); return; }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     spendCoins(totalCost);
     addEarning(parseFloat((selectedGift.tokens * 0.1).toFixed(2)));
-    setSent(true);
-    playSentAnimation();
+    setSent(true); playSentAnimation();
     onGiftSent?.({ emoji: selectedGift.emoji, label: selectedGift.label, tokens: selectedGift.tokens, grad: selectedGift.grad });
   }
 
@@ -447,11 +529,9 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
   const successScale  = successAnim.interpolate({ inputRange: [0,1], outputRange: [0.2, 1] });
   const successRotDeg = successRot.interpolate({ inputRange: [0,1], outputRange: ["-25deg","0deg"] });
 
-  /* Build grid sections by tier */
-  const sections = TIER_ORDER.map((tier) => ({
-    tier,
-    gifts: GIFTS.filter((g) => g.tier === tier),
-  }));
+  const sections = TIER_ORDER.map(tier => ({ tier, gifts: GIFTS.filter(g => g.tier === tier) }));
+
+  const [imgErrSent, setImgErrSent] = useState(false);
 
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
@@ -459,7 +539,6 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
         <View style={styles.sheet}>
           <View style={styles.handle} />
 
-          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>{sent ? "Gift Sent! 🎉" : "🎁 Send a Gift"}</Text>
             <TouchableOpacity onPress={handleClose} hitSlop={{ top:12,bottom:12,left:12,right:12 }}>
@@ -468,11 +547,19 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
           </View>
 
           {sent ? (
-            /* ── Success ── */
             <View style={styles.successBlock}>
               <Animated.View style={{ transform: [{ scale: successScale }, { rotate: successRotDeg }] }}>
                 <LinearGradient colors={selectedGift.grad} style={styles.successCircle}>
-                  <Text style={styles.successEmoji}>{selectedGift.emoji}</Text>
+                  {selectedGift.img && !imgErrSent ? (
+                    <Image
+                      source={{ uri: selectedGift.img }}
+                      style={{ width: "100%", height: "100%", borderRadius: 50 }}
+                      resizeMode="cover"
+                      onError={() => setImgErrSent(true)}
+                    />
+                  ) : (
+                    <Text style={styles.successEmoji}>{selectedGift.emoji}</Text>
+                  )}
                 </LinearGradient>
               </Animated.View>
               <Animated.View style={{
@@ -481,7 +568,7 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
                 alignItems: "center", gap: 6,
               }}>
                 <Text style={styles.successTitle}>{selectedGift.label} sent!</Text>
-                <Text style={styles.successSub}>{recipientName} received {selectedGift.tokens} ST 💝</Text>
+                <Text style={styles.successSub}>{recipientName} received {selectedGift.tokens.toLocaleString()} ST 💝</Text>
               </Animated.View>
               <TouchableOpacity onPress={handleClose} activeOpacity={0.85}>
                 <LinearGradient colors={selectedGift.grad} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.doneBtn}>
@@ -491,7 +578,6 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
             </View>
           ) : (
             <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-
               {/* Step pills */}
               <View style={styles.stepRow}>
                 {(["buy","send"] as const).map((s, i) => (
@@ -515,7 +601,7 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
                 <Text style={styles.balanceIcon}>🔥</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.balanceLabel}>Your Spark Tokens</Text>
-                  <Text style={styles.balanceValue}>{coinBalance} ST</Text>
+                  <Text style={styles.balanceValue}>{coinBalance.toLocaleString()} ST</Text>
                 </View>
                 {step === "send" && (
                   <TouchableOpacity style={styles.topUpChip} onPress={() => setStep("buy")} activeOpacity={0.8}>
@@ -526,131 +612,98 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
               </View>
 
               {step === "buy" ? (
-                /* ═ Buy ST ═ */
                 <>
                   <View style={styles.infoBanner}>
                     <Text style={styles.infoEmoji}>💡</Text>
                     <Text style={styles.infoText}>
-                      Buy Spark Tokens to send gifts — from sweet roses to erotic gifts.{"\n"}
-                      <Text style={{ color: "#444" }}>1 ST = €0.10 · 20 gifts · 1 ST to 2,000 ST</Text>
+                      Buy Spark Tokens to send beautiful gifts.{"\n"}
+                      <Text style={{ color: "#444" }}>1 ST = €0.01 · Smallest 50 ST · Biggest 30,000 ST = €300</Text>
                     </Text>
                   </View>
-                  <Text style={styles.sectionLabel}>How many Spark Tokens?</Text>
-                  <View style={styles.customAmountRow}>
-                    <TextInput
-                      style={styles.customAmountInput}
-                      value={customAmount}
-                      onChangeText={(t) => setCustomAmount(t.replace(/[^0-9]/g, ""))}
-                      placeholder="e.g. 25"
-                      placeholderTextColor="#999"
-                      keyboardType="number-pad"
-                      inputMode="numeric"
-                    />
-                    <Text style={styles.customAmountUnit}>ST</Text>
-                  </View>
-                  <Text style={styles.customAmountEur}>
-                    = €{customTokens > 0 ? customEur.toFixed(2) : "0.00"}
-                    {customTokens > 0 && !customValid ? "  ·  min 5 ST (€0.50)" : ""}
-                  </Text>
 
-                  <View style={styles.quickChipsRow}>
-                    {[1, 2, 3, 4, 10, 20, 50, 100].map((n) => (
+                  {/* ST packs */}
+                  {[
+                    { tokens: 500,   eur: 4.50,  label: "500 ST",   popular: false },
+                    { tokens: 1000,  eur: 8.50,  label: "1,000 ST", popular: true  },
+                    { tokens: 5000,  eur: 40.00, label: "5,000 ST", popular: false },
+                    { tokens: 10000, eur: 75.00, label: "10,000 ST",popular: false },
+                    { tokens: 30000, eur: 270.00,label: "30,000 ST",popular: false },
+                  ].map(pack => (
+                    <TouchableOpacity key={pack.tokens} style={[styles.packRow, pack.popular && styles.packRowPopular]} onPress={() => handleBuy(pack.tokens, pack.eur)} activeOpacity={0.8}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.packTokens}>⚡ {pack.label}</Text>
+                        <Text style={styles.packEur}>€{pack.eur.toFixed(2)}</Text>
+                      </View>
+                      {pack.popular && <View style={styles.popularBadge}><Text style={styles.popularText}>BEST VALUE</Text></View>}
+                      <Ionicons name="chevron-forward" size={16} color="#555" />
+                    </TouchableOpacity>
+                  ))}
+
+                  <View style={styles.customRow}>
+                    <Text style={styles.customLabel}>Custom amount (min 50 ST)</Text>
+                    <View style={styles.customInputRow}>
+                      <TextInput
+                        style={styles.customInput}
+                        placeholder="Enter ST amount"
+                        placeholderTextColor="#555"
+                        keyboardType="numeric"
+                        value={customAmount}
+                        onChangeText={setCustomAmount}
+                      />
                       <TouchableOpacity
-                        key={n}
-                        style={styles.quickChip}
-                        onPress={() => setCustomAmount(String(n))}
+                        style={[styles.customBuyBtn, !customValid && { opacity: 0.4 }]}
+                        onPress={() => customValid && handleBuy(customTokens, customEur)}
+                        disabled={!customValid}
                         activeOpacity={0.8}
                       >
-                        <Text style={styles.quickChipText}>{n}</Text>
+                        <Text style={styles.customBuyText}>Buy €{customEur.toFixed(2)}</Text>
                       </TouchableOpacity>
-                    ))}
+                    </View>
                   </View>
-
-                  <TouchableOpacity onPress={handleBuyCustom} activeOpacity={0.85} disabled={!customValid}>
-                    <LinearGradient
-                      colors={customValid ? ["#FF3366","#FF6B35"] : ["#ddd","#ccc"]}
-                      start={{x:0,y:0}} end={{x:1,y:0}}
-                      style={styles.customBuyBtn}
-                    >
-                      <Text style={styles.customBuyBtnText}>
-                        {customTokens > 0 ? `Buy ${customTokens} ST · €${customEur.toFixed(2)}` : "Enter an amount"}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  <Text style={styles.buyNote}>Pay by card (Stripe) or PayPal · Tokens added instantly</Text>
                 </>
               ) : (
-                /* ═ Send Gift — sectioned by tier ═ */
                 <>
+                  {/* Gift grid by tier */}
                   {sections.map(({ tier, gifts }) => (
                     <View key={tier}>
                       <TierHeader tier={tier} />
                       <View style={styles.giftGrid}>
-                        {gifts.map((g) => {
-                          const gTotal = g.tokens + Math.round(g.tokens * FEE);
-                          return (
-                            <GiftCard
-                              key={g.tokens}
-                              gift={g}
-                              selected={selectedGift.tokens === g.tokens}
-                              canAfford={coinBalance >= gTotal}
-                              onPress={() => {
-                                if (coinBalance < gTotal) { setStep("buy"); return; }
+                        {gifts.map(g => (
+                          <GiftCard
+                            key={g.tokens}
+                            gift={g}
+                            selected={selectedGift.tokens === g.tokens}
+                            canAfford={coinBalance >= g.tokens + Math.round(g.tokens * FEE)}
+                            onPress={() => {
+                              if (coinBalance >= g.tokens + Math.round(g.tokens * FEE)) {
                                 setSelectedGift(g);
-                              }}
-                            />
-                          );
-                        })}
+                              }
+                            }}
+                          />
+                        ))}
                       </View>
                     </View>
                   ))}
 
-                  {/* Fee breakdown */}
-                  <View style={styles.feeBox}>
-                    <Text style={styles.feeTitle}>Payment breakdown</Text>
-                    <View style={styles.feeRow}>
-                      <Text style={styles.feeLabel}>{selectedGift.emoji}  {selectedGift.label}</Text>
-                      <Text style={styles.feeVal}>{selectedGift.tokens} ST</Text>
-                    </View>
-                    <View style={styles.feeRow}>
-                      <Text style={styles.feeLabel}>Platform fee (10%)</Text>
-                      <Text style={[styles.feeVal, { color: "#EF4444" }]}>+{fee} ST</Text>
-                    </View>
-                    <View style={styles.feeLine} />
-                    <View style={styles.feeRow}>
-                      <Text style={styles.feeBold}>You spend</Text>
-                      <Text style={[styles.feeBoldVal, { color: selectedGift.tierColor }]}>{totalCost} ST</Text>
-                    </View>
-                    <View style={styles.feeRow}>
-                      <Text style={styles.feeLabel}>{recipientName} receives</Text>
-                      <Text style={[styles.feeVal, { color: "#22C55E" }]}>{selectedGift.tokens} ST</Text>
-                    </View>
+                  {/* Send button */}
+                  <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 }}>
+                    <TouchableOpacity onPress={handleSend} activeOpacity={0.88} disabled={!canSend}>
+                      <LinearGradient
+                        colors={canSend ? selectedGift.grad : ["#1a1a1a", "#333"]}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                        style={styles.sendBtn}
+                      >
+                        <Text style={styles.sendBtnText}>
+                          {canSend
+                            ? `Send ${selectedGift.label} · ${totalCost.toLocaleString()} ST`
+                            : `Need ${(totalCost - coinBalance).toLocaleString()} more ST`}
+                        </Text>
+                        {canSend && <Text style={styles.sendBtnSub}>€{(totalCost / 100).toFixed(0)} · +10% fee included</Text>}
+                      </LinearGradient>
+                    </TouchableOpacity>
                   </View>
-
-                  {!canSend && coinBalance > 0 && (
-                    <View style={styles.warnRow}>
-                      <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
-                      <Text style={styles.warnText}>Need {totalCost - coinBalance} more ST.</Text>
-                    </View>
-                  )}
-
-                  <TouchableOpacity onPress={handleSend} activeOpacity={0.88}>
-                    <LinearGradient
-                      colors={canSend ? selectedGift.grad : ["#2A2A3E","#333350"]}
-                      start={{x:0,y:0}} end={{x:1,y:0}}
-                      style={styles.sendBtn}
-                    >
-                      <Text style={styles.sendBtnEmoji}>{selectedGift.emoji}</Text>
-                      <Text style={styles.sendBtnText}>
-                        {canSend ? `Send ${selectedGift.label}  ·  ${totalCost} ST` : "Buy Spark Tokens first"}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
                 </>
               )}
-
-              <View style={{ height: 36 }} />
             </ScrollView>
           )}
         </View>
@@ -660,175 +713,106 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.80)" },
-  sheet: {
-    backgroundColor: "#0A0A1A",
-    borderTopLeftRadius: 34, borderTopRightRadius: 34,
-    paddingHorizontal: 18, paddingBottom: 40, maxHeight: "95%",
-  },
-  handle: {
-    width: 42, height: 4, borderRadius: 2,
-    backgroundColor: "#ffffff20", alignSelf: "center", marginTop: 12, marginBottom: 4,
-  },
-  header: {
-    flexDirection: "row", alignItems: "center",
-    justifyContent: "space-between", paddingVertical: 14,
-  },
-  title: { fontSize: 19, fontFamily: "Inter_700Bold", color: "#fff" },
+  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.7)" },
+  sheet:   { backgroundColor: "#0D0B12", borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: "92%", paddingBottom: 0 },
+  handle:  { width: 40, height: 4, backgroundColor: "#333", borderRadius: 2, alignSelf: "center", marginTop: 10, marginBottom: 6 },
+  header:  { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingBottom: 10 },
+  title:   { fontSize: 18, fontFamily: "Inter_700Bold", color: "#fff" },
 
-  stepRow: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
-  stepPill: {
-    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, paddingVertical: 10, borderRadius: 14,
-    borderWidth: 1.5, borderColor: "#ffffff10",
-  },
-  stepPillActive: { backgroundColor: "#FF3366", borderColor: "#FF3366" },
-  stepNum: {
-    width: 22, height: 22, borderRadius: 11, textAlign: "center", lineHeight: 22,
-    fontSize: 12, fontFamily: "Inter_700Bold",
-    backgroundColor: "#ffffff10", color: "#444", overflow: "hidden",
-  },
-  stepNumActive: { backgroundColor: "#ffffff28", color: "#fff" },
-  stepLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  stepArrow: { width: 20, height: 2, marginHorizontal: 6, backgroundColor: "#ffffff10" },
+  /* ── Step pills ── */
+  stepRow:         { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, gap: 8, marginBottom: 10 },
+  stepArrow:       { width: 16, height: 1.5, backgroundColor: "#333" },
+  stepPill:        { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: "#1A1A2E", borderWidth: 1, borderColor: "#333" },
+  stepPillActive:  { backgroundColor: "#C0392B", borderColor: "#C0392B" },
+  stepNum:         { width: 18, height: 18, borderRadius: 9, backgroundColor: "#333", textAlign: "center", fontSize: 10, fontFamily: "Inter_700Bold", color: "#888", lineHeight: 18 },
+  stepNumActive:   { backgroundColor: "rgba(255,255,255,0.3)", color: "#fff" },
+  stepLabel:       { fontSize: 12, fontFamily: "Inter_600SemiBold" },
 
-  balanceBar: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    padding: 14, borderRadius: 16, borderWidth: 1,
-    borderColor: "#ffffff10", backgroundColor: "#14142A", marginBottom: 14,
-  },
-  balanceIcon: { fontSize: 26 },
-  balanceLabel: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#444" },
-  balanceValue: { fontSize: 22, fontFamily: "Inter_700Bold", color: "#fff", lineHeight: 28 },
-  topUpChip: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: 10, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1, borderColor: "#FF3366",
-  },
-  topUpText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#FF3366" },
+  /* ── Balance ── */
+  balanceBar:   { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#141428", borderRadius: 16, padding: 12, marginHorizontal: 16, marginBottom: 10 },
+  balanceIcon:  { fontSize: 24 },
+  balanceLabel: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#555" },
+  balanceValue: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#F39C12" },
+  topUpChip:    { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#1A1A2E", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#FF3366" },
+  topUpText:    { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#FF3366" },
 
-  infoBanner: {
-    flexDirection: "row", alignItems: "flex-start", gap: 10,
-    borderWidth: 1, borderColor: "#FF336625", borderRadius: 14,
-    padding: 13, marginBottom: 14, backgroundColor: "#FF33660A",
-  },
-  infoEmoji: { fontSize: 18 },
-  infoText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20, flex: 1, color: "#aaa" },
+  /* ── Info banner ── */
+  infoBanner: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#141428", borderRadius: 12, padding: 12, marginHorizontal: 16, marginBottom: 10 },
+  infoEmoji:  { fontSize: 16, marginTop: 1 },
+  infoText:   { flex: 1, fontSize: 11, fontFamily: "Inter_400Regular", color: "#888", lineHeight: 16 },
 
-  sectionLabel: {
-    fontSize: 11, fontFamily: "Inter_500Medium",
-    textTransform: "uppercase", letterSpacing: 1, marginBottom: 12, color: "#444",
-  },
+  /* ── ST Packs ── */
+  packRow:         { flexDirection: "row", alignItems: "center", backgroundColor: "#141428", borderRadius: 14, padding: 14, marginHorizontal: 16, marginBottom: 8, borderWidth: 1, borderColor: "#1E1E38" },
+  packRowPopular:  { borderColor: "#C0392B", backgroundColor: "#1A0A0A" },
+  packTokens:      { fontSize: 14, fontFamily: "Inter_700Bold", color: "#fff" },
+  packEur:         { fontSize: 12, fontFamily: "Inter_400Regular", color: "#666", marginTop: 2 },
+  popularBadge:    { backgroundColor: "#C0392B", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, marginRight: 8 },
+  popularText:     { fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: 0.5 },
 
-  buyNote: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", color: "#333", marginTop: 8 },
+  /* ── Custom ── */
+  customRow:      { padding: 16 },
+  customLabel:    { fontSize: 12, fontFamily: "Inter_400Regular", color: "#555", marginBottom: 8 },
+  customInputRow: { flexDirection: "row", gap: 8 },
+  customInput:    { flex: 1, backgroundColor: "#141428", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, fontFamily: "Inter_400Regular", color: "#fff", borderWidth: 1, borderColor: "#1E1E38" },
+  customBuyBtn:   { backgroundColor: "#C0392B", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, justifyContent: "center" },
+  customBuyText:  { fontSize: 13, fontFamily: "Inter_700Bold", color: "#fff" },
 
-  customAmountRow: {
-    flexDirection: "row", alignItems: "center", gap: 10,
-    borderWidth: 1, borderColor: "#ffffff18", borderRadius: 14,
-    backgroundColor: "#14142A", paddingHorizontal: 16, paddingVertical: 4,
-  },
-  customAmountInput: {
-    flex: 1, fontSize: 22, fontFamily: "Inter_700Bold", color: "#fff", paddingVertical: 12,
-  },
-  customAmountUnit: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FF6B9D" },
-  customAmountEur: { fontSize: 13, fontFamily: "Inter_500Medium", color: "#888", marginTop: 8, marginBottom: 14 },
-
-  quickChipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 },
-  quickChip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: "#ffffff10", borderWidth: 1, borderColor: "#ffffff18",
-  },
-  quickChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#fff" },
-
-  customBuyBtn: { borderRadius: 16, paddingVertical: 15, alignItems: "center", marginBottom: 6 },
-  customBuyBtnText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
-
-  /* Tier section header */
-  tierHeader: {
-    borderLeftWidth: 3, paddingLeft: 10, marginBottom: 10, marginTop: 4,
-  },
+  /* ── Tier header ── */
+  tierHeader: { marginHorizontal: 16, marginTop: 14, marginBottom: 6, borderLeftWidth: 3, paddingLeft: 10 },
   tierHeaderText: { fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
 
-  /* Gift grid */
-  giftGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
-  giftCardWrap: { width: "48%" },
+  /* ── Gift grid ── */
+  giftGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12, gap: 8 },
 
+  /* ── Gift card ── */
+  giftCardWrap: { width: "22%", minWidth: 70 },
+  giftCard: {
+    borderRadius: 18, height: 108, position: "relative",
+    overflow: "hidden",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 8, elevation: 8,
+  },
   glowRing: {
-    position: "absolute", top: -5, left: -5, right: -5, bottom: -5,
-    borderRadius: 22, borderWidth: 2,
-    shadowOffset: { width: 0, height: 0 }, shadowRadius: 16, shadowOpacity: 1,
+    position: "absolute", inset: -4, borderRadius: 22,
+    borderWidth: 2,
+    shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8,
     elevation: 12,
   },
-  giftCard: {
-    padding: 11, borderRadius: 18,
-    alignItems: "center", gap: 2, overflow: "hidden",
-  },
 
-  rankBadge: {
-    position: "absolute", top: 6, left: 6,
-    borderWidth: 1, borderRadius: 20, paddingHorizontal: 6, paddingVertical: 2,
-  },
-  rankBadgeText: { fontSize: 8, fontFamily: "Inter_700Bold" },
+  /* ── Emoji (no-image gifts) ── */
+  giftEmoji: { fontSize: 34, textAlign: "center", marginTop: 12 },
 
-  tierBadge: {
-    borderWidth: 1, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 2,
-    marginBottom: 4, alignSelf: "center",
+  /* ── Text overlay at bottom of card ── */
+  giftTextBottom: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    padding: 5, paddingBottom: 6,
+    backgroundColor: "rgba(0,0,0,0.55)",
   },
-  tierBadgeText: { fontSize: 9, fontFamily: "Inter_600SemiBold" },
+  giftName: { fontSize: 9,  fontFamily: "Inter_700Bold", color: "#fff", textAlign: "center" },
+  giftCost: { fontSize: 9,  fontFamily: "Inter_700Bold", color: "#F39C12", textAlign: "center" },
+  giftEur:  { fontSize: 7.5,fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.55)", textAlign: "center" },
 
-  giftEmoji: { fontSize: 56, marginBottom: 2 },
-  giftName:  { fontSize: 12, fontFamily: "Inter_700Bold", textAlign: "center" },
-  giftCost:  { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  giftEur:   { fontSize: 10, fontFamily: "Inter_400Regular" },
-  giftDesc:  { fontSize: 9,  fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 13 },
+  /* ── Rank / tier badge ── */
+  rankBadge:     { position: "absolute", top: 4, right: 4, borderRadius: 8, borderWidth: 1, paddingHorizontal: 4, paddingVertical: 2 },
+  rankBadgeText: { fontSize: 7, fontFamily: "Inter_700Bold" },
+  tierBadge:     { position: "absolute", top: 4, left: 4, borderRadius: 8, borderWidth: 1, paddingHorizontal: 4, paddingVertical: 2 },
+  tierBadgeText: { fontSize: 7, fontFamily: "Inter_600SemiBold" },
 
-  checkBadge: {
-    position: "absolute", top: 6, right: 6,
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: "#ffffff30", alignItems: "center", justifyContent: "center",
-  },
-  lockBadge: {
-    position: "absolute", top: 6, right: 6,
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: "#00000070", alignItems: "center", justifyContent: "center",
-  },
+  /* ── Check / lock ── */
+  checkBadge: { position: "absolute", bottom: 34, right: 5, width: 16, height: 16, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  lockBadge:  { position: "absolute", bottom: 34, right: 5, width: 14, height: 14, borderRadius: 7, backgroundColor: "#0008", alignItems: "center", justifyContent: "center" },
 
-  feeBox: {
-    borderWidth: 1, borderColor: "#ffffff08", borderRadius: 16,
-    padding: 14, gap: 8, marginBottom: 12, backgroundColor: "#14142A",
-  },
-  feeTitle: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#fff", marginBottom: 4 },
-  feeRow:   { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  feeLabel: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#444", flex: 1, marginRight: 8 },
-  feeVal:   { fontSize: 13, fontFamily: "Inter_500Medium", color: "#888" },
-  feeBold:  { fontSize: 14, fontFamily: "Inter_700Bold", color: "#fff" },
-  feeBoldVal: { fontSize: 15, fontFamily: "Inter_700Bold" },
-  feeLine:  { height: 1, backgroundColor: "#ffffff08", marginVertical: 2 },
+  /* ── Send button ── */
+  sendBtn:    { borderRadius: 18, paddingVertical: 16, alignItems: "center", gap: 4 },
+  sendBtnText:{ fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
+  sendBtnSub: { fontSize: 10, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.65)" },
 
-  warnRow: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    borderWidth: 1, borderColor: "#EF444425",
-    borderRadius: 12, padding: 12, marginBottom: 12, backgroundColor: "#EF44440A",
-  },
-  warnText: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#EF4444", flex: 1 },
-
-  sendBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 10, paddingVertical: 17, borderRadius: 30,
-  },
-  sendBtnEmoji: { fontSize: 22 },
-  sendBtnText:  { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
-
-  successBlock: { alignItems: "center", paddingVertical: 36, gap: 18 },
-  successCircle: {
-    width: 148, height: 148, borderRadius: 74,
-    alignItems: "center", justifyContent: "center",
-    shadowOffset: { width: 0, height: 0 }, shadowRadius: 40, shadowOpacity: 1,
-    elevation: 16,
-  },
-  successEmoji: { fontSize: 74 },
-  successTitle: { fontSize: 22, fontFamily: "Inter_700Bold", color: "#fff", textAlign: "center" },
-  successSub:   { fontSize: 14, fontFamily: "Inter_400Regular", color: "#555", textAlign: "center", lineHeight: 21 },
-  doneBtn: { paddingHorizontal: 60, paddingVertical: 16, borderRadius: 30 },
-  doneBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+  /* ── Success ── */
+  successBlock:  { alignItems: "center", paddingVertical: 32, gap: 18, paddingHorizontal: 24 },
+  successCircle: { width: 100, height: 100, borderRadius: 50, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  successEmoji:  { fontSize: 52 },
+  successTitle:  { fontSize: 22, fontFamily: "Inter_700Bold", color: "#fff" },
+  successSub:    { fontSize: 14, fontFamily: "Inter_400Regular", color: "#888", textAlign: "center" },
+  doneBtn:       { borderRadius: 18, paddingVertical: 14, paddingHorizontal: 48 },
+  doneBtnText:   { fontSize: 16, fontFamily: "Inter_700Bold", color: "#fff" },
 });
