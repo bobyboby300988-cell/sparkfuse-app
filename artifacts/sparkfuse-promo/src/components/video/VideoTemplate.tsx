@@ -10,15 +10,15 @@ import { Scene5 } from './video_scenes/Scene5';
 import { Scene6 } from './video_scenes/Scene6';
 import { SceneWithdraw } from './video_scenes/SceneWithdraw';
 
-/* ─── Scene durations — total ~65 seconds ─── */
+/* ─── Scene durations — locked to audio lengths + 500ms buffer ─── */
 export const SCENE_DURATIONS: Record<string, number> = {
-  hook:     5000,
-  verify:  14500,
-  live:    14000,
-  withdraw:13000,
-  content: 10000,
-  tokens:   8000,
-  outro:    6000,
+  hook:      6500,
+  verify:   15700,
+  live:     20700,
+  withdraw: 18200,
+  content:  12600,
+  tokens:   13700,
+  outro:    15700,
 };
 
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
