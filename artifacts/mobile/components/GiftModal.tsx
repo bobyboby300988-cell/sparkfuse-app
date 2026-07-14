@@ -17,33 +17,35 @@ import {
 import { useApp } from "@/context/AppContext";
 import { buyTokensWithStripe, buyTokensWithPayPal } from "@/config/payments";
 
-/* ─── 11 gifts priced in ST cents (1 ST = €0.01) ─── */
+/* ─── 15 gifts — 1 ST = €0.01 ─── */
 const GIFTS = [
   /* ── Sweet ── */
-  { tokens: 1,     label: "Rose",        emoji: "🌹", desc: "A sweet gesture",        tier: "Sweet",    grad: ["#FFD6E7","#FF8FAB"] as [string,string], glow: "#FF8FAB90", tierColor: "#FF6B9D" },
-  { tokens: 10,    label: "Daisy",       emoji: "🌼", desc: "Pure and sunny",          tier: "Sweet",    grad: ["#FFF3B0","#FFD23F"] as [string,string], glow: "#FFD23F90", tierColor: "#FF6B9D" },
-  { tokens: 20,    label: "Blossom",     emoji: "🌸", desc: "Gentle and soft",         tier: "Sweet",    grad: ["#FFC8DD","#FF85A1"] as [string,string], glow: "#FF85A190", tierColor: "#FF6B9D" },
+  { tokens: 50,    label: "Lollipop",   emoji: "🍭", desc: "Sugar rush!",         tier: "Sweet",     grad: ["#FF9BE2","#FF5CA8"] as [string,string], glow: "#FF5CA890", tierColor: "#FF6B9D" },
+  { tokens: 100,   label: "Cupcake",    emoji: "🧁", desc: "Sweet & delicious",   tier: "Sweet",     grad: ["#FFD6B0","#FF9F68"] as [string,string], glow: "#FF9F6890", tierColor: "#FF6B9D" },
+  { tokens: 200,   label: "Beer",       emoji: "🍺", desc: "Cheers! ❤️",          tier: "Sweet",     grad: ["#FFE082","#FFA000"] as [string,string], glow: "#FFA00090", tierColor: "#FF6B9D" },
+  { tokens: 300,   label: "Teddy Bear", emoji: "🧸", desc: "A soft hug",          tier: "Sweet",     grad: ["#FFCCBC","#FF7043"] as [string,string], glow: "#FF704390", tierColor: "#FF6B9D" },
+  { tokens: 500,   label: "Strawberry", emoji: "🍓", desc: "Sweet & juicy",       tier: "Sweet",     grad: ["#FF8A80","#FF1744"] as [string,string], glow: "#FF174490", tierColor: "#FF6B9D" },
 
-  /* ── Romantic ── */
-  { tokens: 50,    label: "Love Letter", emoji: "💌", desc: "From the heart",          tier: "Romantic", grad: ["#FFAFCC","#FF5C8A"] as [string,string], glow: "#FF5C8A90", tierColor: "#C77DFF" },
-  { tokens: 100,   label: "Butterfly",   emoji: "🦋", desc: "Flutter of feelings",    tier: "Romantic", grad: ["#BDB2FF","#7B2D8B"] as [string,string], glow: "#7B2D8B90", tierColor: "#C77DFF" },
-  { tokens: 150,   label: "Kiss",        emoji: "💋", desc: "Soft lips on yours",      tier: "Romantic", grad: ["#C77DFF","#7B2FBE"] as [string,string], glow: "#C77DFF90", tierColor: "#C77DFF" },
+  /* ── Dreamy ── */
+  { tokens: 1000,  label: "Moon",       emoji: "🌙", desc: "You light my night",  tier: "Dreamy",    grad: ["#B39DDB","#673AB7"] as [string,string], glow: "#673AB790", tierColor: "#9C27B0" },
+  { tokens: 1500,  label: "Butterfly",  emoji: "🦋", desc: "Flutter of feelings", tier: "Dreamy",    grad: ["#80DEEA","#0097A7"] as [string,string], glow: "#0097A790", tierColor: "#9C27B0" },
+  { tokens: 2500,  label: "Magic Hat",  emoji: "🎩", desc: "You're magical",      tier: "Dreamy",    grad: ["#CE93D8","#7B1FA2"] as [string,string], glow: "#7B1FA290", tierColor: "#9C27B0" },
+  { tokens: 4000,  label: "Wine",       emoji: "🍷", desc: "A sensual evening",   tier: "Dreamy",    grad: ["#EF9A9A","#C62828"] as [string,string], glow: "#C6282890", tierColor: "#9C27B0" },
 
-  /* ── Flirty ── */
-  { tokens: 700,   label: "Wine",        emoji: "🍷", desc: "A sensual evening",       tier: "Flirty",   grad: ["#9E2A2B","#540B0E"] as [string,string], glow: "#9E2A2B90", tierColor: "#FF6B35" },
-  { tokens: 1000,  label: "Diamond",     emoji: "💎", desc: "You shine bright",        tier: "Flirty",   grad: ["#48CAE4","#0077B6"] as [string,string], glow: "#48CAE490", tierColor: "#FF6B35" },
+  /* ── Power ── */
+  { tokens: 5000,  label: "Fireworks",  emoji: "🎆", desc: "You're explosive!",   tier: "Power",     grad: ["#FFD740","#FF6D00"] as [string,string], glow: "#FF6D0090", tierColor: "#FF6B35" },
+  { tokens: 7500,  label: "Crystal",    emoji: "🔮", desc: "Mysterious desires",  tier: "Power",     grad: ["#80CBC4","#00695C"] as [string,string], glow: "#00695C90", tierColor: "#FF6B35" },
+  { tokens: 10000, label: "Dragon",     emoji: "🐉", desc: "Fierce & powerful",   tier: "Power",     grad: ["#FF7043","#BF360C"] as [string,string], glow: "#BF360C90", tierColor: "#FF6B35" },
 
-  /* ── Spicy ── */
-  { tokens: 5000,  label: "Crown",       emoji: "👑", desc: "Royalty treatment",       tier: "Spicy",    grad: ["#FFD700","#C8860A"] as [string,string], glow: "#FFD70090", tierColor: "#FF1744" },
-  { tokens: 10000, label: "Flame",       emoji: "🔥", desc: "Pure desire burning",     tier: "Spicy",    grad: ["#FF4500","#B22222"] as [string,string], glow: "#FF450090", tierColor: "#FF1744" },
-
-  /* ── Erotic ── */
-  { tokens: 20000, label: "Galaxy",      emoji: "🌌", desc: "Universe of desire",      tier: "Erotic",   grad: ["#2D0057","#9B2FBE"] as [string,string], glow: "#9B2FBE90", tierColor: "#FF3366" },
+  /* ── Legendary ── */
+  { tokens: 15000, label: "Lion King",  emoji: "🦁", desc: "King of hearts",      tier: "Legendary", grad: ["#FFD700","#C8860A"] as [string,string], glow: "#C8860A90", tierColor: "#FFD700" },
+  { tokens: 20000, label: "Rocket",     emoji: "🚀", desc: "Sky's the limit!",    tier: "Legendary", grad: ["#64B5F6","#1565C0"] as [string,string], glow: "#1565C090", tierColor: "#FFD700" },
+  { tokens: 30000, label: "Galaxy",     emoji: "🌌", desc: "Out of this world",   tier: "Legendary", grad: ["#CE93D8","#1A0033"] as [string,string], glow: "#9C27B090", tierColor: "#FFD700" },
 ];
 
-const TIER_ORDER = ["Sweet", "Romantic", "Flirty", "Spicy", "Erotic"];
+const TIER_ORDER = ["Sweet", "Dreamy", "Power", "Legendary"];
 const TIER_ICONS: Record<string, string> = {
-  Sweet: "🍭", Romantic: "💜", Flirty: "🌶️", Spicy: "🔥", Erotic: "😈",
+  Sweet: "🍭", Dreamy: "🌙", Power: "⚡", Legendary: "🌌",
 };
 
 
@@ -51,18 +53,16 @@ const FEE = 0.10;
 
 /* ── Per-tier animation config ── */
 const TIER_CFG: Record<string, { floatDur: number; floatH: number; breathAmt: number; breathDur: number; shimmerInterval: number; particleCount: number; swayDeg: number; glowSpeed: number }> = {
-  Sweet:    { floatDur: 1500, floatH:  8, breathAmt: 1.02, breathDur: 2200, shimmerInterval: 4200, particleCount: 2, swayDeg: 0,  glowSpeed: 900 },
-  Romantic: { floatDur: 1200, floatH:  9, breathAmt: 1.03, breathDur: 1800, shimmerInterval: 3400, particleCount: 2, swayDeg: 0,  glowSpeed: 750 },
-  Flirty:   { floatDur: 1000, floatH: 11, breathAmt: 1.04, breathDur: 1400, shimmerInterval: 2800, particleCount: 3, swayDeg: 6,  glowSpeed: 600 },
-  Spicy:    { floatDur:  800, floatH: 13, breathAmt: 1.06, breathDur: 1000, shimmerInterval: 2000, particleCount: 4, swayDeg: 10, glowSpeed: 450 },
-  Erotic:   { floatDur:  620, floatH: 15, breathAmt: 1.08, breathDur:  700, shimmerInterval: 1400, particleCount: 5, swayDeg: 14, glowSpeed: 300 },
+  Sweet:     { floatDur: 1500, floatH:  8, breathAmt: 1.02, breathDur: 2200, shimmerInterval: 4200, particleCount: 2, swayDeg: 0,  glowSpeed: 900 },
+  Dreamy:    { floatDur: 1200, floatH:  9, breathAmt: 1.03, breathDur: 1800, shimmerInterval: 3400, particleCount: 2, swayDeg: 3,  glowSpeed: 750 },
+  Power:     { floatDur:  900, floatH: 12, breathAmt: 1.05, breathDur: 1200, shimmerInterval: 2400, particleCount: 4, swayDeg: 8,  glowSpeed: 550 },
+  Legendary: { floatDur:  650, floatH: 15, breathAmt: 1.08, breathDur:  700, shimmerInterval: 1600, particleCount: 6, swayDeg: 12, glowSpeed: 320 },
 };
 
 const RANK_LABEL: Record<string, { text: string; color: string } | undefined> = {
-  Sweet: undefined, Romantic: undefined,
-  Flirty:  { text: "🌶️ HOT",       color: "#FF6B35" },
-  Spicy:   { text: "🔥 RARE",      color: "#FF1744" },
-  Erotic:  { text: "⚡ LEGENDARY", color: "#C77DFF" },
+  Sweet: undefined, Dreamy: undefined,
+  Power:     { text: "🔥 HOT",       color: "#FF6B35" },
+  Legendary: { text: "⚡ LEGENDARY", color: "#FFD700" },
 };
 
 /* ── Single floating particle ── */
@@ -329,7 +329,7 @@ function GiftCard({
 /* ══ Tier section header ══ */
 function TierHeader({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
-    Sweet: "#FF6B9D", Romantic: "#C77DFF", Flirty: "#FF6B35", Spicy: "#FF1744", Erotic: "#9B2FBE",
+    Sweet: "#FF6B9D", Dreamy: "#9C27B0", Power: "#FF6B35", Legendary: "#FFD700",
   };
   return (
     <View style={[styles.tierHeader, { borderLeftColor: colors[tier] }]}>

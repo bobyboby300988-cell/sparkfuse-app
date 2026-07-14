@@ -14,7 +14,7 @@ import { SceneWithdraw } from './video_scenes/SceneWithdraw';
 export const SCENE_DURATIONS: Record<string, number> = {
   hook:      6500,
   verify:   15700,
-  live:     20700,
+  live:     23500,
   withdraw: 18200,
   content:  12600,
   tokens:   13700,

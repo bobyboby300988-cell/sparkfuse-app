@@ -22,6 +22,7 @@ import { ModeSelector } from "@/components/ModeSelector";
 import { useColors } from "@/hooks/useColors";
 import { useGetFeed, useCreateSwipe } from "@workspace/api-client-react";
 import { getPhotoUrl } from "@/lib/api";
+import { LockedMediaGrid } from "@/components/LockedMediaGrid";
 
 const { width: W } = Dimensions.get("window");
 const COLS = 3;
@@ -149,6 +150,9 @@ function ServerProfileModal({
               <Text style={[modalStyles.bio, { color: colors.mutedForeground }]}>No bio yet.</Text>
             )}
           </View>
+
+          {/* ── Locked media grid ── */}
+          <LockedMediaGrid userId={profile.userId} />
         </ScrollView>
 
         <View style={[modalStyles.actions, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
