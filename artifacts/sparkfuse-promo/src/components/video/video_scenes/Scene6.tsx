@@ -108,7 +108,7 @@ export function Scene6() {
             <motion.span key={i} style={{
               display: 'inline-block',
               fontFamily: 'Bebas Neue, sans-serif',
-              fontSize: 'clamp(48px, 15vw, 80px)',
+              fontSize: 'clamp(34px, 9vw, 52px)',
               color: i < 5 ? '#fff' : '#C0392B',
               letterSpacing: '0.04em', lineHeight: 1,
               WebkitTextStroke: i >= 5 ? '1px #F39C12' : undefined,

@@ -1,79 +1,166 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 
+const steps = [
+  { icon: '💳', label: 'Buy ST Tokens',  sub: 'Card or PayPal',         color: '#C0392B' },
+  { icon: '⚡', label: 'Spend ST',        sub: 'Gifts · Content · Live', color: '#F39C12' },
+  { icon: '💸', label: 'Creators Earn',  sub: 'ST credited instantly',   color: '#27ae60' },
+  { icon: '🏦', label: 'Withdraw Cash',  sub: '10% platform fee',        color: '#3498db' },
+];
+
+const stPacks = [
+  { st: '100 ST', price: '€1.00', popular: false },
+  { st: '500 ST', price: '€4.50', popular: true  },
+  { st: '1000 ST', price: '€8.00', popular: false },
+];
+
 export function Scene5() {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase(1), 300), // Text appears
-      setTimeout(() => setPhase(2), 1000), // Chat bubbles
-      setTimeout(() => setPhase(3), 2000), // Coach card
-      setTimeout(() => setPhase(4), 3500), // Exit
+      setTimeout(() => setPhase(1), 100),
+      setTimeout(() => setPhase(2), 500),
+      setTimeout(() => setPhase(3), 1100),
+      setTimeout(() => setPhase(4), 2200),
+      setTimeout(() => setPhase(5), 3200),
     ];
-    return () => timers.forEach(t => clearTimeout(t));
+    return () => timers.forEach(clearTimeout);
   }, []);
 
   return (
-    <motion.div 
+    <motion.div
       className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.5 }}
+      style={{ background: 'linear-gradient(170deg, #0D0B12 0%, #080d0a 60%, #0D0B12 100%)' }}
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, x: -30 }}
+      transition={{ duration: 0.4 }}
     >
-      <div className="absolute top-[8%] text-center z-20 w-full px-6">
-        <motion.h2 
-          className="font-display text-[9vh] leading-[0.9] text-white drop-shadow-lg"
-          initial={{ y: -30, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-        >
-          CHAT <span className="text-primary">INSTANTLY</span><br/>
-          GET <span className="text-accent">COACHED</span>
-        </motion.h2>
-      </div>
+      <div className="absolute inset-0" style={{
+        background: 'radial-gradient(ellipse 55% 40% at 50% 40%, rgba(243,156,18,0.16) 0%, transparent 70%)',
+      }} />
 
-      <div className="relative w-full h-[60%] flex flex-col items-center mt-[20%] px-6">
-        {/* Chat bubbles */}
-        <div className="w-full flex flex-col gap-4 z-10 mb-8">
-          <motion.div 
-            className="self-end bg-primary rounded-2xl rounded-tr-none px-4 py-3 max-w-[80%] text-white font-body shadow-lg"
-            initial={{ scale: 0, originX: 1, originY: 1, opacity: 0 }}
-            animate={phase >= 2 ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 250, damping: 20 }}
-          >
-            How do I start a good conversation? 🤔
-          </motion.div>
-
-          <motion.div 
-            className="self-start bg-zinc-800 rounded-2xl rounded-tl-none px-4 py-3 max-w-[80%] text-white font-body shadow-lg border border-zinc-700"
-            initial={{ scale: 0, originX: 0, originY: 1, opacity: 0 }}
-            animate={phase >= 2 ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 250, damping: 20, delay: 0.3 }}
-          >
-            Be genuine! Comment on something specific from their profile. 💡
-          </motion.div>
+      {/* Header */}
+      <motion.div style={{ textAlign: 'center', marginBottom: 12, position: 'relative', zIndex: 10 }}
+        initial={{ opacity: 0, y: -16 }}
+        animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: -16 }}
+        transition={{ duration: 0.45 }}
+      >
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: 'rgba(243,156,18,0.12)', borderRadius: 40, padding: '4px 14px',
+          border: '1px solid rgba(243,156,18,0.3)', marginBottom: 8,
+        }}>
+          <span style={{ fontSize: 12 }}>⚡</span>
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: '#F39C12', letterSpacing: '0.15em', fontWeight: 600 }}>ST TOKEN ECONOMY</span>
         </div>
+        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 'clamp(28px, 8vw, 44px)', color: '#fff', letterSpacing: '0.06em', lineHeight: 1 }}>
+          BUY ST — <span style={{ color: '#F39C12' }}>CASH OUT</span>
+        </div>
+      </motion.div>
 
-        {/* Coach Card */}
-        <motion.div
-          className="w-[85%] bg-zinc-900 rounded-3xl overflow-hidden border-2 border-accent shadow-[0_0_40px_rgba(243,156,18,0.2)] flex flex-row items-center p-4 gap-4"
-          initial={{ y: 50, opacity: 0 }}
-          animate={phase >= 3 ? { y: 0, opacity: 1 } : { y: 50, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+      {/* Steps */}
+      <motion.div style={{ width: '88%', display: 'flex', flexDirection: 'column', gap: 6, position: 'relative', zIndex: 10 }}
+        initial={{ opacity: 0 }} animate={phase >= 2 ? { opacity: 1 } : { opacity: 0 }} transition={{ duration: 0.3 }}
+      >
+        {steps.map((step, i) => (
+          <motion.div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: 'rgba(20,16,30,0.92)', borderRadius: 12, padding: '10px 12px',
+            border: `1px solid ${step.color}28`, boxShadow: `0 2px 10px ${step.color}10`,
+          }}
+            initial={{ opacity: 0, x: -22 }}
+            animate={phase >= 2 ? { opacity: 1, x: 0 } : { opacity: 0, x: -22 }}
+            transition={{ duration: 0.35, delay: i * 0.1 }}
+          >
+            <div style={{
+              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+              background: `${step.color}18`, border: `1px solid ${step.color}40`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+            }}>{step.icon}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, color: '#fff', fontWeight: 600 }}>{step.label}</div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>{step.sub}</div>
+            </div>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: step.color, boxShadow: `0 0 7px ${step.color}` }} />
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* Withdrawal box */}
+      <motion.div style={{
+        width: '88%', marginTop: 10,
+        background: 'linear-gradient(135deg, rgba(243,156,18,0.12), rgba(192,57,43,0.08))',
+        borderRadius: 14, padding: '12px 14px',
+        border: '1px solid rgba(243,156,18,0.35)', position: 'relative', zIndex: 10, overflow: 'hidden',
+      }}
+        initial={{ opacity: 0, y: 16, scale: 0.96 }}
+        animate={phase >= 4 ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 16, scale: 0.96 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 18 }}>🏦</span>
+          <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 17, color: '#F39C12', letterSpacing: '0.08em' }}>
+            WITHDRAW TO YOUR BANK
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>Your ST balance</div>
+            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 26, color: '#fff', letterSpacing: '0.04em' }}>1,000 ST</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>You receive</div>
+            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 26, color: '#27ae60', letterSpacing: '0.04em' }}>€9.00</div>
+          </div>
+        </div>
+        {/* Fee info */}
+        <motion.div style={{
+          marginTop: 8, padding: '6px 10px',
+          background: 'rgba(0,0,0,0.35)', borderRadius: 9,
+          display: 'flex', alignItems: 'center', gap: 7,
+          border: '1px solid rgba(255,255,255,0.07)',
+        }}
+          initial={{ opacity: 0 }}
+          animate={phase >= 5 ? { opacity: 1 } : { opacity: 0 }}
+          transition={{ duration: 0.4 }}
         >
-          <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-primary shrink-0">
-            <img src={`${import.meta.env.BASE_URL}coach.png`} className="w-full h-full object-cover bg-white" />
+          <span style={{ fontSize: 13 }}>ℹ️</span>
+          <div>
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>10% platform fee</span>
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.45)' }}> on withdrawal</span>
           </div>
-          <div className="flex flex-col">
-            <div className="text-accent font-display text-sm tracking-wider">CERTIFIED COACH</div>
-            <div className="text-white font-display text-2xl">ALEXANDER</div>
-            <div className="text-white/60 font-body text-xs mt-1">Dating & Relationship Expert</div>
-          </div>
+          <div style={{ marginLeft: 'auto', fontFamily: 'Bebas Neue, sans-serif', fontSize: 13, color: '#C0392B' }}>−€1.00</div>
         </motion.div>
+      </motion.div>
 
-      </div>
+      {/* ST packs */}
+      <motion.div style={{ width: '88%', marginTop: 9, display: 'flex', gap: 7, position: 'relative', zIndex: 10 }}
+        initial={{ opacity: 0, y: 10 }}
+        animate={phase >= 5 ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+        transition={{ duration: 0.4 }}
+      >
+        {stPacks.map((pack, i) => (
+          <div key={i} style={{
+            flex: 1, borderRadius: 11, padding: '9px 6px', textAlign: 'center',
+            background: pack.popular ? 'linear-gradient(135deg, rgba(192,57,43,0.3), rgba(243,156,18,0.2))' : 'rgba(20,16,30,0.9)',
+            border: pack.popular ? '1px solid rgba(243,156,18,0.5)' : '1px solid rgba(255,255,255,0.08)',
+            position: 'relative',
+          }}>
+            {pack.popular && (
+              <div style={{
+                position: 'absolute', top: -7, left: '50%', transform: 'translateX(-50%)',
+                background: '#F39C12', borderRadius: 20, padding: '1px 7px',
+                fontFamily: 'Inter, sans-serif', fontSize: 8, color: '#0D0B12', fontWeight: 700,
+                letterSpacing: '0.1em', whiteSpace: 'nowrap',
+              }}>POPULAR</div>
+            )}
+            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 16, color: '#F39C12', letterSpacing: '0.04em' }}>{pack.st}</div>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 1 }}>{pack.price}</div>
+          </div>
+        ))}
+      </motion.div>
     </motion.div>
   );
 }

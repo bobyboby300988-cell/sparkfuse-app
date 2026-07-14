@@ -9,28 +9,27 @@ import { Scene5 } from './video_scenes/Scene5';
 import { Scene6 } from './video_scenes/Scene6';
 
 export const SCENE_DURATIONS: Record<string, number> = {
-  hook:       3200,
-  verify:     4500,
-  live:       4500,
-  content:    4500,
-  tokens:     5000,
-  outro:      4500,
+  hook:    3200,
+  verify:  4500,
+  live:    5500,   // needs time for all 3 gift types + withdraw overlay
+  content: 7200,   // small gift → medium gift → large gift + caption
+  tokens:  5000,
+  outro:   4500,
 };
 
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
-  hook:       Scene1,
-  verify:     Scene2,
-  live:       Scene3,
-  content:    Scene4,
-  tokens:     Scene5,
-  outro:      Scene6,
+  hook:    Scene1,
+  verify:  Scene2,
+  live:    Scene3,
+  content: Scene4,
+  tokens:  Scene5,
+  outro:   Scene6,
 };
 
-// Persistent background orbs — live OUTSIDE AnimatePresence, drift across all scenes
 const ORB_CONFIGS = [
-  { color: '#C0392B', size: 320, ix: '10%',  iy: '15%', ax: ['10%', '55%', '25%'], ay: ['15%', '55%', '30%'], dur: 18 },
-  { color: '#F39C12', size: 220, ix: '75%',  iy: '70%', ax: ['75%', '30%', '60%'], ay: ['70%', '20%', '50%'], dur: 22 },
-  { color: '#C0392B', size: 180, ix: '50%',  iy: '5%',  ax: ['50%', '80%', '20%'], ay: ['5%', '40%', '10%'],  dur: 15 },
+  { color: '#C0392B', ax: ['12%','55%','22%'], ay: ['18%','55%','32%'], dur: 18 },
+  { color: '#F39C12', ax: ['75%','28%','62%'], ay: ['68%','22%','52%'], dur: 22 },
+  { color: '#C0392B', ax: ['50%','82%','18%'], ay: ['8%', '42%','12%'], dur: 15 },
 ];
 
 export default function VideoTemplate({
@@ -52,37 +51,64 @@ export default function VideoTemplate({
   const SceneComponent = SCENE_COMPONENTS[baseKey];
 
   return (
-    <div className="relative w-full h-screen overflow-hidden" style={{ background: '#0D0B12' }}>
-      {/* Persistent drifting orbs */}
-      {ORB_CONFIGS.map((orb, i) => (
-        <motion.div
-          key={i}
-          className="absolute rounded-full pointer-events-none"
-          style={{
-            width: orb.size,
-            height: orb.size,
-            left: orb.ix,
-            top: orb.iy,
-            background: `radial-gradient(circle, ${orb.color}40 0%, transparent 70%)`,
-            filter: 'blur(40px)',
-            transform: 'translate(-50%, -50%)',
-          }}
-          animate={{ left: orb.ax, top: orb.ay }}
-          transition={{ duration: orb.dur, repeat: Infinity, ease: 'easeInOut', repeatType: 'mirror' }}
-        />
-      ))}
+    /* 
+      Full black page. The inner phone frame is always 9:16.
+      width  = min(100vw, 100vh × 9/16)  → fills width on portrait screens
+      height = aspect-ratio auto-computes = width × 16/9
+      On landscape/laptop: appears as a tall phone column centered in black.
+      On portrait/phone: fills the whole screen edge-to-edge.
+    */
+    <div
+      style={{
+        width: '100vw',
+        height: '100vh',
+        background: '#000',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          overflow: 'hidden',
+          background: '#0D0B12',
+          /* 
+            This is the key: use min() so it fits portrait AND landscape viewports.
+            portrait  → width = 100vw, height = 100vw × 16/9
+            landscape → width = 100vh × 9/16, height = 100vh
+          */
+          width: 'min(100vw, calc(100vh * 9 / 16))',
+          height: 'min(100vh, calc(100vw * 16 / 9))',
+          aspectRatio: '9 / 16',
+        }}
+      >
+        {/* Persistent drifting glow orbs */}
+        {ORB_CONFIGS.map((orb, i) => (
+          <motion.div
+            key={i}
+            style={{
+              position: 'absolute',
+              borderRadius: '50%',
+              pointerEvents: 'none',
+              width: '70%',
+              height: '45%',
+              background: `radial-gradient(circle, ${orb.color}45 0%, transparent 70%)`,
+              filter: 'blur(40px)',
+              transform: 'translate(-50%, -50%)',
+              left: orb.ax[0],
+              top: orb.ay[0],
+            }}
+            animate={{ left: orb.ax, top: orb.ay }}
+            transition={{ duration: orb.dur, repeat: Infinity, ease: 'easeInOut', repeatType: 'mirror' }}
+          />
+        ))}
 
-      {/* Noise texture overlay */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\' opacity=\'0.04\'/%3E%3C/svg%3E")',
-        opacity: 0.025,
-        mixBlendMode: 'overlay',
-      }} />
-
-      {/* Scene content */}
-      <AnimatePresence mode="popLayout">
-        {SceneComponent && <SceneComponent key={currentSceneKey} />}
-      </AnimatePresence>
+        <AnimatePresence mode="popLayout">
+          {SceneComponent && <SceneComponent key={currentSceneKey} />}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
