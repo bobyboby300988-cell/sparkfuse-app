@@ -456,15 +456,22 @@ export function Scene4() {
           }}
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
           >
-            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 'clamp(20px, 6vw, 30px)', color: '#fff', letterSpacing: '0.06em', lineHeight: 1.1 }}>
+            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 'clamp(18px, 5.5vw, 28px)', color: '#fff', letterSpacing: '0.06em', lineHeight: 1.1 }}>
               CHAT · PHOTOS · VIDEOS · <span style={{ color: '#F39C12' }}>GIFTS</span>
             </div>
             <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 5 }}>
               Talk, share media & receive gifts by message
             </div>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: '#27ae60', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#27ae60', display: 'inline-block' }} />
-              Available now on web &amp; app · No video call needed
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+              {[
+                { icon: '📹', label: 'Video call' },
+                { icon: '📞', label: 'Voice call' },
+              ].map(({ icon, label }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(39,174,96,0.12)', borderRadius: 20, padding: '3px 10px', border: '1px solid rgba(39,174,96,0.35)' }}>
+                  <span style={{ fontSize: 11 }}>{icon}</span>
+                  <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: '#27ae60', fontWeight: 600 }}>{label} · Web &amp; App</span>
+                </div>
+              ))}
             </div>
           </motion.div>
         )}

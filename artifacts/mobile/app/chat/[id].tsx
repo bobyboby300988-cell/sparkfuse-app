@@ -255,7 +255,11 @@ export default function ChatScreen() {
   };
 
   const handleVideoCall = () => {
-    router.push({ pathname: "/call/[id]", params: { id: id! } });
+    router.push({ pathname: "/call/[id]", params: { id: id!, mode: "video" } });
+  };
+
+  const handleVoiceCall = () => {
+    router.push({ pathname: "/call/[id]", params: { id: id!, mode: "voice" } });
   };
 
   const doBlock = async () => {
@@ -432,6 +436,7 @@ export default function ChatScreen() {
         <TouchableOpacity
           style={[styles.headerAction, { backgroundColor: colors.card }]}
           activeOpacity={0.7}
+          onPress={handleVoiceCall}
         >
           <Ionicons name="call" size={20} color={colors.primary} />
         </TouchableOpacity>

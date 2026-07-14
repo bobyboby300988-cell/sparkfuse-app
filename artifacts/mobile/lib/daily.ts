@@ -54,11 +54,14 @@ export async function getOrCreateRoom(roomName: string): Promise<DailyRoom> {
 // their camera off so only the host is seen/heard, like a real live stream.
 export async function createMeetingToken(
   roomName: string,
-  opts: { isOwner: boolean; userName?: string }
+  opts: { isOwner: boolean; userName?: string; startVideoOff?: boolean; startAudioOff?: boolean }
 ): Promise<string> {
   if (!DAILY_API_KEY) {
     throw new Error("EXPO_PUBLIC_DAILY_API_KEY is not set");
   }
+
+  const startVideoOff = opts.startVideoOff ?? !opts.isOwner;
+  const startAudioOff = opts.startAudioOff ?? !opts.isOwner;
 
   const res = await fetch(`${DAILY_API_URL}/meeting-tokens`, {
     method: "POST",
@@ -71,8 +74,8 @@ export async function createMeetingToken(
         room_name: roomName,
         is_owner: opts.isOwner,
         user_name: opts.userName ?? (opts.isOwner ? "Host" : "Viewer"),
-        start_video_off: !opts.isOwner,
-        start_audio_off: !opts.isOwner,
+        start_video_off: startVideoOff,
+        start_audio_off: startAudioOff,
         exp: Math.floor(Date.now() / 1000) + 60 * 60 * 6,
       },
     }),

@@ -246,7 +246,7 @@ export function Scene6() {
               ✅ AVAILABLE NOW ON WEB — NO APP NEEDED
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {['💬 Chat', '📸 Photos', '🎬 Videos', '🎁 Gifts by message', '👤 Profile'].map(item => (
+              {['💬 Chat', '📸 Photos', '🎬 Videos', '🎁 Gifts', '📹 Video call', '📞 Voice call', '👤 Profile'].map(item => (
                 <span key={item} style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '2px 7px' }}>{item}</span>
               ))}
             </div>
