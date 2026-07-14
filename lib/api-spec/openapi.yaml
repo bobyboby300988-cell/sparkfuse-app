@@ -133,6 +133,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /account/reset:
+    post:
+      tags: [Auth]
+      operationId: resetAccount
+      summary: Wipe profile, swipes, matches and blocks — keep email and subscription
+      responses:
+        '200':
+          description: Account reset.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /account:
+    delete:
+      tags: [Auth]
+      operationId: deleteAccount
+      summary: Permanently delete the account from DB and Clerk — user must re-register
+      responses:
+        '200':
+          description: Account deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /swipes:
     delete:
       tags: [Matching]

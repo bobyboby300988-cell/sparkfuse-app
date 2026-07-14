@@ -127,6 +127,14 @@ export interface BlocksResponse {
   blockedUserIds: string[];
 }
 
+export type ResetAccount200 = {
+  ok: boolean;
+};
+
+export type DeleteAccount200 = {
+  ok: boolean;
+};
+
 export type DeleteMySwipes200 = {
   deleted: number;
 };

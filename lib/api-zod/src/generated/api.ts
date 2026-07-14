@@ -149,6 +149,22 @@ export const GetFeedResponse = zod.object({
 
 
 /**
+ * @summary Wipe profile, swipes, matches and blocks — keep email and subscription
+ */
+export const ResetAccountResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Permanently delete the account from DB and Clerk — user must re-register
+ */
+export const DeleteAccountResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
  * @summary Clear all swipes made by the current user (resets discover feed)
  */
 export const DeleteMySwipesResponse = zod.object({

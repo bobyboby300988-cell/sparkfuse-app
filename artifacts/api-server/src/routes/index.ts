@@ -9,6 +9,7 @@ import storageRouter from "./storage";
 import profileRouter from "./profile";
 import matchingRouter from "./matching";
 import blocksRouter from "./blocks";
+import accountRouter from "./account";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(storageRouter);
 router.use(profileRouter);
 router.use(matchingRouter);
 router.use(blocksRouter);
+router.use(accountRouter);
 
 export default router;

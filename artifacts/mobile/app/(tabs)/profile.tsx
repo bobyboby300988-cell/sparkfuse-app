@@ -22,7 +22,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useGetMyProfile, useUpsertMyProfile } from "@workspace/api-client-react";
+import { useGetMyProfile, useUpsertMyProfile, useResetAccount, useDeleteAccount } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import WithdrawModal from "@/components/WithdrawModal";
 import { useColors } from "@/hooks/useColors";
@@ -109,23 +109,46 @@ export default function ProfileScreen() {
     setLoggingOut(false);
   };
 
-  const handleReset = () => {
+  const resetAccountMutation  = useResetAccount();
+  const deleteAccountMutation = useDeleteAccount();
+
+  const handleResetAccount = () => {
     Alert.alert(
-      "Reset Discover",
-      "This clears your swipe history so everyone reappears in Discover.\n\nYour profile, matches, and messages are NOT deleted.",
+      "Reset Account",
+      "This will permanently delete:\n• Your profile & photos\n• All matches\n• All conversations\n• Your swipe history\n\nYour email, password and subscription stay active. You will be taken back to set up your profile again.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Reset Discover",
+          text: "Reset Account",
           style: "destructive",
           onPress: async () => {
             try {
-              // Clear server-side swipes so dismissed users reappear in feed
-              await fetch("/api/swipes", { method: "DELETE", credentials: "include" });
+              await resetAccountMutation.mutateAsync();
             } catch {}
-            // Clear local state
             await AsyncStorage.multiRemove(["discover_filters_v1"]);
-            Alert.alert("Done", "Your Discover feed has been reset. Everyone will appear again.");
+            router.replace("/onboarding");
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account and ALL data — profile, photos, matches, messages — from our servers.\n\nTo use SparkFuse again you will need to create a new account and pay the subscription again.\n\nThis cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Forever",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteAccountMutation.mutateAsync();
+            } catch {}
+            try { await signOut(); } catch {}
+            await AsyncStorage.clear();
+            router.replace("/welcome");
           },
         },
       ]
@@ -697,46 +720,66 @@ export default function ProfileScreen() {
         <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
       </TouchableOpacity>
 
-      {/* Log Out + Reset — compact action row */}
-      <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginHorizontal: 20, marginTop: 12, marginBottom: bottomPadding + 20 }}>
+      {/* Account actions — three buttons */}
+      <View style={{ marginHorizontal: 20, marginTop: 16, marginBottom: bottomPadding + 24, gap: 10 }}>
+
+        {/* Log Out */}
         <Pressable
           onPress={handleLogout}
           disabled={loggingOut}
           style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 5,
-            paddingVertical: 8,
-            paddingHorizontal: 14,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: "rgba(255,51,102,0.45)",
+            flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+            paddingVertical: 13, borderRadius: 14, borderWidth: 1,
+            borderColor: "rgba(255,51,102,0.4)",
+            backgroundColor: "rgba(255,51,102,0.07)",
             opacity: pressed || loggingOut ? 0.5 : 1,
           })}
         >
-          <Ionicons name="log-out-outline" size={14} color="#FF3366" />
-          <Text style={{ color: "#FF3366", fontSize: 12, fontFamily: "Inter_500Medium" }}>
+          <Ionicons name="log-out-outline" size={16} color="#FF3366" />
+          <Text style={{ color: "#FF3366", fontSize: 14, fontFamily: "Inter_600SemiBold" }}>
             {loggingOut ? "Logging out…" : "Log Out"}
           </Text>
         </Pressable>
 
+        {/* Reset Account */}
         <Pressable
-          onPress={handleReset}
+          onPress={handleResetAccount}
+          disabled={resetAccountMutation.isPending}
           style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 5,
-            paddingVertical: 8,
-            paddingHorizontal: 14,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.12)",
-            opacity: pressed ? 0.5 : 1,
+            flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+            paddingVertical: 13, borderRadius: 14, borderWidth: 1,
+            borderColor: "rgba(251,146,60,0.4)",
+            backgroundColor: "rgba(251,146,60,0.07)",
+            opacity: pressed || resetAccountMutation.isPending ? 0.5 : 1,
           })}
         >
-          <Ionicons name="refresh-outline" size={14} color={colors.mutedForeground} />
-          <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_500Medium" }}>Reset Discover</Text>
+          <Ionicons name="refresh-circle-outline" size={16} color="#FB923C" />
+          <Text style={{ color: "#FB923C", fontSize: 14, fontFamily: "Inter_600SemiBold" }}>
+            {resetAccountMutation.isPending ? "Resetting…" : "Reset Account"}
+          </Text>
         </Pressable>
+
+        {/* Delete Account */}
+        <Pressable
+          onPress={handleDeleteAccount}
+          disabled={deleteAccountMutation.isPending}
+          style={({ pressed }) => ({
+            flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+            paddingVertical: 13, borderRadius: 14, borderWidth: 1,
+            borderColor: "rgba(239,68,68,0.35)",
+            backgroundColor: "rgba(239,68,68,0.07)",
+            opacity: pressed || deleteAccountMutation.isPending ? 0.5 : 1,
+          })}
+        >
+          <Ionicons name="trash-outline" size={16} color="#EF4444" />
+          <Text style={{ color: "#EF4444", fontSize: 14, fontFamily: "Inter_600SemiBold" }}>
+            {deleteAccountMutation.isPending ? "Deleting…" : "Delete Account"}
+          </Text>
+        </Pressable>
+
+        <Text style={{ textAlign: "center", fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginTop: 4, lineHeight: 16 }}>
+          Reset keeps your email & subscription.{"\n"}Delete removes everything permanently.
+        </Text>
       </View>
     </ScrollView>
 
