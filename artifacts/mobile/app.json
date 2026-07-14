@@ -49,6 +49,18 @@
         {
           "photosPermission": "SparkFuse needs access to your photos to set your profile picture and add gallery photos."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "packagingOptions": {
+              "pickFirst": [
+                "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+              ]
+            }
+          }
+        }
       ]
     ],
     "experiments": {
