@@ -1,6 +1,10 @@
 import { Router, type IRouter } from 'express';
+import { eq } from 'drizzle-orm';
+import Stripe from 'stripe';
 import { getStripeClient } from '../stripeClient';
 import { logger } from '../lib/logger';
+import { db, usersTable } from '@workspace/db';
+import { requireAuth } from '../middlewares/requireAuth';
 
 const router: IRouter = Router();
 
@@ -240,6 +244,132 @@ router.post('/stripe/withdraw', async (req, res) => {
     logger.error({ err }, 'Withdrawal failed');
     res.status(500).json({ error: err.message ?? 'Withdrawal failed' });
   }
+});
+
+// ── Stripe Webhook ─────────────────────────────────────────────────────────
+// Automatically blocks access when a monthly payment fails or subscription is
+// cancelled. Stripe sends events here; we update isSubscribed in the DB.
+// Setup: add this URL in Stripe Dashboard → Webhooks:
+//   https://<your-domain>/api/stripe/webhook
+// Events to enable: checkout.session.completed, invoice.payment_succeeded,
+//   invoice.payment_failed, customer.subscription.deleted,
+//   customer.subscription.updated
+router.post('/stripe/webhook', async (req, res) => {
+  const sig = req.headers['stripe-signature'] as string;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    logger.warn('STRIPE_WEBHOOK_SECRET not configured — webhook skipped');
+    res.status(400).json({ error: 'Webhook secret not configured' });
+    return;
+  }
+
+  let event: Stripe.Event;
+  try {
+    const stripe = getStripeClient();
+    event = stripe.webhooks.constructEvent(req.body as Buffer, sig, webhookSecret);
+  } catch (err: any) {
+    logger.error({ err }, 'Stripe webhook signature invalid');
+    res.status(400).json({ error: `Webhook error: ${err.message}` });
+    return;
+  }
+
+  try {
+    const stripe = getStripeClient();
+
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.mode !== 'subscription' || !session.subscription || !session.customer) break;
+        const customerId = typeof session.customer === 'string' ? session.customer : session.customer.id;
+        const subscriptionId = typeof session.subscription === 'string' ? session.subscription : (session.subscription as Stripe.Subscription).id;
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const customer = await stripe.customers.retrieve(customerId);
+        if ((customer as Stripe.DeletedCustomer).deleted) break;
+        const email = (customer as Stripe.Customer).email;
+        if (!email) break;
+        await db.update(usersTable).set({
+          isSubscribed: true,
+          subscribedAt: new Date(),
+          stripeCustomerId: customerId,
+          stripeSubscriptionId: subscriptionId,
+          subscriptionStatus: subscription.status,
+          subscriptionCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        }).where(eq(usersTable.email, email));
+        logger.info({ email, customerId }, 'Subscription activated via webhook');
+        break;
+      }
+
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice;
+        if (!invoice.subscription || !invoice.customer) break;
+        const customerId = typeof invoice.customer === 'string' ? invoice.customer : (invoice.customer as Stripe.Customer).id;
+        const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : (invoice.subscription as Stripe.Subscription).id;
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        await db.update(usersTable).set({
+          isSubscribed: true,
+          subscriptionStatus: 'active',
+          subscriptionCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        }).where(eq(usersTable.stripeCustomerId, customerId));
+        logger.info({ customerId }, 'Subscription renewed via webhook');
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        if (!invoice.customer) break;
+        const customerId = typeof invoice.customer === 'string' ? invoice.customer : (invoice.customer as Stripe.Customer).id;
+        await db.update(usersTable).set({
+          isSubscribed: false,
+          subscriptionStatus: 'past_due',
+        }).where(eq(usersTable.stripeCustomerId, customerId));
+        logger.info({ customerId }, 'Subscription payment failed — access blocked');
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = typeof subscription.customer === 'string' ? subscription.customer : (subscription.customer as Stripe.Customer).id;
+        await db.update(usersTable).set({
+          isSubscribed: false,
+          subscriptionStatus: 'canceled',
+        }).where(eq(usersTable.stripeCustomerId, customerId));
+        logger.info({ customerId }, 'Subscription cancelled — access blocked');
+        break;
+      }
+
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = typeof subscription.customer === 'string' ? subscription.customer : (subscription.customer as Stripe.Customer).id;
+        const isActive = subscription.status === 'active' || subscription.status === 'trialing';
+        await db.update(usersTable).set({
+          isSubscribed: isActive,
+          subscriptionStatus: subscription.status,
+          subscriptionCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        }).where(eq(usersTable.stripeCustomerId, customerId));
+        logger.info({ customerId, status: subscription.status }, 'Subscription updated via webhook');
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    res.json({ received: true });
+  } catch (err: any) {
+    logger.error({ err, eventType: event.type }, 'Webhook handler error');
+    res.status(500).json({ error: 'Handler error' });
+  }
+});
+
+// Current subscription status for the signed-in user (server-side truth).
+router.get('/subscription/status', requireAuth, async (req, res) => {
+  const user = req.dbUser!;
+  res.json({
+    isSubscribed: user.isSubscribed,
+    subscriptionStatus: user.subscriptionStatus ?? null,
+    subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd ?? null,
+  });
 });
 
 // Confirm a Checkout Session actually completed payment before crediting

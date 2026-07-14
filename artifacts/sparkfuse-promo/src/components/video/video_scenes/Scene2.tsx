@@ -116,7 +116,7 @@ export function Scene2() {
                 animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
               >🔓</motion.div>
               <div style={{ fontFamily: 'Inter', fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.15em', marginBottom: 4 }}>
-                ONE-TIME VERIFICATION FEE
+                MONTHLY SUBSCRIPTION
               </div>
               <motion.div style={{ fontFamily: 'Bebas Neue', fontSize: 'clamp(58px,14vw,78px)', color: '#fff', lineHeight: 1 }}
                 initial={{ opacity: 0, scale: 0.7 }}
@@ -126,7 +126,7 @@ export function Scene2() {
                 <span style={{ color: '#F39C12' }}>€</span>2
               </motion.div>
               <div style={{ fontFamily: 'Inter', fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4, marginBottom: 18 }}>
-                Pay once · Unlock everything · Keep earning forever
+                Only €2 / month · Full access · Auto-renews · Cancel anytime
               </div>
 
               {/* Payment methods */}
@@ -189,7 +189,7 @@ export function Scene2() {
               }}>💳</div>
               <div>
                 <div style={{ fontFamily: 'Bebas Neue', fontSize: 17, color: '#fff', letterSpacing: '0.08em' }}>CARD PAYMENT</div>
-                <div style={{ fontFamily: 'Inter', fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Charged: €2.00 · One time only</div>
+                <div style={{ fontFamily: 'Inter', fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>€2.00/month · Auto-renews monthly</div>
               </div>
               <div style={{ marginLeft: 'auto', fontFamily: 'Bebas Neue', fontSize: 20, color: '#F39C12' }}>€2</div>
             </div>
@@ -253,7 +253,7 @@ export function Scene2() {
               animate={phase === 5 ? { scale: [1, 0.96, 1] } : phase >= 4 ? { scale: 1 } : {}}
               transition={{ duration: 0.25 }}
             >
-              {phase >= 5 ? '⏳ PAYING...' : 'PAY €2.00'}
+              {phase >= 5 ? '⏳ SUBSCRIBING...' : 'SUBSCRIBE — €2 / MONTH'}
             </motion.div>
 
             <div style={{ textAlign: 'center', marginTop: 10, fontFamily: 'Inter', fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>
@@ -283,7 +283,7 @@ export function Scene2() {
               PROCESSING PAYMENT
             </div>
             <div style={{ fontFamily: 'Inter', fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 24 }}>
-              Securely charging €2.00...
+              Activating your monthly subscription...
             </div>
 
             {/* Progress bar */}

@@ -9,6 +9,10 @@ export const usersTable = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   isSubscribed: boolean("is_subscribed").notNull().default(false),
   subscribedAt: timestamp("subscribed_at", { withTimezone: true }),
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  subscriptionStatus: varchar("subscription_status"),
+  subscriptionCurrentPeriodEnd: timestamp("subscription_current_period_end", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

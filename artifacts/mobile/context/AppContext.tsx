@@ -99,13 +99,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const activateSubscriptionMutation = useActivateSubscription();
 
-  // Server is the source of truth for subscription status once the user is
-  // signed in — this makes a paid subscription follow the account across
-  // devices/reinstalls instead of being stuck in local AsyncStorage.
+  // Server is the definitive source of truth for subscription status when the
+  // user is signed in. If the server says the subscription lapsed (failed
+  // payment or cancellation), clear local storage and block access immediately.
   useEffect(() => {
-    if (authUserData?.user?.isSubscribed) {
-      setIsSubscribedState(true);
+    if (!authUserData?.user) return;
+    const serverSubscribed = authUserData.user.isSubscribed;
+    setIsSubscribedState(serverSubscribed);
+    if (serverSubscribed) {
       AsyncStorage.setItem(KEYS.SUBSCRIBED, "true");
+    } else {
+      AsyncStorage.removeItem(KEYS.SUBSCRIBED);
     }
   }, [authUserData?.user?.isSubscribed]);
 
