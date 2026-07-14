@@ -128,6 +128,8 @@ function getPreviewPath(): string | null {
   return match ? match[1] : null;
 }
 
+import VideoTemplate from "./components/video/VideoTemplate";
+
 function App() {
   const previewPath = getPreviewPath();
 
@@ -140,7 +142,7 @@ function App() {
     );
   }
 
-  return <Gallery />;
+  return <VideoTemplate />;
 }
 
 export default App;

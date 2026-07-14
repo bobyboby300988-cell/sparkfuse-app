@@ -1,0 +1,31 @@
+kind = "video"
+previewPath = "/sparkfuse-promo/"
+title = "SparkFuse Promo Video"
+version = "1.0.0"
+id = "artifacts/sparkfuse-promo"
+router = "path"
+
+[[integratedSkills]]
+name = "video-js"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/sparkfuse-promo/" ]
+localPort = 20610
+
+[services.development]
+run = "pnpm --filter @workspace/sparkfuse-promo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/sparkfuse-promo", "run", "build" ]
+publicDir = "artifacts/sparkfuse-promo/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20610"
+BASE_PATH = "/sparkfuse-promo/"

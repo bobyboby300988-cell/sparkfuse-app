@@ -42,3 +42,63 @@ id = "McCjL5d78Gl5aPPbtI4DK"
 uri = "file://artifacts/mobile/assets/images/p6.png"
 type = "image"
 title = "generated_image"
+
+[[generated]]
+id = "Bm_4qrhbIrd1UWZYl7iaS"
+uri = "file://artifacts/mockup-sandbox/public/profile1.png"
+type = "image"
+title = "dating profile man"
+
+[[generated]]
+id = "RFzzmz3JH2bKhCL-THMM1"
+uri = "file://artifacts/mockup-sandbox/public/profile2.png"
+type = "image"
+title = "dating profile woman"
+
+[[generated]]
+id = "H3FF-rPnl-NX9HaF-OKKx"
+uri = "file://artifacts/mockup-sandbox/public/couple.png"
+type = "image"
+title = "romantic couple hugging"
+
+[[generated]]
+id = "cSmKO9FbO7XyhHPZrV17_"
+uri = "file://artifacts/mockup-sandbox/public/phone-frame.png"
+type = "image"
+title = "phone mockup blank"
+
+[[generated]]
+id = "ycU_F_sD0cwKGbLlozRpi"
+uri = "file://artifacts/sparkfuse-promo/public/bg-bokeh.png"
+type = "image"
+title = "cinematic bokeh background"
+
+[[generated]]
+id = "ELoXT2RifKI8VgmF2SMIR"
+uri = "file://artifacts/sparkfuse-promo/public/profile1.png"
+type = "image"
+title = "attractive profile one"
+
+[[generated]]
+id = "fu8r-EO-jG-onrlyl-hCh"
+uri = "file://artifacts/sparkfuse-promo/public/profile2.png"
+type = "image"
+title = "attractive profile two"
+
+[[generated]]
+id = "EKpry5aekSXZRdhw9K-QQ"
+uri = "file://artifacts/sparkfuse-promo/public/coach.png"
+type = "image"
+title = "dating coach profile"
+
+[[generated]]
+id = "xI2fMVOePrra-r6TAVK85"
+uri = "file://artifacts/mockup-sandbox/public/live-streamer.png"
+type = "image"
+title = "live streamer woman"
+
+[[generated]]
+id = "0E5Qea8QoegF7iVareP7L"
+uri = "file://artifacts/mockup-sandbox/public/coach.png"
+type = "image"
+title = "dating coach portrait"
