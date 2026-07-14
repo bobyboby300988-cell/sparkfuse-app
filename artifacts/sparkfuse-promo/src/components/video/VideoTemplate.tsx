@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect } from 'react';
 import { useVideoPlayer } from '@/lib/video';
+import { useNarration } from '@/lib/video/useNarration';
 import { Scene1 } from './video_scenes/Scene1';
 import { Scene2 } from './video_scenes/Scene2';
 import { Scene3 } from './video_scenes/Scene3';
@@ -42,6 +43,9 @@ export default function VideoTemplate({
   onSceneChange?: (key: string) => void;
 } = {}) {
   const { currentSceneKey } = useVideoPlayer({ durations, loop });
+
+  // Female voice narration — plays automatically with each scene
+  useNarration(currentSceneKey);
 
   useEffect(() => {
     onSceneChange?.(currentSceneKey);
