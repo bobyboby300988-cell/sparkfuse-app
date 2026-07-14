@@ -148,6 +148,23 @@ export function Scene1() {
         </motion.div>
       </div>
 
+      {/* Copyright */}
+      <motion.div style={{
+        position: 'absolute', bottom: '4%', left: 0, right: 0,
+        textAlign: 'center', pointerEvents: 'none',
+      }}
+        initial={{ opacity: 0 }}
+        animate={phase >= 4 ? { opacity: 1 } : { opacity: 0 }}
+        transition={{ duration: 0.6, delay: 0.3 }}
+      >
+        <span style={{
+          fontFamily: 'Inter, sans-serif',
+          fontSize: 'clamp(8px, 2vw, 10px)',
+          color: 'rgba(255,255,255,0.28)',
+          letterSpacing: '0.12em',
+        }}>© 2026 SparkFuse · All Rights Reserved</span>
+      </motion.div>
+
       {/* Flame SVG */}
       <motion.div className="absolute" style={{ bottom: '10%', right: '12%', opacity: 0.7 }}
         animate={{ y: [0, -10, 0], rotate: [0, 5, -3, 0] }}

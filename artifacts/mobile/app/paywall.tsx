@@ -181,6 +181,9 @@ export default function PaywallScreen() {
         <Text style={styles.finePrint}>
           €2 billed monthly. Cancel anytime.{"\n"}By subscribing you agree to our Terms of Service.
         </Text>
+
+        {/* Copyright */}
+        <Text style={styles.copyright}>© 2026 SparkFuse · All Rights Reserved</Text>
       </ScrollView>
     </View>
   );
@@ -353,5 +356,13 @@ const styles = StyleSheet.create({
     color: "#6B6480",
     textAlign: "center",
     lineHeight: 17,
+  },
+  copyright: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.18)",
+    textAlign: "center",
+    letterSpacing: 0.5,
+    marginTop: 8,
   },
 });

@@ -338,6 +338,9 @@ export default function WelcomeScreen() {
           </Animated.View>
         )}
 
+        {/* Copyright */}
+        <Text style={styles.copyright}>© 2026 SparkFuse · All Rights Reserved</Text>
+
         {/* Browse / create account link */}
         <TouchableOpacity
           style={styles.skipBtn}
@@ -391,6 +394,7 @@ export default function WelcomeScreen() {
               <TouchableOpacity style={styles.ageDenyBtn} onPress={handleDenyAdult} activeOpacity={0.7}>
                 <Text style={styles.ageDenyText}>I am under 18</Text>
               </TouchableOpacity>
+              <Text style={styles.ageCopyright}>© 2026 SparkFuse · All Rights Reserved</Text>
             </View>
           )}
         </Animated.View>
@@ -609,6 +613,15 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
 
+  /* Copyright */
+  copyright: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.18)",
+    textAlign: "center",
+    letterSpacing: 0.5,
+  },
+
   /* Age gate */
   ageGate: {
     ...StyleSheet.absoluteFillObject,
@@ -658,5 +671,13 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: "rgba(255,255,255,0.35)",
     textDecorationLine: "underline",
+  },
+  ageCopyright: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(255,255,255,0.18)",
+    textAlign: "center",
+    letterSpacing: 0.5,
+    marginTop: 6,
   },
 });
