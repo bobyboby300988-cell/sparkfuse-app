@@ -229,19 +229,42 @@ export function Scene6() {
           </div>
         </motion.div>
 
-        {/* Website row */}
+        {/* Early access CTA */}
         <motion.div style={{
-          marginTop: 12, display: 'flex', alignItems: 'center', gap: 7,
+          marginTop: 14, width: '84vw', maxWidth: 340,
         }}
-          initial={{ opacity: 0 }}
-          animate={phase >= 5 ? { opacity: 1 } : { opacity: 0 }}
-          transition={{ duration: 0.4 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={phase >= 5 ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+          transition={{ duration: 0.45 }}
         >
-          <div style={{ width: 18, height: 1, background: 'rgba(243,156,18,0.4)' }} />
-          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em' }}>
-            match-maker-2025ap.replit.app
-          </span>
-          <div style={{ width: 18, height: 1, background: 'rgba(243,156,18,0.4)' }} />
+          {/* What you can do NOW on web */}
+          <div style={{
+            background: 'rgba(39,174,96,0.1)', borderRadius: 12, padding: '8px 12px',
+            border: '1px solid rgba(39,174,96,0.3)', marginBottom: 10,
+          }}>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: '#27ae60', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 5 }}>
+              ✅ AVAILABLE NOW ON WEB — NO APP NEEDED
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {['💬 Chat', '📸 Photos', '🎬 Videos', '🎁 Gifts by message', '👤 Profile'].map(item => (
+                <span key={item} style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '2px 7px' }}>{item}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* CTA button */}
+          <div style={{
+            background: 'linear-gradient(135deg, #C0392B, #e74c3c)',
+            borderRadius: 14, padding: '11px 14px', textAlign: 'center',
+            boxShadow: '0 0 28px rgba(192,57,43,0.55)',
+          }}>
+            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 16, color: '#fff', letterSpacing: '0.12em' }}>
+              CREATE YOUR PROFILE NOW
+            </div>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.65)', marginTop: 3 }}>
+              match-maker-2025ap.replit.app · Join our early community
+            </div>
+          </div>
         </motion.div>
       </div>
     </motion.div>
