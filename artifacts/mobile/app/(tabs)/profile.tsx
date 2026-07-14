@@ -136,7 +136,7 @@ export default function ProfileScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       "Delete Account",
-      "This will permanently delete your account and ALL data — profile, photos, matches, messages — from our servers.\n\nTo use SparkFuse again you will need to create a new account and pay the subscription again.\n\nThis cannot be undone.",
+      "This will permanently delete all your data — profile, photos, matches, messages — from our servers.\n\nYour email and password stay in the system, so you can sign back in with the same email at any time. You will need to create a new profile and pay the subscription again.\n\nThis cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -778,7 +778,7 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Text style={{ textAlign: "center", fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginTop: 4, lineHeight: 16 }}>
-          Reset keeps your email & subscription.{"\n"}Delete removes everything permanently.
+          Reset keeps your email & subscription.{"\n"}Delete removes all data — your email stays so you can return.
         </Text>
       </View>
     </ScrollView>
