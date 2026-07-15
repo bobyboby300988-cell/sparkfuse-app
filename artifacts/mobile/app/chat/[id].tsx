@@ -1028,25 +1028,68 @@ export default function ChatScreen() {
       />
 
       {/* Profile card modal */}
-      <Modal visible={showProfileCard} transparent animationType="fade" onRequestClose={() => setShowProfileCard(false)}>
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.88)", alignItems: "center", justifyContent: "center" }}
-          activeOpacity={1}
-          onPress={() => setShowProfileCard(false)}
-        >
-          <View style={{ alignItems: "center" }}>
-            <Image source={profile.photo} style={{ width: 240, height: 300, borderRadius: 24 }} contentFit="cover" />
-            <Text style={{ color: "#fff", fontSize: 26, fontWeight: "700", fontFamily: "Inter_700Bold", marginTop: 20 }}>
-              {profile.name}
-            </Text>
+      <Modal visible={showProfileCard} transparent animationType="slide" onRequestClose={() => setShowProfileCard(false)}>
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)" }} activeOpacity={1} onPress={() => setShowProfileCard(false)} />
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden", maxHeight: "88%" }}>
+            {/* Photo */}
+            <Image
+              source={profile.photo}
+              style={{ width: "100%", height: 340 }}
+              contentFit="cover"
+            />
+            {/* Close pill */}
             <TouchableOpacity
               onPress={() => setShowProfileCard(false)}
-              style={{ marginTop: 28, paddingVertical: 10, paddingHorizontal: 32, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" }}
+              style={{ position: "absolute", top: 14, right: 16, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 }}
             >
-              <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, fontFamily: "Inter_600SemiBold" }}>Close</Text>
+              <Text style={{ color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" }}>Close</Text>
             </TouchableOpacity>
+
+            {/* Info */}
+            <View style={{ padding: 20, gap: 10 }}>
+              {/* Name + age */}
+              <Text style={{ color: colors.foreground, fontSize: 26, fontFamily: "Inter_700Bold" }}>
+                {profile.name}{"age" in profile && (profile as any).age ? `, ${(profile as any).age}` : ""}
+              </Text>
+
+              {/* Location + distance */}
+              {"location" in profile && (profile as any).location ? (
+                <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                  📍 {(profile as any).location}{"distance" in profile ? `  ·  ${(profile as any).distance} km away` : ""}
+                </Text>
+              ) : null}
+
+              {/* Height */}
+              {"height" in profile && (profile as any).height ? (
+                <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                  📏 {(profile as any).height}
+                </Text>
+              ) : null}
+
+              {/* Bio */}
+              {"bio" in profile && (profile as any).bio ? (
+                <Text style={{ color: colors.foreground, fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 22, marginTop: 2 }}>
+                  {(profile as any).bio}
+                </Text>
+              ) : null}
+
+              {/* Interests */}
+              {"interests" in profile && Array.isArray((profile as any).interests) && (profile as any).interests.length > 0 ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+                  {((profile as any).interests as string[]).map((tag: string) => (
+                    <View key={tag} style={{ backgroundColor: colors.card, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: colors.border }}>
+                      <Text style={{ color: colors.foreground, fontSize: 13, fontFamily: "Inter_500Medium" }}>{tag}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              {/* Bottom spacing for home indicator */}
+              <View style={{ height: insets.bottom + 8 }} />
+            </View>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Fullscreen video player */}
