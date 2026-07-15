@@ -458,7 +458,7 @@ interface Props {
 }
 
 export default function GiftModal({ visible, onClose, recipientName, onGiftSent }: Props) {
-  const { coinBalance, addCoins, spendCoins, addEarning } = useApp();
+  const { coinBalance, addCoins, spendCoins } = useApp();
   const [step,         setStep]         = useState<"buy" | "send">("send");
   const [selectedGift, setSelectedGift] = useState(GIFTS[0]);
   const [sent,         setSent]         = useState(false);
@@ -522,8 +522,8 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
     setSelectedGift(g);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     spendCoins(cost);
-    // Platform earns 10% from sender (included in fee above) + 10% from receiver = 20% total
-    addEarning(parseFloat((g.tokens * 0.2).toFixed(2)));
+    // Sender fee (10%) already deducted above via spendCoins(cost).
+    // Creator earnings (85% of base tokens) are credited server-side via /api/gifts/send.
     setSent(true); playSentAnimation();
     onGiftSent?.({ emoji: g.emoji, label: g.label, tokens: g.tokens, grad: g.grad });
   }
