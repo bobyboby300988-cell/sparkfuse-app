@@ -282,6 +282,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /messages/{userId}:
+    get:
+      tags: [Messages]
+      operationId: getConversation
+      summary: Get all messages between the current user and another user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Messages retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagesEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /messages:
+    post:
+      tags: [Messages]
+      operationId: postMessage
+      summary: Send a message to another user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageInput'
+      responses:
+        '200':
+          description: Message sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /blocks/{userId}:
     delete:
       tags: [Blocks]
@@ -478,4 +526,50 @@ components:
           type: array
           items:
             type: string
+    ChatMessage:
+      type: object
+      required: [id, senderId, receiverId, createdAt]
+      properties:
+        id:
+          type: string
+        senderId:
+          type: string
+        receiverId:
+          type: string
+        text:
+          type: [string, 'null']
+        mediaUrl:
+          type: [string, 'null']
+        mediaType:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
+    MessagesEnvelope:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+    MessageEnvelope:
+      type: object
+      required: [message]
+      properties:
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+    SendMessageInput:
+      type: object
+      required: [receiverId]
+      properties:
+        receiverId:
+          type: string
+          minLength: 1
+        text:
+          type: [string, 'null']
+        mediaUrl:
+          type: [string, 'null']
+        mediaType:
+          type: [string, 'null']
 

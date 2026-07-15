@@ -44,7 +44,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { signOut } = useAuth();
-  const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, addCoins, isLive, setIsLive, myPhotos, addMyPhoto, removeMyPhoto, togglePhotoExclusive } = useApp();
+  const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, addCoins, isLive, setIsLive, myPhotos, addMyPhoto, removeMyPhoto, togglePhotoExclusive, resetLocalState } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -161,7 +161,7 @@ export default function ProfileScreen() {
   const handleResetAccount = () => {
     Alert.alert(
       "Reset Account",
-      "This will permanently delete:\n• Your profile & photos\n• All matches\n• All conversations\n• Your swipe history\n\nYour email, password and subscription stay active. You will be taken back to set up your profile again.",
+      "This will permanently delete:\n• Your profile & photos\n• All matches\n• All conversations\n• Your swipe history\n\nYour ST coins, earnings and subscription stay active. You will be taken back to set up your profile again.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -171,7 +171,7 @@ export default function ProfileScreen() {
             try {
               await resetAccountMutation.mutateAsync();
             } catch {}
-            await AsyncStorage.multiRemove(["discover_filters_v1"]);
+            await resetLocalState();
             router.replace("/onboarding");
           },
         },

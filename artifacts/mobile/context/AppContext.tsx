@@ -49,6 +49,7 @@ interface AppContextType {
   sendVoice: (profileId: string, uri: string, duration: number) => void;
   removeMatch: (profileId: string) => void;
   clearMessages: (profileId: string) => void;
+  resetLocalState: () => Promise<void>;
   unlockedPhotos: string[];
   unlockPhoto: (photoId: string) => void;
   creatorMode: boolean;
@@ -360,6 +361,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const resetLocalState = async () => {
+    await AsyncStorage.multiRemove([
+      KEYS.MATCHES,
+      KEYS.UNLOCKED_PHOTOS,
+      KEYS.IS_LIVE,
+      KEYS.MY_PHOTOS,
+      "discover_filters_v1",
+    ]);
+    setMatches([]);
+    setUnlockedPhotos([]);
+    setIsLiveState(false);
+    setMyPhotos([]);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -379,6 +394,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sendVoice,
         removeMatch,
         clearMessages,
+        resetLocalState,
         unlockedPhotos,
         unlockPhoto,
         creatorMode,

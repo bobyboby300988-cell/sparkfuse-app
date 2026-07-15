@@ -29,8 +29,11 @@ import type {
   FeedResponse,
   HealthStatus,
   MatchesResponse,
+  MessageEnvelope,
+  MessagesEnvelope,
   ProfileEnvelope,
   ResetAccount200,
+  SendMessageInput,
   SwipeInput,
   SwipeResult,
   UploadUrlRequestBody,
@@ -1075,6 +1078,154 @@ export const useCreateBlock = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getCreateBlockMutationOptions(options));
+    }
+
+export const getGetConversationUrl = (userId: string,) => {
+
+
+
+
+  return `/api/messages/${userId}`
+}
+
+/**
+ * @summary Get all messages between the current user and another user
+ */
+export const getConversation = async (userId: string, options?: RequestInit): Promise<MessagesEnvelope> => {
+
+  return customFetch<MessagesEnvelope>(getGetConversationUrl(userId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetConversationQueryKey = (userId: string,) => {
+    return [
+    `/api/messages/${userId}`
+    ] as const;
+    }
+
+
+export const getGetConversationQueryOptions = <TData = Awaited<ReturnType<typeof getConversation>>, TError = ErrorType<ErrorEnvelope>>(userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConversation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetConversationQueryKey(userId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getConversation>>> = ({ signal }) => getConversation(userId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(userId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getConversation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetConversationQueryResult = NonNullable<Awaited<ReturnType<typeof getConversation>>>
+export type GetConversationQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Get all messages between the current user and another user
+ */
+
+export function useGetConversation<TData = Awaited<ReturnType<typeof getConversation>>, TError = ErrorType<ErrorEnvelope>>(
+ userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConversation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetConversationQueryOptions(userId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getPostMessageUrl = () => {
+
+
+
+
+  return `/api/messages`
+}
+
+/**
+ * @summary Send a message to another user
+ */
+export const postMessage = async (sendMessageInput: SendMessageInput, options?: RequestInit): Promise<MessageEnvelope> => {
+
+  return customFetch<MessageEnvelope>(getPostMessageUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      sendMessageInput,)
+  }
+);}
+
+
+
+
+export const getPostMessageMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postMessage>>, TError,{data: BodyType<SendMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postMessage>>, TError,{data: BodyType<SendMessageInput>}, TContext> => {
+
+const mutationKey = ['postMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postMessage>>, {data: BodyType<SendMessageInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postMessage(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostMessageMutationResult = NonNullable<Awaited<ReturnType<typeof postMessage>>>
+    export type PostMessageMutationBody = BodyType<SendMessageInput>
+    export type PostMessageMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Send a message to another user
+ */
+export const usePostMessage = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postMessage>>, TError,{data: BodyType<SendMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof postMessage>>,
+        TError,
+        {data: BodyType<SendMessageInput>},
+        TContext
+      > => {
+      return useMutation(getPostMessageMutationOptions(options));
     }
 
 export const getDeleteBlockUrl = (userId: string,) => {

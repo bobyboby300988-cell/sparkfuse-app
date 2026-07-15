@@ -127,6 +127,38 @@ export interface BlocksResponse {
   blockedUserIds: string[];
 }
 
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  /** @nullable */
+  text?: string | null;
+  /** @nullable */
+  mediaUrl?: string | null;
+  /** @nullable */
+  mediaType?: string | null;
+  createdAt: string;
+}
+
+export interface MessagesEnvelope {
+  messages: ChatMessage[];
+}
+
+export interface MessageEnvelope {
+  message: ChatMessage;
+}
+
+export interface SendMessageInput {
+  /** @minLength 1 */
+  receiverId: string;
+  /** @nullable */
+  text?: string | null;
+  /** @nullable */
+  mediaUrl?: string | null;
+  /** @nullable */
+  mediaType?: string | null;
+}
+
 export type ResetAccount200 = {
   ok: boolean;
 };

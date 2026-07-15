@@ -7,6 +7,7 @@ import {
   swipesTable,
   matchesTable,
   blocksTable,
+  messagesTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 
@@ -28,6 +29,9 @@ router.post("/account/reset", requireAuth, async (req: Request, res: Response) =
   );
   await db.delete(swipesTable).where(
     or(eq(swipesTable.swiperId, userId), eq(swipesTable.targetId, userId)),
+  );
+  await db.delete(messagesTable).where(
+    or(eq(messagesTable.senderId, userId), eq(messagesTable.receiverId, userId)),
   );
   await db.delete(profilesTable).where(eq(profilesTable.userId, userId));
 

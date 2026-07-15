@@ -249,6 +249,52 @@ export const CreateBlockResponse = zod.object({
 
 
 /**
+ * @summary Get all messages between the current user and another user
+ */
+export const GetConversationParams = zod.object({
+  "userId": zod.coerce.string()
+})
+
+export const GetConversationResponse = zod.object({
+  "messages": zod.array(zod.object({
+  "id": zod.string(),
+  "senderId": zod.string(),
+  "receiverId": zod.string(),
+  "text": zod.string().nullish(),
+  "mediaUrl": zod.string().nullish(),
+  "mediaType": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Send a message to another user
+ */
+
+
+
+export const PostMessageBody = zod.object({
+  "receiverId": zod.string().min(1),
+  "text": zod.string().nullish(),
+  "mediaUrl": zod.string().nullish(),
+  "mediaType": zod.string().nullish()
+})
+
+export const PostMessageResponse = zod.object({
+  "message": zod.object({
+  "id": zod.string(),
+  "senderId": zod.string(),
+  "receiverId": zod.string(),
+  "text": zod.string().nullish(),
+  "mediaUrl": zod.string().nullish(),
+  "mediaType": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+})
+
+
+/**
  * @summary Unblock a previously blocked user
  */
 export const DeleteBlockParams = zod.object({

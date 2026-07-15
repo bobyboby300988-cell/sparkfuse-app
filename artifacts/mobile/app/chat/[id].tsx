@@ -23,7 +23,7 @@ import {
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useCreateBlock, useGetMatches } from "@workspace/api-client-react";
+import { useCreateBlock, useGetMatches, useGetConversation, usePostMessage, useGetCurrentAuthUser } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
@@ -212,6 +212,14 @@ export default function ChatScreen() {
     });
   }, []);
 
+  const { data: authData } = useGetCurrentAuthUser({ query: { queryKey: ["currentAuthUser"], staleTime: Infinity } });
+  const myUserId = authData?.user?.id;
+
+  const { data: conversationData } = useGetConversation(id ?? "", {
+    query: { queryKey: ["conversation", id], enabled: !!id && !!myUserId, refetchInterval: 3000, refetchIntervalInBackground: false },
+  });
+  const { mutateAsync: serverPostMessage } = usePostMessage();
+
   const { data: matchesServerData } = useGetMatches();
   const profile = useMemo(() => {
     const mock = ALL_PROFILES.find((p) => p.id === id);
@@ -237,17 +245,37 @@ export default function ChatScreen() {
     return null;
   }, [id, matchesServerData, nameParam, photoParam]);
   const match = useMemo(() => matches.find((m) => m.profileId === id), [matches, id]);
-  const reversedMessages = useMemo(() => {
-    if (!match) return [];
-    return [...match.messages].reverse();
-  }, [match]);
 
-  const handleSend = () => {
+  const serverMessages = useMemo(() => {
+    if (!conversationData?.messages || !myUserId) return [];
+    return conversationData.messages.map((msg: { id: string; senderId: string; receiverId: string; text?: string | null; mediaUrl?: string | null; mediaType?: string | null; createdAt: string }) => ({
+      id: msg.id,
+      text: msg.text ?? "",
+      mediaUri: msg.mediaUrl ?? undefined,
+      mediaType: (msg.mediaType as "image" | "video" | "voice") ?? undefined,
+      voiceDuration: undefined as number | undefined,
+      fromMe: msg.senderId === myUserId,
+      timestamp: new Date(msg.createdAt).getTime(),
+    }));
+  }, [conversationData, myUserId]);
+
+  const displayMessages = useMemo(() => {
+    const localVoice = (match?.messages ?? []).filter((m) => m.mediaType === "voice");
+    const all = [...serverMessages, ...localVoice];
+    all.sort((a, b) => a.timestamp - b.timestamp);
+    return [...all].reverse();
+  }, [serverMessages, match]);
+
+  const handleSend = async () => {
     const text = inputText.trim();
     if (!text || !id) return;
-    sendMessage(id, text);
     setInputText("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await serverPostMessage({ data: { receiverId: id, text } });
+    } catch {
+      sendMessage(id, text);
+    }
   };
 
   const toggleEmojiPicker = () => {
@@ -520,7 +548,7 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
         {/* Messages */}
-        {reversedMessages.length === 0 ? (
+        {displayMessages.length === 0 ? (
           <View style={styles.emptyChat}>
             <Image
               source={profile.photo}
@@ -534,7 +562,7 @@ export default function ChatScreen() {
           </View>
         ) : (
           <FlatList
-            data={reversedMessages}
+            data={displayMessages}
             inverted
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.messageList}
