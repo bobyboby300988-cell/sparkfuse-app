@@ -13,14 +13,14 @@ import { SceneWithdraw } from './video_scenes/SceneWithdraw';
 
 /* ─── Scene durations — locked to audio lengths + 500ms buffer ─── */
 export const SCENE_DURATIONS: Record<string, number> = {
-  hook:      6500,
-  verify:   16600,
-  live:     36800,
-  withdraw: 18200,
-  content:  22200,
-  tokens:   21000,
-  outro:    15700,
-  url:       7500,
+  hook:      5000,
+  verify:    6000,
+  live:      9000,
+  withdraw:  6000,
+  content:   7000,
+  tokens:    7000,
+  outro:     7000,
+  url:       8000,
 };
 
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
@@ -208,7 +208,7 @@ function TapToPlay({ onStart }: { onStart: () => void }) {
           marginTop: 14, fontFamily: 'Inter, sans-serif', fontSize: 10,
           color: 'rgba(255,255,255,0.22)', letterSpacing: '0.1em',
           position: 'relative', zIndex: 5,
-        }}>~73 SECONDS · 8 SCENES</div>
+        }}>~55 SECONDS · 8 SCENES</div>
       </div>
     </div>
   );
@@ -226,6 +226,48 @@ function VideoPlayer({
 }) {
   const musicRef = useRef<AmbientMusic | null>(null);
   const { currentSceneKey } = useVideoPlayer({ durations, loop });
+
+  const [recState, setRecState] = useState<'idle'|'waiting'|'recording'|'processing'|'done'>('idle');
+  const mediaRecRef = useRef<MediaRecorder | null>(null);
+  const chunksRef   = useRef<Blob[]>([]);
+  const stopFnRef   = useRef<(() => void) | null>(null);
+
+  const handleDownload = async () => {
+    if (recState !== 'idle') return;
+    setRecState('waiting');
+    try {
+      const stream = await (navigator.mediaDevices as any).getDisplayMedia({
+        preferCurrentTab: true,
+        video: { displaySurface: 'browser', frameRate: 30 },
+        audio: { suppressLocalAudioPlayback: false },
+      } as any);
+      chunksRef.current = [];
+      const mr = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm' });
+      mediaRecRef.current = mr;
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        setRecState('processing');
+        stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
+        setTimeout(() => {
+          const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+          const url  = URL.createObjectURL(blob);
+          const a    = document.createElement('a');
+          a.href = url; a.download = 'sparkfuse-promo.webm'; a.click();
+          URL.revokeObjectURL(url);
+          setRecState('done');
+          setTimeout(() => setRecState('idle'), 4000);
+        }, 500);
+      };
+      mr.start(100);
+      setRecState('recording');
+      // Stop when the video finishes one loop (inject stopRecording override)
+      stopFnRef.current = () => { if (mr.state === 'recording') mr.stop(); };
+      const origStop = window.stopRecording;
+      window.stopRecording = () => { stopFnRef.current?.(); origStop?.(); };
+    } catch {
+      setRecState('idle');
+    }
+  };
 
   // Start music + preload all narration audio on mount
   useEffect(() => {
@@ -276,6 +318,44 @@ function VideoPlayer({
         <AnimatePresence mode="popLayout">
           {SceneComponent && <SceneComponent key={currentSceneKey} />}
         </AnimatePresence>
+      </div>
+
+      {/* Download button overlay */}
+      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+        {recState === 'idle' && (
+          <button onClick={handleDownload} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'linear-gradient(135deg, #C0392B, #e74c3c)',
+            border: 'none', borderRadius: 8, padding: '7px 12px',
+            color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 11,
+            fontWeight: 700, cursor: 'pointer', letterSpacing: '0.05em',
+            boxShadow: '0 2px 12px rgba(192,57,43,0.5)',
+          }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            DOWNLOAD MP4
+          </button>
+        )}
+        {recState === 'waiting' && (
+          <div style={{ background: 'rgba(0,0,0,0.75)', borderRadius: 8, padding: '7px 12px', color: '#F39C12', fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700 }}>
+            ⏳ Select this tab to record…
+          </div>
+        )}
+        {recState === 'recording' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(192,57,43,0.9)', borderRadius: 8, padding: '7px 12px', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff', animation: 'pulse 1s infinite' }} />
+            REC — watch the full video…
+          </div>
+        )}
+        {recState === 'processing' && (
+          <div style={{ background: 'rgba(0,0,0,0.75)', borderRadius: 8, padding: '7px 12px', color: '#F39C12', fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700 }}>
+            ⚙️ Processing…
+          </div>
+        )}
+        {recState === 'done' && (
+          <div style={{ background: 'rgba(0,128,0,0.8)', borderRadius: 8, padding: '7px 12px', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700 }}>
+            ✅ Download started!
+          </div>
+        )}
       </div>
     </div>
   );

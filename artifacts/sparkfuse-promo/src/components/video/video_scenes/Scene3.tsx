@@ -20,13 +20,13 @@ const GIFTS: Record<GiftKey, {
   lamborghini: { label: 'Lamborghini',  st: 30000, eur: '€300',  tier: 'mega',   color: '#FFD700', emoji: '🏎️' },
 };
 
-const GIFT_ORDER: GiftKey[] = ['rose','diamond','lingerie','vibrator','breast','rolex','bag','rocket','ferrari','lamborghini'];
+const GIFT_ORDER: GiftKey[] = ['rose', 'diamond', 'rolex', 'lamborghini'];
 
 const TIER_CFG = {
-  small:  { pCount: 14, pRadius: 65,  giftSize: 80,  liveMs: 1800, rings: 1 },
-  medium: { pCount: 24, pRadius: 100, giftSize: 100, liveMs: 2400, rings: 2 },
-  big:    { pCount: 36, pRadius: 140, giftSize: 120, liveMs: 2800, rings: 3 },
-  mega:   { pCount: 52, pRadius: 180, giftSize: 160, liveMs: 3600, rings: 4 },
+  small:  { pCount: 14, pRadius: 65,  giftSize: 80,  liveMs: 700,  rings: 1 },
+  medium: { pCount: 24, pRadius: 100, giftSize: 100, liveMs: 900,  rings: 2 },
+  big:    { pCount: 36, pRadius: 140, giftSize: 120, liveMs: 1100, rings: 3 },
+  mega:   { pCount: 52, pRadius: 180, giftSize: 160, liveMs: 1500, rings: 4 },
 };
 
 // Cars need landscape display — extra width
