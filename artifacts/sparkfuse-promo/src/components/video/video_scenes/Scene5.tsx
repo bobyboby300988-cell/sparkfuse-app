@@ -1,199 +1,151 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
-
-const steps = [
-  { icon: '💳', label: 'Buy ST Tokens',  sub: 'Card · PayPal · Crypto · Stores — 5 ways to pay', color: '#C0392B' },
-  { icon: '⚡', label: 'Spend ST',        sub: 'Gifts · Content · Live · Calls',                  color: '#F39C12' },
-  { icon: '💸', label: 'Creators Earn',  sub: 'ST credited instantly per gift/content',            color: '#27ae60' },
-  { icon: '🏦', label: 'Withdraw Cash',  sub: '10% platform fee · bank transfer',                  color: '#3498db' },
-];
-
-const stPacks = [
-  { st: '100 ST', price: '€1.00', popular: false },
-  { st: '500 ST', price: '€4.50', popular: true  },
-  { st: '1000 ST', price: '€8.00', popular: false },
-];
+import { PhoneMockup } from '../PhoneMockup';
 
 export function Scene5() {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase(1), 100),
-      setTimeout(() => setPhase(2), 500),
-      setTimeout(() => setPhase(3), 1100),
-      setTimeout(() => setPhase(4), 2200),
-      setTimeout(() => setPhase(5), 3200),
+      setTimeout(() => setPhase(1), 1000), // Comments start
+      setTimeout(() => setPhase(2), 4000), // Open gift modal
+      setTimeout(() => setPhase(3), 5000), // Send Lambo
+      setTimeout(() => setPhase(4), 8500), // Exit
     ];
-    return () => timers.forEach(clearTimeout);
+    return () => timers.forEach(t => clearTimeout(t));
   }, []);
 
   return (
-    <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
-      style={{ background: 'linear-gradient(170deg, #0D0B12 0%, #080d0a 60%, #0D0B12 100%)' }}
-      initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, x: -30 }}
-      transition={{ duration: 0.4 }}
+    <motion.div className="absolute inset-0 flex items-center justify-center bg-[#0D0B12] overflow-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: phase >= 4 ? 0 : 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
     >
-      <div className="absolute inset-0" style={{
-        background: 'radial-gradient(ellipse 55% 40% at 50% 40%, rgba(243,156,18,0.16) 0%, transparent 70%)',
-      }} />
-
-      {/* Header */}
-      <motion.div style={{ textAlign: 'center', marginBottom: 12, position: 'relative', zIndex: 10 }}
-        initial={{ opacity: 0, y: -16 }}
-        animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: -16 }}
-        transition={{ duration: 0.45 }}
-      >
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: 'rgba(243,156,18,0.12)', borderRadius: 40, padding: '4px 14px',
-          border: '1px solid rgba(243,156,18,0.3)', marginBottom: 8,
-        }}>
-          <span style={{ fontSize: 12 }}>⚡</span>
-          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: '#F39C12', letterSpacing: '0.15em', fontWeight: 600 }}>ST TOKEN ECONOMY</span>
-        </div>
-        <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 'clamp(28px, 8vw, 44px)', color: '#fff', letterSpacing: '0.06em', lineHeight: 1 }}>
-          BUY ST — <span style={{ color: '#F39C12' }}>CASH OUT</span>
-        </div>
-      </motion.div>
-
-      {/* Steps */}
-      <motion.div style={{ width: '88%', display: 'flex', flexDirection: 'column', gap: 6, position: 'relative', zIndex: 10 }}
-        initial={{ opacity: 0 }} animate={phase >= 2 ? { opacity: 1 } : { opacity: 0 }} transition={{ duration: 0.3 }}
-      >
-        {steps.map((step, i) => (
-          <motion.div key={i} style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            background: 'rgba(20,16,30,0.92)', borderRadius: 12, padding: '10px 12px',
-            border: `1px solid ${step.color}28`, boxShadow: `0 2px 10px ${step.color}10`,
-          }}
-            initial={{ opacity: 0, x: -22 }}
-            animate={phase >= 2 ? { opacity: 1, x: 0 } : { opacity: 0, x: -22 }}
-            transition={{ duration: 0.35, delay: i * 0.1 }}
-          >
-            <div style={{
-              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-              background: `${step.color}18`, border: `1px solid ${step.color}40`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-            }}>{step.icon}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, color: '#fff', fontWeight: 600 }}>{step.label}</div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>{step.sub}</div>
+      <PhoneMockup scale={1.2}>
+        <div className="relative flex flex-col h-full bg-[#0D0B12] text-white overflow-hidden">
+          {/* Video Placeholder */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B9D] to-[#C0392B] opacity-90" />
+          
+          {/* Top Bar */}
+          <div className="relative z-10 p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="bg-[#C0392B] px-2 py-0.5 rounded text-xs font-bold">● LIVE</div>
+              <div className="bg-black/40 px-2 py-0.5 rounded text-xs backdrop-blur-sm">👁 1,847 viewers</div>
             </div>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: step.color, boxShadow: `0 0 7px ${step.color}` }} />
-          </motion.div>
-        ))}
-      </motion.div>
+            <div className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-sm">✕</div>
+          </div>
 
-      {/* Withdrawal box */}
-      <motion.div style={{
-        width: '88%', marginTop: 10,
-        background: 'linear-gradient(135deg, rgba(243,156,18,0.12), rgba(192,57,43,0.08))',
-        borderRadius: 14, padding: '12px 14px',
-        border: '1px solid rgba(243,156,18,0.35)', position: 'relative', zIndex: 10, overflow: 'hidden',
-      }}
-        initial={{ opacity: 0, y: 16, scale: 0.96 }}
-        animate={phase >= 4 ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 16, scale: 0.96 }}
-        transition={{ type: 'spring', stiffness: 280, damping: 22 }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 18 }}>🏦</span>
-          <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 17, color: '#F39C12', letterSpacing: '0.08em' }}>
-            WITHDRAW TO YOUR BANK
+          <div className="relative z-10 px-4 mt-2">
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="font-bold text-lg drop-shadow-md">Sofia 🔥</h2>
+              <span className="text-blue-400 bg-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">✓</span>
+            </div>
+            <div className="bg-black/40 inline-block px-2 py-0.5 rounded-full text-[10px] backdrop-blur-sm border border-white/20">🔥 Dating</div>
           </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>Your ST balance</div>
-            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 26, color: '#fff', letterSpacing: '0.04em' }}>1,000 ST</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>You receive</div>
-            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 26, color: '#27ae60', letterSpacing: '0.04em' }}>€9.00</div>
-          </div>
-        </div>
-        {/* Fee info */}
-        <motion.div style={{
-          marginTop: 8, padding: '6px 10px',
-          background: 'rgba(0,0,0,0.35)', borderRadius: 9,
-          display: 'flex', alignItems: 'center', gap: 7,
-          border: '1px solid rgba(255,255,255,0.07)',
-        }}
-          initial={{ opacity: 0 }}
-          animate={phase >= 5 ? { opacity: 1 } : { opacity: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <span style={{ fontSize: 13 }}>ℹ️</span>
-          <div>
-            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>10% platform fee</span>
-            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.45)' }}> on withdrawal</span>
-          </div>
-          <div style={{ marginLeft: 'auto', fontFamily: 'Bebas Neue, sans-serif', fontSize: 13, color: '#C0392B' }}>−€1.00</div>
-        </motion.div>
-      </motion.div>
 
-      {/* ST packs */}
-      <motion.div style={{ width: '88%', marginTop: 9, display: 'flex', gap: 7, position: 'relative', zIndex: 10 }}
-        initial={{ opacity: 0, y: 10 }}
-        animate={phase >= 5 ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
-        transition={{ duration: 0.4 }}
-      >
-        {stPacks.map((pack, i) => (
-          <div key={i} style={{
-            flex: 1, borderRadius: 11, padding: '9px 6px', textAlign: 'center',
-            background: pack.popular ? 'linear-gradient(135deg, rgba(192,57,43,0.3), rgba(243,156,18,0.2))' : 'rgba(20,16,30,0.9)',
-            border: pack.popular ? '1px solid rgba(243,156,18,0.5)' : '1px solid rgba(255,255,255,0.08)',
-            position: 'relative',
-          }}>
-            {pack.popular && (
-              <div style={{
-                position: 'absolute', top: -7, left: '50%', transform: 'translateX(-50%)',
-                background: '#F39C12', borderRadius: 20, padding: '1px 7px',
-                fontFamily: 'Inter, sans-serif', fontSize: 8, color: '#0D0B12', fontWeight: 700,
-                letterSpacing: '0.1em', whiteSpace: 'nowrap',
-              }}>POPULAR</div>
+          {/* Floating Hearts */}
+          <div className="absolute right-4 bottom-20 z-10 w-8 h-64 overflow-hidden pointer-events-none">
+            {[...Array(10)].map((_, i) => (
+              <motion.div key={i} className="absolute bottom-0 text-xl"
+                initial={{ y: 0, opacity: 1, x: Math.sin(i)*10 }}
+                animate={{ y: -200, opacity: 0, x: Math.sin(i)*20 }}
+                transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
+              >
+                {['❤️', '😍', '🔥', '💋'][i % 4]}
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="mt-auto relative z-10 flex flex-col gap-2 p-4 pb-16">
+            <AnimatePresence>
+              {phase >= 1 && (
+                <>
+                  <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="text-xs bg-black/30 backdrop-blur-sm p-2 rounded-lg max-w-[80%] border border-white/10">
+                    <span className="font-bold text-[#F39C12]">Alex:</span> she's so beautiful 😍
+                  </motion.div>
+                  <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} className="text-xs bg-black/30 backdrop-blur-sm p-2 rounded-lg max-w-[80%] border border-white/10">
+                    <span className="font-bold text-[#48CAE4]">Marco:</span> 🔥🔥🔥
+                  </motion.div>
+                  <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 1 }} className="text-xs bg-black/30 backdrop-blur-sm p-2 rounded-lg max-w-[80%] border border-white/10">
+                    <span className="font-bold text-[#27ae60]">Jin:</span> first time here, love it!
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="absolute bottom-0 left-0 right-0 p-3 flex gap-2 z-20 bg-gradient-to-t from-black/80 to-transparent">
+            <div className="flex-1 bg-black/50 backdrop-blur-md rounded-full px-4 py-2 text-xs text-white/50 border border-white/10 flex items-center">
+              💬 Comment...
+            </div>
+            <motion.button className="bg-gradient-to-r from-[#C0392B] to-[#e74c3c] rounded-full px-4 py-2 text-xs font-bold shadow-[0_0_10px_rgba(192,57,43,0.5)]"
+              animate={phase === 1 ? { scale: [1, 1.05, 1] } : {}} transition={{ repeat: Infinity }}
+            >
+              🎁 SEND GIFT
+            </motion.button>
+          </div>
+
+          {/* Gift Modal */}
+          <AnimatePresence>
+            {phase === 2 && (
+              <motion.div className="absolute bottom-0 left-0 right-0 bg-[rgba(22,18,32,0.98)] rounded-t-2xl p-4 border-t border-white/10 z-40"
+                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              >
+                <div className="flex gap-2">
+                  <div className="flex-1 bg-black/50 p-2 rounded-lg border-2 border-[#FFD700] text-center shadow-[0_0_15px_rgba(255,215,0,0.2)]">
+                    <span className="text-3xl">🏎️</span>
+                    <div className="text-xs font-bold mt-1 text-[#FFD700]">Lamborghini</div>
+                    <div className="text-[10px] text-white/70">€30.00</div>
+                  </div>
+                  <div className="w-20 bg-black/50 p-2 rounded-lg border border-white/10 text-center flex flex-col items-center justify-center">
+                    <span className="text-2xl">💎</span>
+                    <span className="text-[10px] mt-1">€5.00</span>
+                  </div>
+                </div>
+              </motion.div>
             )}
-            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 16, color: '#F39C12', letterSpacing: '0.04em' }}>{pack.st}</div>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 1 }}>{pack.price}</div>
-          </div>
-        ))}
-      </motion.div>
+          </AnimatePresence>
 
-      {/* Coming Soon — Crypto + AST */}
-      <motion.div style={{
-        width: '88%', marginTop: 8, position: 'relative', zIndex: 10,
-        display: 'flex', gap: 6,
-      }}
-        initial={{ opacity: 0, y: 8 }}
-        animate={phase >= 5 ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
-        transition={{ duration: 0.4, delay: 0.15 }}
-      >
-        {[
-          { icon: '₿', label: 'Crypto Deposit', sub: 'BTC · ETH · soon', color: '#F7931A' },
-          { icon: '🪙', label: 'Buy AST Token', sub: 'via crypto · soon',  color: '#9b59b6' },
-        ].map((item, i) => (
-          <div key={i} style={{
-            flex: 1, borderRadius: 10, padding: '7px 8px',
-            background: 'rgba(20,16,30,0.7)',
-            border: `1px dashed ${item.color}40`,
-            display: 'flex', alignItems: 'center', gap: 7, opacity: 0.72,
-          }}>
-            <div style={{
-              width: 26, height: 26, borderRadius: 8, flexShrink: 0,
-              background: `${item.color}18`, border: `1px solid ${item.color}35`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'Inter, sans-serif', fontSize: 13, color: item.color, fontWeight: 700,
-            }}>{item.icon}</div>
-            <div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{item.label}</div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: item.color, letterSpacing: '0.06em' }}>{item.sub}</div>
-            </div>
-          </div>
-        ))}
-      </motion.div>
+          {/* LAMBO EXPLOSION OVERLAY */}
+          {phase >= 3 && (
+            <motion.div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            >
+              <motion.div 
+                initial={{ scale: 0, opacity: 0, rotate: -20 }} 
+                animate={{ scale: [0, 1.5, 1.2], opacity: 1, rotate: 0 }} 
+                transition={{ type: 'spring', damping: 12, stiffness: 100 }}
+                className="flex flex-col items-center"
+              >
+                <svg width="200" height="100" viewBox="0 0 200 100" className="drop-shadow-[0_0_30px_rgba(255,215,0,0.8)]">
+                  <path d="M 20 80 Q 30 40 80 40 L 140 40 Q 180 50 180 80 Z" fill="#FFD700" />
+                  <circle cx="50" cy="80" r="15" fill="#333" />
+                  <circle cx="150" cy="80" r="15" fill="#333" />
+                  <path d="M 60 40 L 120 40 L 100 60 L 50 60 Z" fill="rgba(0,0,0,0.5)" />
+                </svg>
+                <h1 style={{ fontFamily: 'Bebas Neue', fontSize: 40, color: '#FFD700', textShadow: '0 0 20px #FFD700' }} className="mt-4">🏎️ LAMBORGHINI!</h1>
+                <div style={{ fontFamily: 'Bebas Neue', fontSize: 24, color: 'white', background: '#C0392B', padding: '4px 16px', borderRadius: 20, marginTop: 8 }} className="shadow-[0_0_15px_rgba(192,57,43,1)]">
+                  +3000 ST
+                </div>
+              </motion.div>
+              {[...Array(30)].map((_, i) => (
+                <motion.div key={i} className="absolute w-2 h-2 bg-[#FFD700] rounded-full"
+                  initial={{ x: 0, y: 0 }}
+                  animate={{ 
+                    x: (Math.random() - 0.5) * 400, 
+                    y: (Math.random() - 0.5) * 400,
+                    opacity: 0, scale: 0
+                  }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                />
+              ))}
+            </motion.div>
+          )}
+
+        </div>
+      </PhoneMockup>
     </motion.div>
   );
 }

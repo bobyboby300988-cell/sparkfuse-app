@@ -1,272 +1,110 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useState, useEffect } from 'react';
-
-const particles = Array.from({ length: 22 }, (_, i) => ({
-  id: i,
-  x: Math.random() * 100,
-  y: 20 + Math.random() * 70,
-  size: 2 + Math.random() * 6,
-  delay: Math.random() * 2.5,
-  dur: 3 + Math.random() * 3,
-  color: i % 2 === 0 ? '#F39C12' : '#C0392B',
-  opacity: 0.25 + Math.random() * 0.45,
-}));
+import { PhoneMockup } from '../PhoneMockup';
 
 export function Scene6() {
   const [phase, setPhase] = useState(0);
+  const count = useMotionValue(0);
+  const displayCount = useTransform(count, (v) => `€${v.toFixed(2)}`);
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase(1), 100),
-      setTimeout(() => setPhase(2), 700),
-      setTimeout(() => setPhase(3), 1400),
-      setTimeout(() => setPhase(4), 2200),
-      setTimeout(() => setPhase(5), 3100),
+      setTimeout(() => {
+        setPhase(1);
+        animate(count, 127.50, { duration: 2, ease: "easeOut" });
+      }, 500),
+      setTimeout(() => setPhase(2), 3500), // Click withdraw
+      setTimeout(() => setPhase(3), 4500), // Processing / Success
+      setTimeout(() => setPhase(4), 7500), // Exit
     ];
-    return () => timers.forEach(clearTimeout);
+    return () => timers.forEach(t => clearTimeout(t));
   }, []);
 
   return (
-    <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
-      style={{ background: '#0D0B12' }}
+    <motion.div className="absolute inset-0 flex items-center justify-center bg-[#0D0B12] overflow-hidden"
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: phase >= 4 ? 0 : 1 }}
+      exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
     >
-      {/* Background glows */}
-      <motion.div className="absolute inset-0" style={{
-        background: 'radial-gradient(ellipse 80% 60% at 50% 55%, rgba(192,57,43,0.28) 0%, transparent 65%)',
-      }}
-        animate={{ opacity: [0.6, 1, 0.6] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      <motion.div className="absolute inset-0" style={{
-        background: 'radial-gradient(ellipse 50% 35% at 50% 50%, rgba(243,156,18,0.14) 0%, transparent 60%)',
-      }}
-        animate={{ opacity: [0.4, 0.85, 0.4] }}
-        transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
-      />
+      <PhoneMockup scale={1.2}>
+        <div className="flex flex-col h-full bg-[#0D0B12] text-white p-4 relative">
+          
+          <AnimatePresence>
+            {phase < 3 && (
+              <motion.div exit={{ opacity: 0, scale: 0.9 }} className="h-full flex flex-col">
+                <div className="text-center mt-4">
+                  <h1 style={{ fontFamily: 'Inter', fontSize: 16, color: 'rgba(255,255,255,0.7)' }}>💰 Your Earnings</h1>
+                  <motion.div style={{ fontFamily: 'Bebas Neue', fontSize: 64, color: '#27ae60', textShadow: '0 0 20px rgba(39,174,96,0.3)', marginTop: 8 }}>
+                    {displayCount}
+                  </motion.div>
+                </div>
 
-      {/* Floating particles */}
-      {particles.map(p => (
-        <motion.div key={p.id} style={{
-          position: 'absolute', left: `${p.x}%`, top: `${p.y}%`,
-          width: p.size, height: p.size, borderRadius: '50%',
-          background: p.color, opacity: p.opacity, filter: 'blur(0.5px)',
-          pointerEvents: 'none',
-        }}
-          animate={{ y: [0, -22, 6, 0], opacity: [p.opacity, p.opacity * 1.6, p.opacity * 0.4, p.opacity] }}
-          transition={{ duration: p.dur, delay: p.delay, repeat: Infinity, ease: 'easeInOut' }}
-        />
-      ))}
+                <div className="grid grid-cols-3 gap-2 mt-8">
+                  <div className="bg-[rgba(22,18,32,0.97)] p-2 rounded-lg border border-white/10 text-center">
+                    <div className="text-[10px] text-white/50">Gifts</div>
+                    <div className="font-bold text-[#F39C12]">48</div>
+                  </div>
+                  <div className="bg-[rgba(22,18,32,0.97)] p-2 rounded-lg border border-white/10 text-center">
+                    <div className="text-[10px] text-white/50">Msgs</div>
+                    <div className="font-bold text-[#48CAE4]">234</div>
+                  </div>
+                  <div className="bg-[rgba(22,18,32,0.97)] p-2 rounded-lg border border-white/10 text-center">
+                    <div className="text-[10px] text-white/50">Fans</div>
+                    <div className="font-bold text-[#FF6B9D]">1,204</div>
+                  </div>
+                </div>
 
-      {/* Accent lines */}
-      <motion.div style={{
-        position: 'absolute', top: '26%', left: 0, right: 0, height: 1,
-        background: 'linear-gradient(90deg, transparent, rgba(192,57,43,0.5), transparent)',
-      }}
-        initial={{ scaleX: 0 }} animate={phase >= 1 ? { scaleX: 1 } : { scaleX: 0 }}
-        transition={{ duration: 0.6 }}
-      />
-      <motion.div style={{
-        position: 'absolute', bottom: '22%', left: 0, right: 0, height: 1,
-        background: 'linear-gradient(90deg, transparent, rgba(243,156,18,0.4), transparent)',
-      }}
-        initial={{ scaleX: 0 }} animate={phase >= 1 ? { scaleX: 1 } : { scaleX: 0 }}
-        transition={{ duration: 0.6, delay: 0.1 }}
-      />
+                <div className="mt-6 bg-[rgba(22,18,32,0.97)] rounded-xl border border-white/10 overflow-hidden">
+                  <div className="p-3 border-b border-white/10 flex justify-between text-sm">
+                    <span className="text-white/70">🎁 Gift income</span>
+                    <span className="font-bold">€98.20</span>
+                  </div>
+                  <div className="p-3 flex justify-between text-sm">
+                    <span className="text-white/70">💬 Message tips</span>
+                    <span className="font-bold">€29.30</span>
+                  </div>
+                </div>
 
-      {/* Logo block */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+                <div className="mt-auto mb-4 space-y-4">
+                  <motion.button className="w-full py-3 rounded-lg text-lg font-bold text-white tracking-wider shadow-[0_0_15px_rgba(192,57,43,0.4)]"
+                    style={{ fontFamily: 'Bebas Neue', background: 'linear-gradient(135deg, #C0392B, #e74c3c)' }}
+                    animate={phase === 1 ? { scale: [1, 1.02, 1] } : { scale: phase === 2 ? 0.95 : 1 }}
+                    transition={{ repeat: phase === 1 ? Infinity : 0 }}
+                  >
+                    WITHDRAW NOW
+                  </motion.button>
+                  
+                  <div className="bg-black/50 p-3 rounded-lg border border-white/5 space-y-2">
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="w-4 h-4 rounded-full bg-[#27ae60] flex items-center justify-center text-[8px]">✓</div>
+                      <span>Bank card transfer (available)</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs opacity-50">
+                      <div className="w-4 h-4 rounded-full border border-white/50 flex items-center justify-center"></div>
+                      <span>Crypto</span>
+                      <span className="bg-[#9b59b6] px-1.5 py-0.5 rounded text-[8px] ml-auto">COMING SOON</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
-        {/* Flame */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.3, y: 20 }}
-          animate={phase >= 1 ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.3, y: 20 }}
-          transition={{ type: 'spring', stiffness: 380, damping: 18 }}
-          style={{ marginBottom: 4 }}
-        >
-          <svg width="42" height="54" viewBox="0 0 42 54" fill="none">
-            <path d="M21 2C21 2 36 17 36 30C36 39.389 29.284 47 21 47C12.716 47 6 39.389 6 30C6 17 21 2 21 2Z" fill="url(#fg1)"/>
-            <path d="M21 20C21 20 28 27 28 33C28 37.418 24.866 41 21 41C17.134 41 14 37.418 14 33C14 27 21 20 21 20Z" fill="url(#fg2)"/>
-            <defs>
-              <linearGradient id="fg1" x1="21" y1="2" x2="21" y2="47" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#F39C12"/><stop offset="1" stopColor="#C0392B"/>
-              </linearGradient>
-              <linearGradient id="fg2" x1="21" y1="20" x2="21" y2="41" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#fff" stopOpacity="0.95"/><stop offset="1" stopColor="#F39C12"/>
-              </linearGradient>
-            </defs>
-          </svg>
-        </motion.div>
+            {phase >= 3 && (
+              <motion.div initial={{ opacity: 0, scale: 1.1 }} animate={{ opacity: 1, scale: 1 }} className="absolute inset-0 bg-[#0D0B12] flex flex-col items-center justify-center p-6 text-center z-50">
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', bounce: 0.5 }} className="w-20 h-20 bg-gradient-to-br from-[#27ae60] to-[#2ecc71] rounded-full flex items-center justify-center text-4xl shadow-[0_0_30px_rgba(39,174,96,0.5)] mb-6">
+                  ✓
+                </motion.div>
+                <h2 style={{ fontFamily: 'Bebas Neue', fontSize: 32, letterSpacing: '0.05em' }}>TRANSFER COMPLETE</h2>
+                <p className="text-[#27ae60] font-bold text-3xl my-4">€114.75</p>
+                <p className="text-xs text-white/50">Sent to Visa ending in 4242</p>
+                <p className="text-[10px] text-white/30 mt-2">After 10% platform fee</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        {/* SPARKFUSE */}
-        <div>
-          {'SPARKFUSE'.split('').map((char, i) => (
-            <motion.span key={i} style={{
-              display: 'inline-block',
-              fontFamily: 'Bebas Neue, sans-serif',
-              fontSize: 'clamp(34px, 9vw, 52px)',
-              color: i < 5 ? '#fff' : '#C0392B',
-              letterSpacing: '0.04em', lineHeight: 1,
-              WebkitTextStroke: i >= 5 ? '1px #F39C12' : undefined,
-            }}
-              initial={{ opacity: 0, y: 40, rotateX: -45 }}
-              animate={phase >= 2 ? { opacity: 1, y: 0, rotateX: 0 } : { opacity: 0, y: 40, rotateX: -45 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 22, delay: phase >= 2 ? i * 0.05 : 0 }}
-            >{char}</motion.span>
-          ))}
         </div>
-
-        {/* Tagline */}
-        <motion.p style={{
-          fontFamily: 'Inter, sans-serif', fontSize: 'clamp(10px, 3.2vw, 14px)',
-          color: '#F39C12', letterSpacing: '0.28em', marginTop: 6,
-          textTransform: 'uppercase', fontWeight: 500,
-        }}
-          initial={{ opacity: 0, filter: 'blur(10px)' }}
-          animate={phase >= 3 ? { opacity: 1, filter: 'blur(0px)' } : { opacity: 0, filter: 'blur(10px)' }}
-          transition={{ duration: 0.55 }}
-        >Find Your Spark</motion.p>
-
-        {/* Availability cards */}
-        <motion.div style={{
-          display: 'flex', flexDirection: 'column', gap: 7, marginTop: 18, width: '84vw', maxWidth: 340,
-        }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={phase >= 4 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.45 }}
-        >
-          {/* Web — NOW */}
-          <div style={{
-            background: 'rgba(192,57,43,0.15)', borderRadius: 14, padding: '10px 14px',
-            border: '1px solid rgba(192,57,43,0.45)',
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(192,57,43,0.25)', border: '1px solid rgba(192,57,43,0.5)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-            }}>🌐</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#F39C12', fontWeight: 700, letterSpacing: '0.06em' }}>
-                AVAILABLE NOW — WEB
-              </div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
-                Matches · Chat · Coaches · Content
-              </div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,140,0,0.8)', marginTop: 1 }}>
-                📱 Go Live → App Store / Play Store only
-              </div>
-            </div>
-            <div style={{
-              background: '#C0392B', borderRadius: 20, padding: '3px 8px', flexShrink: 0,
-              fontFamily: 'Bebas Neue, sans-serif', fontSize: 12, color: '#fff', letterSpacing: '0.08em',
-            }}>NOW</div>
-          </div>
-
-          {/* Google Play — SOON */}
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(52,168,83,0.12), rgba(66,133,244,0.08))',
-            borderRadius: 14, padding: '10px 14px',
-            border: '1px solid rgba(52,168,83,0.35)',
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="18" height="20" viewBox="0 0 22 24" fill="none">
-                <path d="M1 1.5L12 12L1 22.5V1.5Z" fill="#34A853"/>
-                <path d="M1 1.5L12 12L17.5 6.5L4 0L1 1.5Z" fill="#4285F4"/>
-                <path d="M1 22.5L12 12L17.5 17.5L4 24L1 22.5Z" fill="#FBBC05"/>
-                <path d="M17.5 6.5L21 9.5L21 14.5L17.5 17.5L12 12L17.5 6.5Z" fill="#EA4335"/>
-              </svg>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#fff', fontWeight: 700 }}>
-                Google Play — Android
-              </div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: '#34A853', marginTop: 1 }}>
-                🔴 Full Go Live · Gifts · All features
-              </div>
-            </div>
-            <div style={{
-              flexShrink: 0,
-              background: 'rgba(52,168,83,0.2)', borderRadius: 20, padding: '3px 8px',
-              border: '1px solid rgba(52,168,83,0.5)',
-              fontFamily: 'Bebas Neue, sans-serif', fontSize: 12, color: '#34A853', letterSpacing: '0.08em',
-            }}>SOON</div>
-          </div>
-
-          {/* App Store — AFTER */}
-          <div style={{
-            background: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: '10px 14px',
-            border: '1px solid rgba(255,255,255,0.08)',
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-            }}>🍎</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
-                App Store — iOS
-              </div>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 1 }}>
-                🔴 Go Live + full features · After Play Store
-              </div>
-            </div>
-            <div style={{
-              flexShrink: 0,
-              background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '3px 8px',
-              fontFamily: 'Bebas Neue, sans-serif', fontSize: 12, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em',
-            }}>LATER</div>
-          </div>
-        </motion.div>
-
-        {/* Early access CTA */}
-        <motion.div style={{
-          marginTop: 14, width: '84vw', maxWidth: 340,
-        }}
-          initial={{ opacity: 0, y: 10 }}
-          animate={phase >= 5 ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
-          transition={{ duration: 0.45 }}
-        >
-          {/* What you can do NOW on web */}
-          <div style={{
-            background: 'rgba(39,174,96,0.1)', borderRadius: 12, padding: '8px 12px',
-            border: '1px solid rgba(39,174,96,0.3)', marginBottom: 10,
-          }}>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: '#27ae60', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 5 }}>
-              ✅ AVAILABLE NOW ON WEB — NO APP NEEDED
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {['💬 Chat', '📸 Photos', '🎬 Videos', '🎁 Gifts', '📹 Video call', '📞 Voice call', '👤 Profile'].map(item => (
-                <span key={item} style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '2px 7px' }}>{item}</span>
-              ))}
-            </div>
-          </div>
-
-          {/* CTA button */}
-          <div style={{
-            background: 'linear-gradient(135deg, #C0392B, #e74c3c)',
-            borderRadius: 14, padding: '11px 14px', textAlign: 'center',
-            boxShadow: '0 0 28px rgba(192,57,43,0.55)',
-          }}>
-            <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 16, color: '#fff', letterSpacing: '0.12em' }}>
-              CREATE YOUR PROFILE NOW
-            </div>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.65)', marginTop: 3 }}>
-              match-maker-2025ap.replit.app · Join our early community
-            </div>
-          </div>
-        </motion.div>
-      </div>
+      </PhoneMockup>
     </motion.div>
   );
 }

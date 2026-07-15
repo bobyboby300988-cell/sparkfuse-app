@@ -3,13 +3,12 @@
 const BASE = import.meta.env.BASE_URL as string;
 
 const SCENE_AUDIO: Record<string, string> = {
-  hook:     BASE + 'audio/scene-hook.mp3',
-  verify:   BASE + 'audio/scene-verify.mp3',
-  live:     BASE + 'audio/scene-live.mp3',
-  withdraw: BASE + 'audio/scene-withdraw.mp3',
-  content:  BASE + 'audio/scene-content.mp3',
-  tokens:   BASE + 'audio/scene-tokens.mp3',
-  outro:    BASE + 'audio/scene-outro.mp3',
+  hook:      BASE + 'audio/scene-hook.mp3',
+  paywall:   BASE + 'audio/scene-paywall.mp3',
+  discover:  BASE + 'audio/scene-discover.mp3',
+  messages:  BASE + 'audio/scene-messages.mp3',
+  live:      BASE + 'audio/scene-live.mp3',
+  earn:      BASE + 'audio/scene-earn.mp3',
 };
 
 const audioCache: Record<string, HTMLAudioElement> = {};

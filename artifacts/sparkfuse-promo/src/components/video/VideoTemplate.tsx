@@ -8,36 +8,33 @@ import { Scene3 } from './video_scenes/Scene3';
 import { Scene4 } from './video_scenes/Scene4';
 import { Scene5 } from './video_scenes/Scene5';
 import { Scene6 } from './video_scenes/Scene6';
-import { SceneUrl } from './video_scenes/SceneUrl';
-import { SceneWithdraw } from './video_scenes/SceneWithdraw';
+import { Scene7 } from './video_scenes/Scene7';
 
-/* ─── Scene durations — locked to audio lengths + 500ms buffer ─── */
+/* ─── Scene durations — locked to audio lengths + 800ms buffer ─── */
 export const SCENE_DURATIONS: Record<string, number> = {
   hook:      5000,
-  verify:    6000,
+  paywall:   8000,
+  discover:  8000,
+  messages:  8000,
   live:      9000,
-  withdraw:  6000,
-  content:   7000,
-  tokens:    7000,
-  outro:     7000,
-  url:       8000,
+  earn:      8000,
+  cta:       9000,
 };
 
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
-  hook:     Scene1,
-  verify:   Scene2,
-  live:     Scene3,
-  withdraw: SceneWithdraw,
-  content:  Scene4,
-  tokens:   Scene5,
-  outro:    Scene6,
-  url:      SceneUrl,
+  hook:      Scene1,
+  paywall:   Scene2,
+  discover:  Scene3,
+  messages:  Scene4,
+  live:      Scene5,
+  earn:      Scene6,
+  cta:       Scene7,
 };
 
 const ORB_CONFIGS = [
   { color: '#C0392B', ax: ['12%','55%','22%'], ay: ['18%','55%','32%'], dur: 18 },
   { color: '#F39C12', ax: ['75%','28%','62%'], ay: ['68%','22%','52%'], dur: 22 },
-  { color: '#C0392B', ax: ['50%','82%','18%'], ay: ['8%', '42%','12%'], dur: 15 },
+  { color: '#FF6B9D', ax: ['50%','82%','18%'], ay: ['8%', '42%','12%'], dur: 15 },
 ];
 
 /* ─── Background music (Web Audio API synthesizer) ─── */
@@ -51,62 +48,110 @@ class AmbientMusic {
       this.ctx = new AudioContext();
       this.master = this.ctx.createGain();
       this.master.gain.setValueAtTime(0, this.ctx.currentTime);
-      this.master.gain.linearRampToValueAtTime(0.12, this.ctx.currentTime + 3);
+      this.master.gain.linearRampToValueAtTime(0.08, this.ctx.currentTime + 1.5);
       this.master.connect(this.ctx.destination);
       this.scheduleLoop(this.ctx.currentTime);
     } catch (_) {}
   }
 
-  private note(freq: number, start: number, dur: number, vol = 0.15) {
+  private note(freq: number, start: number, dur: number, vol = 0.12, type: OscillatorType = 'triangle') {
     if (!this.ctx || !this.master || this.stopped) return;
-    const osc1 = this.ctx.createOscillator();
-    const osc2 = this.ctx.createOscillator();
+    const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    const filter = this.ctx.createBiquadFilter();
-    osc1.type = 'sine'; osc2.type = 'sine';
-    osc1.frequency.value = freq;
-    osc2.frequency.value = freq * 1.003;
-    filter.type = 'lowpass'; filter.frequency.value = 800;
-    const att = Math.min(2, dur * 0.3);
-    const rel = Math.min(2, dur * 0.3);
+    osc.type = type;
+    osc.frequency.value = freq;
+    const att = 0.05;
+    const rel = Math.min(0.15, dur * 0.4);
     gain.gain.setValueAtTime(0, start);
     gain.gain.linearRampToValueAtTime(vol, start + att);
     gain.gain.setValueAtTime(vol, start + dur - rel);
     gain.gain.linearRampToValueAtTime(0, start + dur);
-    osc1.connect(filter); osc2.connect(filter);
-    filter.connect(gain); gain.connect(this.master!);
-    osc1.start(start); osc2.start(start);
-    osc1.stop(start + dur + 0.1); osc2.stop(start + dur + 0.1);
+    osc.connect(gain);
+    gain.connect(this.master!);
+    osc.start(start);
+    osc.stop(start + dur + 0.05);
+  }
+
+  private noiseKick(start: number) {
+    if (!this.ctx || !this.master || this.stopped) return;
+    
+    // Kick drum (pitch drop)
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.frequency.setValueAtTime(150, start);
+    osc.frequency.exponentialRampToValueAtTime(0.01, start + 0.5);
+    gain.gain.setValueAtTime(0.2, start);
+    gain.gain.exponentialRampToValueAtTime(0.01, start + 0.5);
+    
+    osc.connect(gain);
+    gain.connect(this.master!);
+    osc.start(start);
+    osc.stop(start + 0.5);
   }
 
   private scheduleLoop(from: number) {
     if (!this.ctx || this.stopped) return;
-    const beat = 4;
-    const chords: [number, number, number][] = [
-      [220, 261.6, 329.6],
-      [174.6, 220, 261.6],
-      [130.8, 164.8, 196],
-      [196, 246.9, 293.7],
+    // Upbeat major-key melody in C major — bright and happy
+    const BPM = 120; // upbeat pop feel
+    const beat = 60 / BPM;
+    const half = beat / 2;
+
+    // Chord progression: C - G - Am - F (happy pop progression)
+    const chords = [
+      [261.63, 329.63, 392.00, 523.25], // C major
+      [392.00, 493.88, 587.33, 783.99], // G major
+      [220.00, 261.63, 329.63, 440.00], // A minor
+      [349.23, 440.00, 523.25, 698.46], // F major
     ];
-    chords.forEach(([r, t3, t5], i) => {
-      const s = from + i * beat;
-      this.note(r / 2, s, beat + 1.5, 0.18);
-      this.note(r,     s, beat + 1.5, 0.14);
-      this.note(t3,    s, beat + 1.5, 0.11);
-      this.note(t5,    s, beat + 1.5, 0.09);
+
+    // Bass notes
+    const bass = [130.81, 196.00, 110.00, 174.61];
+
+    // Melody notes (top voice, upbeat rhythm)
+    const melody = [
+      [523.25, half], [587.33, half], [659.25, beat], [587.33, beat],
+      [783.99, half], [698.46, half], [659.25, beat * 2],
+      [440.00, half], [523.25, half], [587.33, beat], [523.25, beat],
+      [349.23, half], [392.00, half], [523.25, beat * 2],
+    ];
+
+    let t = from;
+    chords.forEach(([r, t3, t5, oct], ci) => {
+      const s = from + ci * beat * 4;
+      // Pad chord
+      this.note(r, s, beat * 4, 0.04, 'sine');
+      this.note(t3, s, beat * 4, 0.03, 'sine');
+      this.note(t5, s, beat * 4, 0.025, 'sine');
+      this.note(oct, s, beat * 4, 0.02, 'sine');
+      
+      // Fun bouncy bass
+      this.note(bass[ci], s, beat * 1.5, 0.06, 'triangle');
+      this.note(bass[ci], s + beat * 2, beat * 1.5, 0.06, 'triangle');
+      
+      // Kick drum on the beat
+      for(let b=0; b<4; b++) {
+         this.noiseKick(s + beat * b);
+      }
     });
-    const loopDur = beat * chords.length;
+
+    // Play melody over the full chord progression
+    melody.forEach(([freq, dur]) => {
+      this.note(freq, t, dur as number, 0.05, 'square');
+      t += dur as number;
+    });
+
+    const loopDur = beat * 16;
     if (!this.stopped) {
-      setTimeout(() => this.scheduleLoop(from + loopDur), (loopDur - 1.5) * 1000);
+      setTimeout(() => this.scheduleLoop(from + loopDur), (loopDur - 0.5) * 1000);
     }
   }
 
   stop() {
     this.stopped = true;
     if (this.master && this.ctx) {
-      this.master.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1.5);
+      this.master.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1);
     }
-    setTimeout(() => { try { this.ctx?.close(); } catch (_) {} }, 2000);
+    setTimeout(() => { try { this.ctx?.close(); } catch (_) {} }, 1500);
   }
 }
 
@@ -145,7 +190,7 @@ function TapToPlay({ onStart }: { onStart: () => void }) {
           initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
         >
           <div style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 'clamp(40px,11vw,56px)', color: '#fff', letterSpacing: '0.12em', lineHeight: 1 }}>
-            SPARK<span style={{ color: '#C0392B' }}>FUSE</span>
+            SPARK<span style={{ color: '#FF6B9D' }}>FUSE</span>
           </div>
           <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em', marginTop: 4 }}>
             THE DATING APP THAT PAYS YOU
@@ -208,7 +253,7 @@ function TapToPlay({ onStart }: { onStart: () => void }) {
           marginTop: 14, fontFamily: 'Inter, sans-serif', fontSize: 10,
           color: 'rgba(255,255,255,0.22)', letterSpacing: '0.1em',
           position: 'relative', zIndex: 5,
-        }}>~55 SECONDS · 8 SCENES</div>
+        }}>~55 SECONDS · 7 SCENES</div>
       </div>
     </div>
   );
