@@ -175,12 +175,13 @@ export default function ChatScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { matches, sendMessage, sendMedia, sendVoice, removeMatch } = useApp();
+  const { matches, sendMessage, sendMedia, sendVoice, removeMatch, clearMessages } = useApp();
   const { mutateAsync: blockUser } = useCreateBlock();
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGiftModal, setShowGiftModal] = useState(false);
   const [giftSplash, setGiftSplash] = useState<GiftSentInfo | null>(null);
+  const [showProfileCard, setShowProfileCard] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const recordingStart = useRef<number>(0);
@@ -296,25 +297,77 @@ export default function ChatScreen() {
     );
   };
 
+  const doRemoveMatch = () => {
+    if (!id || !profile) return;
+    Alert.alert(
+      `Remove ${profile.name}?`,
+      "You'll be unmatched. You can match again if you swipe right in the future.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            removeMatch(id);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            router.back();
+          },
+        },
+      ]
+    );
+  };
+
+  const doDeleteChat = () => {
+    if (!id || !profile) return;
+    Alert.alert(
+      "Delete chat?",
+      "All messages will be cleared. The match stays so you can message again.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            clearMessages(id);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ]
+    );
+  };
+
   const handleMorePress = () => {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
-        { options: ["Cancel", "Block"], destructiveButtonIndex: 1, cancelButtonIndex: 0 },
+        {
+          options: ["Cancel", "Remove Match", "Delete Chat", "Block"],
+          destructiveButtonIndex: 3,
+          cancelButtonIndex: 0,
+        },
         (idx) => {
-          if (idx === 1) confirmBlock();
+          if (idx === 1) doRemoveMatch();
+          else if (idx === 2) doDeleteChat();
+          else if (idx === 3) confirmBlock();
         }
       );
     } else {
-      confirmBlock();
+      Alert.alert(profile?.name ?? "Options", undefined, [
+        { text: "Remove Match", onPress: doRemoveMatch },
+        { text: "Delete Chat", onPress: doDeleteChat },
+        { text: "Block", style: "destructive", onPress: confirmBlock },
+        { text: "Cancel", style: "cancel" },
+      ]);
     }
   };
 
   const pickMedia = async (type: "image" | "video") => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Permission needed", "Allow photo library access to send media.");
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes:
-        type === "image"
-          ? ImagePicker.MediaTypeOptions.Images
-          : ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: type === "image" ? ["images"] : ["videos"],
       quality: 0.85,
       allowsMultipleSelection: false,
     });
@@ -428,12 +481,17 @@ export default function ChatScreen() {
           <Ionicons name="chevron-back" size={26} color={colors.foreground} />
         </TouchableOpacity>
 
-        <Image source={profile.photo} style={styles.headerAvatar} contentFit="cover" />
-
-        <View style={styles.headerInfo}>
-          <Text style={[styles.headerName, { color: colors.foreground }]}>{profile.name}</Text>
-          <Text style={[styles.headerStatus, { color: colors.like }]}>Active now</Text>
-        </View>
+        <TouchableOpacity
+          onPress={() => setShowProfileCard(true)}
+          activeOpacity={0.8}
+          style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+        >
+          <Image source={profile.photo} style={styles.headerAvatar} contentFit="cover" />
+          <View style={styles.headerInfo}>
+            <Text style={[styles.headerName, { color: colors.foreground }]}>{profile.name}</Text>
+            <Text style={[styles.headerStatus, { color: colors.like }]}>Active now</Text>
+          </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.headerAction, { backgroundColor: colors.card }]}
@@ -726,6 +784,28 @@ export default function ChatScreen() {
         recipientName={profile?.name}
         onHide={() => setGiftSplash(null)}
       />
+
+      {/* Profile card modal */}
+      <Modal visible={showProfileCard} transparent animationType="fade" onRequestClose={() => setShowProfileCard(false)}>
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.88)", alignItems: "center", justifyContent: "center" }}
+          activeOpacity={1}
+          onPress={() => setShowProfileCard(false)}
+        >
+          <View style={{ alignItems: "center" }}>
+            <Image source={profile.photo} style={{ width: 240, height: 300, borderRadius: 24 }} contentFit="cover" />
+            <Text style={{ color: "#fff", fontSize: 26, fontWeight: "700", fontFamily: "Inter_700Bold", marginTop: 20 }}>
+              {profile.name}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowProfileCard(false)}
+              style={{ marginTop: 28, paddingVertical: 10, paddingHorizontal: 32, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" }}
+            >
+              <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, fontFamily: "Inter_600SemiBold" }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Fullscreen video player */}
       <Modal

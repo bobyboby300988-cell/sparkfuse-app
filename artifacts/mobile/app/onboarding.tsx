@@ -12,6 +12,7 @@ import {
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -47,6 +48,7 @@ export default function OnboardingScreen() {
   const { t } = useTranslation();
 
   const [step, setStep] = useState(0);
+  const [showLangPicker, setShowLangPicker] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>(
     (i18n.language as SupportedLanguage) || "en"
   );
@@ -195,6 +197,21 @@ export default function OnboardingScreen() {
         colors={["rgba(255,51,102,0.12)", "transparent"]}
         style={styles.topGradient}
       />
+
+      {/* Language banner — always visible top-right */}
+      <TouchableOpacity
+        style={[styles.langBannerBtn, { top: insets.top + 14 }]}
+        onPress={() => setShowLangPicker(true)}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.langBannerFlag}>
+          {LANGUAGE_FLAGS[selectedLanguage as LanguageCode] ?? "🌐"}
+        </Text>
+        <Text style={[styles.langBannerLabel, { color: colors.foreground }]} numberOfLines={1}>
+          {(LANGUAGE_NATIVE_NAMES[selectedLanguage as LanguageCode] ?? selectedLanguage.toUpperCase()).substring(0, 10)}
+        </Text>
+        <Ionicons name="chevron-down" size={12} color={colors.mutedForeground} />
+      </TouchableOpacity>
 
       <View
         style={[
@@ -543,6 +560,96 @@ export default function OnboardingScreen() {
           </>
         )}
       </KeyboardAvoidingView>
+
+      {/* Language picker modal — accessible from banner at any step */}
+      <Modal
+        visible={showLangPicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowLangPicker(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
+          activeOpacity={1}
+          onPress={() => setShowLangPicker(false)}
+        >
+          <View
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingBottom: insets.bottom + 16,
+              maxHeight: "82%",
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 24,
+                paddingVertical: 20,
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: colors.border,
+              }}
+            >
+              <Text style={{ color: colors.foreground, fontSize: 18, fontFamily: "Inter_700Bold" }}>
+                Choose Language
+              </Text>
+              <TouchableOpacity onPress={() => setShowLangPicker(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <Ionicons name="close" size={24} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={SUPPORTED_LANGUAGES}
+              keyExtractor={(item) => item}
+              numColumns={2}
+              contentContainerStyle={{ padding: 12 }}
+              columnWrapperStyle={{ gap: 8 }}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const isSelected = selectedLanguage === item;
+                const flag = LANGUAGE_FLAGS[item as LanguageCode] ?? "🌐";
+                const native = LANGUAGE_NATIVE_NAMES[item as LanguageCode] ?? item;
+                return (
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: 12,
+                      marginBottom: 8,
+                      borderRadius: 14,
+                      backgroundColor: isSelected ? colors.primary + "20" : colors.card,
+                      borderWidth: 1.5,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    }}
+                    onPress={async () => {
+                      await handleSelectLanguage(item as SupportedLanguage);
+                      setShowLangPicker(false);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={{ fontSize: 22 }}>{flag}</Text>
+                    <Text
+                      style={{ flex: 1, color: isSelected ? colors.primary : colors.foreground, fontSize: 13, fontFamily: "Inter_600SemiBold" }}
+                      numberOfLines={1}
+                    >
+                      {native}
+                    </Text>
+                    {isSelected && <Ionicons name="checkmark-circle" size={16} color={colors.primary} />}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -735,5 +842,27 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
+  },
+  langBannerBtn: {
+    position: "absolute",
+    right: 16,
+    zIndex: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+  langBannerFlag: {
+    fontSize: 16,
+  },
+  langBannerLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    maxWidth: 80,
   },
 });

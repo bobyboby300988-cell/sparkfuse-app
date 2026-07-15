@@ -27,7 +27,7 @@ import { buildDemoMedia, type DemoItem } from "@/components/LockedMediaGrid";
 
 const { width: W } = Dimensions.get("window");
 const GALLERY_H = W * 1.15;
-const COLS = 2;
+const COLS = 3;
 const GAP = 10;
 const TILE = (W - GAP * (COLS + 1)) / COLS;
 

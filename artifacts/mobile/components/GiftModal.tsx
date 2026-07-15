@@ -515,13 +515,17 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
   const customEur    = parseFloat((customTokens * 0.01).toFixed(2));
   const customValid  = customTokens >= MIN_TOKENS;
 
-  function handleSend() {
-    if (!canSend) { setStep("buy"); return; }
+  function handleSendGift(g: typeof GIFTS[0]) {
+    const fee = Math.round(g.tokens * FEE);
+    const cost = g.tokens + fee;
+    if (coinBalance < cost) { setStep("buy"); return; }
+    setSelectedGift(g);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    spendCoins(totalCost);
-    addEarning(parseFloat((selectedGift.tokens * 0.1).toFixed(2)));
+    spendCoins(cost);
+    // Platform earns 10% from sender (included in fee above) + 10% from receiver = 20% total
+    addEarning(parseFloat((g.tokens * 0.2).toFixed(2)));
     setSent(true); playSentAnimation();
-    onGiftSent?.({ emoji: selectedGift.emoji, label: selectedGift.label, tokens: selectedGift.tokens, grad: selectedGift.grad });
+    onGiftSent?.({ emoji: g.emoji, label: g.label, tokens: g.tokens, grad: g.grad });
   }
 
   function handleClose() { setSent(false); onClose(); }
@@ -674,33 +678,17 @@ export default function GiftModal({ visible, onClose, recipientName, onGiftSent 
                             gift={g}
                             selected={selectedGift.tokens === g.tokens}
                             canAfford={coinBalance >= g.tokens + Math.round(g.tokens * FEE)}
-                            onPress={() => {
-                              if (coinBalance >= g.tokens + Math.round(g.tokens * FEE)) {
-                                setSelectedGift(g);
-                              }
-                            }}
+                            onPress={() => handleSendGift(g)}
                           />
                         ))}
                       </View>
                     </View>
                   ))}
 
-                  {/* Send button */}
-                  <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 }}>
-                    <TouchableOpacity onPress={handleSend} activeOpacity={0.88} disabled={!canSend}>
-                      <LinearGradient
-                        colors={canSend ? selectedGift.grad : ["#1a1a1a", "#333"]}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={styles.sendBtn}
-                      >
-                        <Text style={styles.sendBtnText}>
-                          {canSend
-                            ? `Send ${selectedGift.label} · ${totalCost.toLocaleString()} ST`
-                            : `Need ${(totalCost - coinBalance).toLocaleString()} more ST`}
-                        </Text>
-                        {canSend && <Text style={styles.sendBtnSub}>€{(totalCost / 100).toFixed(0)} · +10% fee included</Text>}
-                      </LinearGradient>
-                    </TouchableOpacity>
+                  <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+                    <Text style={{ color: "#888", fontSize: 12, textAlign: "center" }}>
+                      Tap a gift to send instantly · Sender pays +10% · Receiver earns 90%
+                    </Text>
                   </View>
                 </>
               )}

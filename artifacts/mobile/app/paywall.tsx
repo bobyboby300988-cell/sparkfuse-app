@@ -60,7 +60,7 @@ export default function PaywallScreen() {
       });
       await setSubscribed();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace("/");
+      router.replace("/onboarding");
     } catch (err: any) {
       setLoadingStripe(false);
       Alert.alert("Error", err.message ?? "Something went wrong. Please try again.");
@@ -85,7 +85,7 @@ export default function PaywallScreen() {
       // After browser closes, mark as subscribed
       await setSubscribed();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace("/");
+      router.replace("/onboarding");
     } catch (err: any) {
       setLoadingPayPal(false);
       Alert.alert("Error", err.message ?? "Something went wrong. Please try again.");

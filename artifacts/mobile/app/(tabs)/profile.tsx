@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
@@ -65,6 +66,8 @@ export default function ProfileScreen() {
   const [editBio, setEditBio] = useState(userProfile?.bio ?? "");
   const [editCity, setEditCity] = useState(userProfile?.city ?? "");
   const [editCountry, setEditCountry] = useState(userProfile?.country ?? "");
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [buyingTokens, setBuyingTokens] = useState(false);
   const [customTokenAmount, setCustomTokenAmount] = useState("");
   const [photoEditMode, setPhotoEditMode] = useState(false);
@@ -97,6 +100,49 @@ export default function ProfileScreen() {
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setEditing(false);
+  };
+
+  const handleSaveLocation = async () => {
+    if (!userProfile) return;
+    await upsertProfile.mutateAsync({
+      data: {
+        name: userProfile.name,
+        age: userProfile.age,
+        bio: userProfile.bio,
+        seeking: userProfile.seeking,
+        photoUrl: userProfile.photoUrl,
+        city: editCity.trim() || null,
+        country: editCountry.trim() || null,
+        latitude: userProfile.latitude ?? null,
+        longitude: userProfile.longitude ?? null,
+      },
+    });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setEditingLocation(false);
+  };
+
+  const handleGPS = async () => {
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Allow location access to auto-fill your city.");
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const [geo] = await Location.reverseGeocodeAsync({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      });
+      if (geo) {
+        setEditCity(geo.city ?? geo.subregion ?? "");
+        setEditCountry(geo.country ?? "");
+      }
+    } catch {
+      Alert.alert("Location error", "Could not detect your location. Please type it manually.");
+    } finally {
+      setLocating(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -490,21 +536,79 @@ export default function ProfileScreen() {
 
       {/* Preferences */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Preferences</Text>
-        <View style={styles.prefRow}>
-          <Ionicons name="location-outline" size={18} color={colors.mutedForeground} />
-          <Text style={[styles.prefText, { color: colors.foreground }]}>
-            {userProfile?.city
-              ? [userProfile.city, userProfile.country].filter(Boolean).join(", ")
-              : t("profile.noLocation")}
-          </Text>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Preferences</Text>
+          {!editingLocation && (
+            <TouchableOpacity onPress={() => setEditingLocation(true)}>
+              <Ionicons name="pencil-outline" size={18} color={colors.primary} />
+            </TouchableOpacity>
+          )}
         </View>
-        <View style={styles.prefRow}>
-          <Ionicons name="search-outline" size={18} color={colors.mutedForeground} />
-          <Text style={[styles.prefText, { color: colors.foreground }]}>
-            {userProfile?.seeking ? userProfile.seeking.charAt(0).toUpperCase() + userProfile.seeking.slice(1) : "Everyone"}
-          </Text>
-        </View>
+
+        {editingLocation ? (
+          <>
+            <TextInput
+              style={[styles.locationInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={editCity}
+              onChangeText={setEditCity}
+              placeholder="City (e.g. Paris, Lagos)"
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={80}
+            />
+            <TextInput
+              style={[styles.locationInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, marginTop: 8 }]}
+              value={editCountry}
+              onChangeText={setEditCountry}
+              placeholder="Country"
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={80}
+            />
+            <TouchableOpacity
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10, alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background }}
+              onPress={handleGPS}
+              disabled={locating}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="navigate-outline" size={15} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontSize: 13, fontFamily: "Inter_600SemiBold" }}>
+                {locating ? "Detecting…" : "Use GPS"}
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.editActions}>
+              <TouchableOpacity
+                style={[styles.editBtn, { borderColor: colors.border }]}
+                onPress={() => { setEditingLocation(false); setEditCity(userProfile?.city ?? ""); setEditCountry(userProfile?.country ?? ""); }}
+              >
+                <Text style={[styles.editBtnText, { color: colors.mutedForeground }]}>{t("common.cancel")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editBtn, styles.saveBtn, { backgroundColor: colors.primary }]}
+                onPress={handleSaveLocation}
+                disabled={upsertProfile.isPending}
+              >
+                <Text style={[styles.editBtnText, { color: "#FFFFFF" }]}>{t("common.save")}</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity style={[styles.prefRow, { gap: 8 }]} onPress={() => setEditingLocation(true)} activeOpacity={0.7}>
+              <Ionicons name="location-outline" size={18} color={colors.mutedForeground} />
+              <Text style={[styles.prefText, { color: colors.foreground, flex: 1 }]}>
+                {userProfile?.city
+                  ? [userProfile.city, userProfile.country].filter(Boolean).join(", ")
+                  : t("profile.noLocation")}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.mutedForeground} />
+            </TouchableOpacity>
+            <View style={styles.prefRow}>
+              <Ionicons name="search-outline" size={18} color={colors.mutedForeground} />
+              <Text style={[styles.prefText, { color: colors.foreground }]}>
+                {userProfile?.seeking ? userProfile.seeking.charAt(0).toUpperCase() + userProfile.seeking.slice(1) : "Everyone"}
+              </Text>
+            </View>
+          </>
+        )}
       </View>
 
       {/* Wallet — visible to every user */}

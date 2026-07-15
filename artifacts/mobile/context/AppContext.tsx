@@ -48,6 +48,7 @@ interface AppContextType {
   sendMedia: (profileId: string, uri: string, type: "image" | "video") => void;
   sendVoice: (profileId: string, uri: string, duration: number) => void;
   removeMatch: (profileId: string) => void;
+  clearMessages: (profileId: string) => void;
   unlockedPhotos: string[];
   unlockPhoto: (photoId: string) => void;
   creatorMode: boolean;
@@ -349,6 +350,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const clearMessages = (profileId: string) => {
+    setMatches((prev) => {
+      const updated = prev.map((m) =>
+        m.profileId === profileId ? { ...m, messages: [] } : m
+      );
+      AsyncStorage.setItem(KEYS.MATCHES, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -367,6 +378,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sendMedia,
         sendVoice,
         removeMatch,
+        clearMessages,
         unlockedPhotos,
         unlockPhoto,
         creatorMode,
