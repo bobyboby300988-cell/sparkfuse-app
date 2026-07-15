@@ -27,7 +27,7 @@ import { useCreateBlock, useGetMatches, useGetConversation, usePostMessage, useG
 import { useApp } from "@/context/AppContext";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { useColors } from "@/hooks/useColors";
-import { getPhotoUrl } from "@/lib/api";
+import { getPhotoUrl, getApiUrl } from "@/lib/api";
 import GiftModal, { GiftSentInfo } from "@/components/GiftModal";
 import GiftSplashOverlay from "@/components/GiftSplashOverlay";
 import { useTranslation } from "react-i18next";
@@ -147,6 +147,132 @@ const voiceStyles = StyleSheet.create({
   dur: { fontSize: 11, fontFamily: "Inter_400Regular" },
 });
 
+function CallBubble({
+  roomUrl,
+  isVoice,
+  fromMe,
+  timestamp,
+  targetId,
+  targetName,
+  targetPhoto,
+  colors,
+}: {
+  roomUrl?: string;
+  isVoice: boolean;
+  fromMe: boolean;
+  timestamp: number;
+  targetId: string;
+  targetName: string;
+  targetPhoto: string;
+  colors: ReturnType<typeof useColors>;
+}) {
+  const isExpired = Date.now() - timestamp > 5 * 60 * 1000;
+
+  const handleAnswer = () => {
+    if (!roomUrl) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    router.push({
+      pathname: "/call/[id]",
+      params: {
+        id: targetId,
+        mode: isVoice ? "voice" : "video",
+        roomUrl,
+        name: targetName,
+        photo: targetPhoto,
+      },
+    });
+  };
+
+  return (
+    <View
+      style={[
+        callBubStyle.wrap,
+        { backgroundColor: fromMe ? "#C0392B" : colors.card, alignSelf: fromMe ? "flex-end" : "flex-start" },
+      ]}
+    >
+      <Text style={callBubStyle.icon}>{isVoice ? "📞" : "📹"}</Text>
+      <View style={{ gap: 6 }}>
+        <Text style={[callBubStyle.label, { color: fromMe ? "#fff" : colors.foreground }]}>
+          {fromMe
+            ? isVoice ? "Voice call sent" : "Video call sent"
+            : isExpired
+              ? isVoice ? "Missed voice call" : "Missed video call"
+              : isVoice ? "Incoming voice call" : "Incoming video call"}
+        </Text>
+        {!fromMe && !isExpired && roomUrl && (
+          <TouchableOpacity onPress={handleAnswer} style={callBubStyle.answerBtn} activeOpacity={0.8}>
+            <Ionicons name="call" size={13} color="#fff" />
+            <Text style={callBubStyle.answerText}>Answer</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const callBubStyle = StyleSheet.create({
+  wrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    maxWidth: 240,
+  },
+  icon: { fontSize: 22 },
+  label: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  answerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#22C55E",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+  },
+  answerText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+});
+
+function GiftBubble({
+  text,
+  fromMe,
+  colors,
+}: {
+  text?: string;
+  fromMe: boolean;
+  colors: ReturnType<typeof useColors>;
+}) {
+  return (
+    <View
+      style={[
+        giftBubStyle.wrap,
+        { backgroundColor: fromMe ? "#C0392B" : colors.card, alignSelf: fromMe ? "flex-end" : "flex-start" },
+      ]}
+    >
+      <Text style={giftBubStyle.icon}>🎁</Text>
+      <Text style={[giftBubStyle.label, { color: fromMe ? "#fff" : colors.foreground }]}>
+        {text || "Gift sent"}
+      </Text>
+    </View>
+  );
+}
+
+const giftBubStyle = StyleSheet.create({
+  wrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    maxWidth: 260,
+  },
+  icon: { fontSize: 24 },
+  label: { fontSize: 14, fontFamily: "Inter_500Medium" },
+});
+
 const EMOJI_CATEGORIES = [
   {
     label: "😄 Smileys",
@@ -188,6 +314,7 @@ export default function ChatScreen() {
   const inputRef = useRef<TextInput>(null);
 
   const [fullscreenVideo, setFullscreenVideo] = useState<string | null>(null);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
 
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translating, setTranslating] = useState<Record<string, boolean>>({});
@@ -252,7 +379,7 @@ export default function ChatScreen() {
       id: msg.id,
       text: msg.text ?? "",
       mediaUri: msg.mediaUrl ?? undefined,
-      mediaType: (msg.mediaType as "image" | "video" | "voice") ?? undefined,
+      mediaType: (msg.mediaType as "image" | "video" | "voice" | "call_video" | "call_voice" | "gift") ?? undefined,
       voiceDuration: undefined as number | undefined,
       fromMe: msg.senderId === myUserId,
       timestamp: new Date(msg.createdAt).getTime(),
@@ -293,12 +420,32 @@ export default function ChatScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleVideoCall = () => {
-    router.push({ pathname: "/call/[id]", params: { id: id!, mode: "video", name: profile?.name ?? "", photo: typeof profile?.photo === "object" && "uri" in profile.photo ? profile.photo.uri : "" } });
+  const handleVideoCall = async () => {
+    if (!id) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const roomId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const roomUrl = `https://meet.jit.si/SparkFuse-${roomId}#config.startWithVideoMuted=false&config.startWithAudioMuted=false&config.prejoinPageEnabled=false&config.disableDeepLinking=true`;
+    try {
+      await serverPostMessage({ data: { receiverId: id, text: "📹 Video call", mediaType: "call_video", mediaUrl: roomUrl } });
+    } catch {}
+    router.push({
+      pathname: "/call/[id]",
+      params: { id, mode: "video", roomUrl, name: profile?.name ?? "", photo: typeof profile?.photo === "object" && "uri" in profile.photo ? profile.photo.uri : "" },
+    });
   };
 
-  const handleVoiceCall = () => {
-    router.push({ pathname: "/call/[id]", params: { id: id!, mode: "voice", name: profile?.name ?? "", photo: typeof profile?.photo === "object" && "uri" in profile.photo ? profile.photo.uri : "" } });
+  const handleVoiceCall = async () => {
+    if (!id) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const roomId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const roomUrl = `https://meet.jit.si/SparkFuse-${roomId}#config.startWithVideoMuted=true&config.startWithAudioMuted=false&config.prejoinPageEnabled=false&config.disableDeepLinking=true`;
+    try {
+      await serverPostMessage({ data: { receiverId: id, text: "📞 Voice call", mediaType: "call_voice", mediaUrl: roomUrl } });
+    } catch {}
+    router.push({
+      pathname: "/call/[id]",
+      params: { id, mode: "voice", roomUrl, name: profile?.name ?? "", photo: typeof profile?.photo === "object" && "uri" in profile.photo ? profile.photo.uri : "" },
+    });
   };
 
   const doBlock = async () => {
@@ -400,8 +547,34 @@ export default function ChatScreen() {
       allowsMultipleSelection: false,
     });
     if (!result.canceled && result.assets.length > 0 && id) {
-      sendMedia(id, result.assets[0].uri, type);
+      const asset = result.assets[0];
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setUploadingMedia(true);
+      try {
+        const ext = type === "image" ? "jpg" : "mp4";
+        const urlRes = await fetch(`${getApiUrl()}/api/storage/uploads/request-url`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: `chat-${Date.now()}.${ext}` }),
+        });
+        const { uploadUrl, objectPath } = await urlRes.json();
+        const blob = await (await fetch(asset.uri)).blob();
+        await fetch(uploadUrl, {
+          method: "PUT",
+          body: blob,
+          headers: { "Content-Type": type === "image" ? "image/jpeg" : "video/mp4" },
+        });
+        const publicUrl = getPhotoUrl(objectPath);
+        if (publicUrl) {
+          await serverPostMessage({ data: { receiverId: id, mediaUrl: publicUrl, mediaType: type } });
+        } else {
+          sendMedia(id, asset.uri, type);
+        }
+      } catch {
+        sendMedia(id, asset.uri, type);
+      } finally {
+        setUploadingMedia(false);
+      }
     }
   };
 
@@ -576,7 +749,20 @@ export default function ChatScreen() {
                   item.fromMe ? styles.bubbleWrapMe : styles.bubbleWrapThem,
                 ]}
               >
-                {item.mediaType === "voice" && item.mediaUri ? (
+                {(item.mediaType === "call_video" || item.mediaType === "call_voice") ? (
+                  <CallBubble
+                    roomUrl={item.mediaUri}
+                    isVoice={item.mediaType === "call_voice"}
+                    fromMe={item.fromMe}
+                    timestamp={item.timestamp}
+                    targetId={id ?? ""}
+                    targetName={profile.name}
+                    targetPhoto={typeof profile.photo === "object" && "uri" in profile.photo ? profile.photo.uri : ""}
+                    colors={colors}
+                  />
+                ) : item.mediaType === "gift" ? (
+                  <GiftBubble text={item.text} fromMe={item.fromMe} colors={colors} />
+                ) : item.mediaType === "voice" && item.mediaUri ? (
                   <VoiceBubble
                     uri={item.mediaUri}
                     duration={item.voiceDuration ?? 1}
@@ -672,6 +858,14 @@ export default function ChatScreen() {
               </View>
             )}
           />
+        )}
+
+        {/* Uploading indicator */}
+        {uploadingMedia && (
+          <View style={[styles.recordingBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            <View style={[styles.recordingDot, { backgroundColor: colors.primary }]} />
+            <Text style={[styles.recordingText, { color: colors.foreground }]}>Uploading media…</Text>
+          </View>
         )}
 
         {/* Recording indicator */}
@@ -797,11 +991,15 @@ export default function ChatScreen() {
           visible={showGiftModal}
           onClose={() => setShowGiftModal(false)}
           recipientName={profile.name}
-          onGiftSent={(gift) => {
+          onGiftSent={async (gift) => {
             setShowGiftModal(false);
             setGiftSplash(gift);
             if (id) {
-              sendMessage(id, `🎁 Gifted a ${gift.label} · ${gift.tokens} ST`);
+              try {
+                await serverPostMessage({ data: { receiverId: id, text: `🎁 ${gift.label} · ${gift.tokens} ST`, mediaType: "gift" } });
+              } catch {
+                sendMessage(id, `🎁 Gifted a ${gift.label} · ${gift.tokens} ST`);
+              }
             }
           }}
         />
