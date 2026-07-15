@@ -171,7 +171,7 @@ const EMOJI_CATEGORIES = [
 ];
 
 export default function ChatScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, name: nameParam, photo: photoParam } = useLocalSearchParams<{ id: string; name?: string; photo?: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -217,14 +217,24 @@ export default function ChatScreen() {
     if (mock) return mock;
     if (!id) return null;
     const srv = matchesServerData?.matches?.find((p) => p.userId === id);
-    if (!srv) return null;
-    const photoUrl = getPhotoUrl(srv.photoUrl);
-    return {
-      id: srv.userId,
-      name: srv.name,
-      photo: photoUrl ? { uri: photoUrl } : require("../../assets/images/p1.png"),
-    };
-  }, [id, matchesServerData]);
+    if (srv) {
+      const photoUrl = getPhotoUrl(srv.photoUrl);
+      return {
+        id: srv.userId,
+        name: srv.name,
+        photo: photoUrl ? { uri: photoUrl } : require("../../assets/images/p1.png"),
+      };
+    }
+    // Fallback: use route params passed from Explore/Discover
+    if (nameParam) {
+      return {
+        id,
+        name: nameParam,
+        photo: photoParam ? { uri: photoParam } : require("../../assets/images/p1.png"),
+      };
+    }
+    return null;
+  }, [id, matchesServerData, nameParam, photoParam]);
   const match = useMemo(() => matches.find((m) => m.profileId === id), [matches, id]);
   const reversedMessages = useMemo(() => {
     if (!match) return [];

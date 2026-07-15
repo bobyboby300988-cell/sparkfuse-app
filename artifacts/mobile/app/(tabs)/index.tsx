@@ -22,7 +22,7 @@ import { SwipeCard, type SwipeProfile } from "@/components/SwipeCard";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useLocation } from "@/hooks/useLocation";
-import { getPhotoUrl } from "@/lib/api";
+import { getApiUrl, getPhotoUrl } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -331,9 +331,7 @@ export default function DiscoverScreen() {
                 onPress={async () => {
                   setDismissed([]);
                   try {
-                    const base = process.env.EXPO_PUBLIC_DOMAIN
-                      ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-                      : "";
+                    const base = getApiUrl();
                     await fetch(`${base}/api/swipes`, { method: "DELETE", credentials: "include" });
                   } catch { /* ignore */ }
                   refetch();

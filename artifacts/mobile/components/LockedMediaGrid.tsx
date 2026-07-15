@@ -23,7 +23,7 @@ const PHOTO_PRICE = 20;   // ST
 const VIDEO_PRICE = 500;  // ST
 
 /* ── Demo media for creator profiles ─────────────────────────────────── */
-type DemoItem = {
+export type DemoItem = {
   id: string;
   type: "image" | "video";
   exclusive: boolean;
@@ -31,7 +31,7 @@ type DemoItem = {
   emoji: string;
 };
 
-function buildDemoMedia(userId: string): DemoItem[] {
+export function buildDemoMedia(userId: string): DemoItem[] {
   const seed = userId ? userId.charCodeAt(0) % 4 : 0;
   const sets: DemoItem[][] = [
     [

@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
+  Alert,
   Dimensions,
   Modal,
   Platform,
@@ -21,9 +23,10 @@ import { ModeSelector } from "@/components/ModeSelector";
 import { useColors } from "@/hooks/useColors";
 import { useCreateSwipe } from "@workspace/api-client-react";
 import { getApiUrl, getPhotoUrl } from "@/lib/api";
-import { LockedMediaGrid } from "@/components/LockedMediaGrid";
+import { buildDemoMedia, type DemoItem } from "@/components/LockedMediaGrid";
 
 const { width: W } = Dimensions.get("window");
+const GALLERY_H = W * 1.15;
 const COLS = 2;
 const GAP = 10;
 const TILE = (W - GAP * (COLS + 1)) / COLS;
@@ -82,6 +85,274 @@ function useBrowse() {
   return { profiles, loading, refreshing, refresh: () => load(true) };
 }
 
+/* ── Photo gallery (swipeable) ──────────────────────────────────────── */
+function PhotoGallery({
+  profile,
+}: {
+  profile: BrowseProfile;
+}) {
+  const { coinBalance, addCoins, unlockedPhotos, unlockPhoto } = useApp();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const demoItems = buildDemoMedia(profile.userId);
+  const photoUrl = getPhotoUrl(profile.photoUrl);
+  const totalItems = 1 + demoItems.length;
+
+  const handleUnlock = (item: DemoItem) => {
+    const price = item.type === "video" ? 500 : 20;
+    const priceEur = item.type === "video" ? "€5.00" : "€0.20";
+    const label = item.type === "video" ? "video" : "photo";
+    if (coinBalance < price) {
+      Alert.alert(
+        "Not enough tokens 🔥",
+        `You need ${price} CT (${priceEur}) to unlock this ${label}.\n\nYou have ${coinBalance} CT. Buy more in your wallet.`,
+        [{ text: "OK" }]
+      );
+      return;
+    }
+    Alert.alert(
+      `Unlock ${label}`,
+      `Spend ${price} CT (${priceEur}) to unlock this exclusive ${label}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: `Unlock · ${price} CT`,
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            addCoins(-price);
+            unlockPhoto(item.id);
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <View style={{ width: W, height: GALLERY_H }}>
+      {/* Tinder-style progress bars */}
+      <View style={gStyles.bars} pointerEvents="none">
+        {Array.from({ length: totalItems }).map((_, i) => (
+          <View
+            key={i}
+            style={[
+              gStyles.bar,
+              { backgroundColor: i <= currentIndex ? "#fff" : "rgba(255,255,255,0.35)" },
+            ]}
+          />
+        ))}
+      </View>
+
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={(e) =>
+          setCurrentIndex(Math.round(e.nativeEvent.contentOffset.x / W))
+        }
+        scrollEventThrottle={16}
+        style={{ width: W, height: GALLERY_H }}
+      >
+        {/* Slide 0: main profile photo */}
+        <View style={{ width: W, height: GALLERY_H }}>
+          {photoUrl ? (
+            <Image
+              source={{ uri: photoUrl }}
+              style={{ width: W, height: GALLERY_H }}
+              contentFit="cover"
+            />
+          ) : (
+            <LinearGradient
+              colors={["#FF3366", "#6B21A8"]}
+              style={{ width: W, height: GALLERY_H, justifyContent: "center", alignItems: "center" }}
+            >
+              <Text style={{ fontSize: 88 }}>👤</Text>
+            </LinearGradient>
+          )}
+        </View>
+
+        {/* Demo slides */}
+        {demoItems.map((item) => {
+          const isUnlocked = unlockedPhotos.includes(item.id);
+          const locked = item.exclusive && !isUnlocked;
+          return (
+            <View key={item.id} style={{ width: W, height: GALLERY_H }}>
+              <LinearGradient
+                colors={item.grad}
+                style={{ width: W, height: GALLERY_H, justifyContent: "center", alignItems: "center" }}
+              >
+                {!locked && (
+                  <Text style={{ fontSize: W * 0.32 }}>{item.emoji}</Text>
+                )}
+                {!locked && item.type === "video" && (
+                  <View style={gStyles.videoBadge}>
+                    <Ionicons name="play" size={28} color="#fff" />
+                  </View>
+                )}
+              </LinearGradient>
+
+              {/* Lock overlay */}
+              {locked && (
+                <TouchableOpacity
+                  activeOpacity={0.92}
+                  onPress={() => handleUnlock(item)}
+                  style={StyleSheet.absoluteFill}
+                >
+                  <BlurView intensity={88} tint="dark" style={StyleSheet.absoluteFill} />
+                  {/* Faint emoji hint */}
+                  <Text
+                    style={{
+                      fontSize: W * 0.22,
+                      opacity: 0.07,
+                      position: "absolute",
+                      alignSelf: "center",
+                      top: GALLERY_H * 0.3,
+                    }}
+                  >
+                    {item.emoji}
+                  </Text>
+                  {/* Lock card */}
+                  <View style={gStyles.lockCard}>
+                    <View style={gStyles.lockIconRing}>
+                      <Ionicons name="lock-closed" size={30} color="#fff" />
+                    </View>
+                    <Text style={gStyles.lockPrice}>
+                      {item.type === "video" ? "500 CT" : "20 CT"}
+                    </Text>
+                    <Text style={gStyles.lockEur}>
+                      {item.type === "video" ? "= €5.00" : "= €0.20"}
+                    </Text>
+                    <View style={gStyles.lockTypePill}>
+                      <Ionicons
+                        name={item.type === "video" ? "videocam" : "camera"}
+                        size={11}
+                        color="#fff"
+                      />
+                      <Text style={gStyles.lockTypeText}>
+                        {item.type === "video" ? "Exclusive Video" : "Exclusive Photo"}
+                      </Text>
+                    </View>
+                    <Text style={gStyles.lockTap}>Tap to unlock</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* Unlocked checkmark */}
+              {item.exclusive && isUnlocked && (
+                <View style={gStyles.unlockedBadge}>
+                  <Ionicons name="checkmark-circle" size={18} color="#27ae60" />
+                  <Text style={gStyles.unlockedText}>Unlocked</Text>
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+/* ── Gallery styles ─────────────────────────────────────────────────── */
+const gStyles = StyleSheet.create({
+  bars: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    right: 10,
+    zIndex: 10,
+    flexDirection: "row",
+    gap: 4,
+  },
+  bar: {
+    flex: 1,
+    height: 3,
+    borderRadius: 2,
+  },
+  videoBadge: {
+    position: "absolute",
+    bottom: 14,
+    right: 14,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 20,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  lockCard: {
+    position: "absolute",
+    alignSelf: "center",
+    top: "30%",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 20,
+    paddingHorizontal: 28,
+    paddingVertical: 22,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+  lockIconRing: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  lockPrice: {
+    color: "#fff",
+    fontFamily: "Inter_700Bold",
+    fontSize: 22,
+  },
+  lockEur: {
+    color: "rgba(255,255,255,0.6)",
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+  },
+  lockTypePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  lockTypeText: {
+    color: "#fff",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+  },
+  lockTap: {
+    color: "rgba(255,255,255,0.5)",
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  unlockedBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  unlockedText: {
+    color: "#27ae60",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+  },
+});
+
+/* ── Profile modal ──────────────────────────────────────────────────── */
 function ProfileModal({
   profile,
   visible,
@@ -95,9 +366,10 @@ function ProfileModal({
   const { addMatch, matches } = useApp();
   const createSwipe = useCreateSwipe();
   if (!profile) return null;
+
   const alreadyMatched = matches.some((m) => m.profileId === profile.userId);
-  const photoUrl = getPhotoUrl(profile.photoUrl);
   const locationStr = [profile.city, profile.country].filter(Boolean).join(", ");
+  const photoUrl = getPhotoUrl(profile.photoUrl);
 
   const handleLike = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -106,7 +378,6 @@ function ProfileModal({
     } catch { /* ignore */ }
     if (!alreadyMatched) addMatch(profile.userId);
     onClose();
-    router.push({ pathname: "/chat/[id]", params: { id: profile.userId } });
   };
 
   const handleNope = async () => {
@@ -117,23 +388,43 @@ function ProfileModal({
     onClose();
   };
 
+  const handleMessage = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!alreadyMatched) addMatch(profile.userId);
+    onClose();
+    router.push({
+      pathname: "/chat/[id]",
+      params: {
+        id: profile.userId,
+        name: profile.name,
+        photo: photoUrl ?? "",
+      },
+    });
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
       <View style={[mStyles.container, { backgroundColor: colors.background }]}>
+        {/* Close X */}
         <TouchableOpacity style={mStyles.closeBtn} onPress={onClose} activeOpacity={0.8}>
           <Ionicons name="close" size={22} color="#fff" />
         </TouchableOpacity>
+
         <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-          {photoUrl ? (
-            <Image source={{ uri: photoUrl }} style={mStyles.photo} contentFit="cover" />
-          ) : (
-            <LinearGradient colors={["#FF3366", "#6B21A8"]} style={mStyles.photo}>
-              <Text style={{ fontSize: 60 }}>👤</Text>
-            </LinearGradient>
-          )}
+          {/* ── Swipeable photo gallery ── */}
+          <PhotoGallery profile={profile} />
+
+          {/* ── Info section ── */}
           <View style={mStyles.info}>
             <View style={mStyles.nameRow}>
-              <Text style={[mStyles.name, { color: colors.foreground }]}>{profile.name}, {profile.age}</Text>
+              <Text style={[mStyles.name, { color: colors.foreground }]}>
+                {profile.name}, {profile.age}
+              </Text>
               <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
             </View>
             {locationStr ? (
@@ -141,7 +432,9 @@ function ProfileModal({
                 <Ionicons name="location-outline" size={14} color={colors.mutedForeground} />
                 <Text style={[mStyles.meta, { color: colors.mutedForeground }]}>{locationStr}</Text>
                 {profile.distanceKm != null && (
-                  <Text style={[mStyles.meta, { color: colors.mutedForeground }]}> · {profile.distanceKm} km away</Text>
+                  <Text style={[mStyles.meta, { color: colors.mutedForeground }]}>
+                    {" "}· {profile.distanceKm} km away
+                  </Text>
                 )}
               </View>
             ) : null}
@@ -151,15 +444,41 @@ function ProfileModal({
               <Text style={[mStyles.bio, { color: colors.mutedForeground }]}>No bio yet.</Text>
             )}
           </View>
-          <LockedMediaGrid userId={profile.userId} />
         </ScrollView>
-        <View style={[mStyles.actions, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-          <TouchableOpacity style={[mStyles.nopeBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={handleNope} activeOpacity={0.8}>
+
+        {/* ── Action bar: Nope | Like | Message ── */}
+        <View
+          style={[
+            mStyles.actions,
+            { borderTopColor: colors.border, backgroundColor: colors.background },
+          ]}
+        >
+          {/* Nope */}
+          <TouchableOpacity
+            style={[mStyles.roundBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={handleNope}
+            activeOpacity={0.8}
+          >
             <Ionicons name="close" size={26} color="#FF4D6D" />
           </TouchableOpacity>
-          <TouchableOpacity style={[mStyles.likeBtn, { backgroundColor: colors.primary }]} onPress={handleLike} activeOpacity={0.85}>
-            <Ionicons name="heart" size={24} color="#fff" />
-            <Text style={mStyles.likeBtnText}>{alreadyMatched ? "Message" : "Like"}</Text>
+
+          {/* Like */}
+          <TouchableOpacity
+            style={[mStyles.wideBtn, { backgroundColor: "#FF3366" }]}
+            onPress={handleLike}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="heart" size={22} color="#fff" />
+            <Text style={mStyles.wideBtnText}>Like</Text>
+          </TouchableOpacity>
+
+          {/* Message */}
+          <TouchableOpacity
+            style={[mStyles.roundBtn, { backgroundColor: colors.primary, borderColor: "transparent" }]}
+            onPress={handleMessage}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="chatbubble" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -170,12 +489,17 @@ function ProfileModal({
 const mStyles = StyleSheet.create({
   container: { flex: 1 },
   closeBtn: {
-    position: "absolute", top: 16, right: 16, zIndex: 10,
-    width: 36, height: 36, borderRadius: 18,
+    position: "absolute",
+    top: 16,
+    right: 16,
+    zIndex: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center", alignItems: "center",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  photo: { width: "100%", height: W * 1.1, justifyContent: "center", alignItems: "center" },
   info: { padding: 24, gap: 12 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   name: { fontSize: 26, fontFamily: "Inter_700Bold" },
@@ -183,14 +507,34 @@ const mStyles = StyleSheet.create({
   meta: { fontSize: 14, fontFamily: "Inter_400Regular" },
   bio: { fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 23 },
   actions: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 16, padding: 20, borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    padding: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  nopeBtn: { width: 58, height: 58, borderRadius: 29, borderWidth: 1, justifyContent: "center", alignItems: "center" },
-  likeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 58, borderRadius: 29 },
-  likeBtnText: { color: "#fff", fontSize: 17, fontFamily: "Inter_700Bold" },
+  roundBtn: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  wideBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 58,
+    borderRadius: 29,
+  },
+  wideBtnText: { color: "#fff", fontSize: 17, fontFamily: "Inter_700Bold" },
 });
 
+/* ── Explore screen ─────────────────────────────────────────────────── */
 export default function ExploreScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -292,14 +636,18 @@ export default function ExploreScreen() {
                     {item.distanceKm != null && (
                       <View style={styles.distRow}>
                         <Ionicons name="location-outline" size={10} color="rgba(255,255,255,0.7)" />
-                        <Text style={styles.tileDistance}>{item.distanceKm < 1 ? "<1 km" : `${item.distanceKm} km`}</Text>
+                        <Text style={styles.tileDistance}>
+                          {item.distanceKm < 1 ? "<1 km" : `${item.distanceKm} km`}
+                        </Text>
                       </View>
                     )}
                   </LinearGradient>
 
                   {/* Mode badge */}
                   <View style={[styles.modeBadge, { backgroundColor: accentColor }]}>
-                    <Text style={styles.modeBadgeText}>{appMode === "naughty" ? "🔥" : appMode === "party" ? "🎉" : "💕"}</Text>
+                    <Text style={styles.modeBadgeText}>
+                      {appMode === "naughty" ? "🔥" : appMode === "party" ? "🎉" : "💕"}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -350,10 +698,7 @@ const styles = StyleSheet.create({
   },
   modeBadgeText: { fontSize: 12 },
   emptyWrap: { flex: 1, paddingTop: 40, paddingHorizontal: 16 },
-  emptyCard: {
-    borderRadius: 24, padding: 40,
-    alignItems: "center", gap: 12,
-  },
+  emptyCard: { borderRadius: 24, padding: 40, alignItems: "center", gap: 12 },
   emptyIcon: { fontSize: 52 },
   emptyTitle: { fontSize: 22, fontFamily: "Inter_700Bold", textAlign: "center" },
   emptySub: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
