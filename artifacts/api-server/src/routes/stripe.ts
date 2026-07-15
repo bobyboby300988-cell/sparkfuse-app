@@ -216,21 +216,22 @@ router.post('/stripe/withdraw', async (req, res) => {
       return;
     }
 
-    const PLATFORM_FEE_RATE = 0.10;
+    // Platform retains 15% of gross earnings at withdrawal; receiver keeps 85%.
+    const PLATFORM_FEE_RATE = 0.15;
     const fee = parseFloat((amount * PLATFORM_FEE_RATE).toFixed(2));
     const netAmount = parseFloat((amount - fee).toFixed(2));
 
-    // Move the creator's 90% share out of the platform's Stripe balance into
+    // Move the user's 85% share out of the platform's Stripe balance into
     // their connected account. Stripe will then auto-payout to their bank
     // account on their normal payout schedule.
     const transfer = await stripe.transfers.create({
       amount: Math.round(netAmount * 100),
       currency: 'eur',
       destination: connectedAccountId,
-      description: `Spark creator withdrawal — gross €${amount.toFixed(2)}, fee €${fee.toFixed(2)}`,
+      description: `SparkFuse withdrawal — gross €${amount.toFixed(2)}, platform fee 15% €${fee.toFixed(2)}`,
     });
 
-    logger.info({ grossAmount: amount, fee, netAmount, connectedAccountId, transferId: transfer.id }, 'Creator withdrawal transferred');
+    logger.info({ grossAmount: amount, fee, netAmount, connectedAccountId, transferId: transfer.id }, 'Withdrawal transferred');
 
     res.json({
       success: true,

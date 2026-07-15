@@ -112,7 +112,8 @@ const TIER_COLORS: Record<string, string> = {
   Sweet: "#FF6B9D", Dreamy: "#9C27B0", Luxury: "#FF6B35", Elite: "#C0392B", Legendary: "#FFD700",
 };
 
-const FEE = 0.10;
+// Sender fee is embedded in token purchase pricing — no extra deduction at send time.
+const FEE = 0;
 
 /* ── Per-tier animation config (TikTok-style: scales with price) ── */
 const TIER_CFG: Record<string, {

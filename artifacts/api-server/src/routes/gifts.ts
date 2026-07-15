@@ -5,9 +5,9 @@ import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-// 1 ST = €0.01. Creators receive 85% of the token value; the platform retains 15%.
+// 1 ST = €0.01. Receiver is credited 100% of the gift's euro value.
+// The platform's 15% revenue share is deducted at withdrawal time, not here.
 const ST_TO_EUR = 0.01;
-const CREATOR_SHARE = 0.85;
 
 router.post("/gifts/send", requireAuth, async (req: Request, res: Response) => {
   const senderId = req.dbUser!.id;
@@ -23,7 +23,7 @@ router.post("/gifts/send", requireAuth, async (req: Request, res: Response) => {
     return;
   }
 
-  const amountEur = parseFloat((tokens * ST_TO_EUR * CREATOR_SHARE).toFixed(4));
+  const amountEur = parseFloat((tokens * ST_TO_EUR).toFixed(4));
 
   await Promise.all([
     db

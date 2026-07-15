@@ -105,7 +105,8 @@ router.post('/paypal/withdraw', async (req, res) => {
       return;
     }
 
-    const PLATFORM_FEE_RATE = 0.10;
+    // Platform retains 15% of gross earnings at withdrawal; receiver keeps 85%.
+    const PLATFORM_FEE_RATE = 0.15;
     const fee = parseFloat((amount * PLATFORM_FEE_RATE).toFixed(2));
     const netAmount = parseFloat((amount - fee).toFixed(2));
     const referenceId = `spark-withdraw-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
@@ -121,7 +122,7 @@ router.post('/paypal/withdraw', async (req, res) => {
        <p><strong>Pay this creator via PayPal:</strong> ${payoutEmail}</p>
        <ul>
          <li>Gross earnings: €${amount.toFixed(2)}</li>
-         <li>Platform fee (10%): €${fee.toFixed(2)}</li>
+         <li>Platform fee (15%): €${fee.toFixed(2)}</li>
          <li><strong>Amount to send: €${netAmount.toFixed(2)}</strong></li>
        </ul>
        <p>Reference: ${referenceId}</p>
