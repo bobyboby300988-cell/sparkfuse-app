@@ -10,13 +10,22 @@ import { Scene5 } from './video_scenes/Scene5';
 import { Scene6 } from './video_scenes/Scene6';
 import { Scene7 } from './video_scenes/Scene7';
 
-/* ─── Scene durations — locked to audio lengths + 800ms buffer ─── */
+/* ─── Scene durations — locked to actual audio lengths via ffprobe ───
+ *  Formula: 300ms narration-start delay + audio_duration_ms + ~900ms buffer
+ *  hook:     300 + 4362 + 838  = 5500   (audio 4.36 s)
+ *  paywall:  300 + 7523 + 1177 = 9000   (audio 7.52 s)
+ *  discover: 300 + 5251 + 1449 = 7000   (audio 5.25 s)
+ *  messages: 300 + 7236 + 964  = 8500   (audio 7.24 s)
+ *  live:     300 + 6269 + 1431 = 8000   (audio 6.27 s)
+ *  earn:     300 + 6531 + 1169 = 8000   (audio 6.53 s)
+ *  cta:      no audio           = 9000
+ *  TOTAL = 55 000 ms = 55 s exactly ─── */
 export const SCENE_DURATIONS: Record<string, number> = {
-  hook:      5000,
-  paywall:   8000,
-  discover:  8000,
-  messages:  8000,
-  live:      9000,
+  hook:      5500,
+  paywall:   9000,
+  discover:  7000,
+  messages:  8500,
+  live:      8000,
   earn:      8000,
   cta:       9000,
 };
@@ -365,40 +374,88 @@ function VideoPlayer({
         </AnimatePresence>
       </div>
 
-      {/* Download button overlay */}
-      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+      {/* ── Download / Record overlay ── */}
+      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, maxWidth: 220 }}>
+
+        {/* IDLE — show download button */}
         {recState === 'idle' && (
-          <button onClick={handleDownload} style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'linear-gradient(135deg, #C0392B, #e74c3c)',
-            border: 'none', borderRadius: 8, padding: '7px 12px',
-            color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 11,
-            fontWeight: 700, cursor: 'pointer', letterSpacing: '0.05em',
-            boxShadow: '0 2px 12px rgba(192,57,43,0.5)',
-          }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            DOWNLOAD MP4
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+            <button onClick={handleDownload} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: 'linear-gradient(135deg, #C0392B, #e74c3c)',
+              border: 'none', borderRadius: 8, padding: '8px 14px',
+              color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 12,
+              fontWeight: 700, cursor: 'pointer', letterSpacing: '0.05em',
+              boxShadow: '0 2px 16px rgba(192,57,43,0.6)',
+            }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              DOWNLOAD VIDEO
+            </button>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.4)', textAlign: 'right', lineHeight: 1.4 }}>
+              🖥️ Desktop Chrome only
+            </div>
+          </div>
         )}
+
+        {/* WAITING — step-by-step instructions */}
         {recState === 'waiting' && (
-          <div style={{ background: 'rgba(0,0,0,0.75)', borderRadius: 8, padding: '7px 12px', color: '#F39C12', fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700 }}>
-            ⏳ Select this tab to record…
+          <div style={{
+            background: 'rgba(0,0,0,0.88)', borderRadius: 10, padding: '10px 14px',
+            fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#F39C12',
+            fontWeight: 700, lineHeight: 1.8, border: '1px solid rgba(243,156,18,0.3)',
+            backdropFilter: 'blur(8px)',
+          }}>
+            <div style={{ marginBottom: 4 }}>📋 In the Chrome dialog:</div>
+            <div style={{ color: '#fff', fontWeight: 400, fontSize: 10 }}>1. Click <b>"This Tab"</b> tab</div>
+            <div style={{ color: '#fff', fontWeight: 400, fontSize: 10 }}>2. Click <b>"Share"</b></div>
+            <div style={{ color: '#fff', fontWeight: 400, fontSize: 10 }}>3. Watch the full 55-sec video</div>
+            <div style={{ color: '#fff', fontWeight: 400, fontSize: 10 }}>4. Click <b>STOP REC</b> below</div>
           </div>
         )}
+
+        {/* RECORDING — blinking indicator + STOP button */}
         {recState === 'recording' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(192,57,43,0.9)', borderRadius: 8, padding: '7px 12px', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff', animation: 'pulse 1s infinite' }} />
-            REC — watch the full video…
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: 'rgba(192,57,43,0.92)', borderRadius: 8,
+              padding: '7px 12px', color: '#fff',
+              fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700,
+            }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff' }} />
+              ● REC — watch all 55 seconds…
+            </div>
+            <button
+              onClick={() => stopFnRef.current?.()}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'rgba(0,0,0,0.85)', border: '2px solid #e74c3c',
+                borderRadius: 8, padding: '7px 14px', color: '#e74c3c',
+                fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700,
+                cursor: 'pointer', letterSpacing: '0.05em',
+              }}
+            >
+              ⏹ STOP REC &amp; SAVE
+            </button>
           </div>
         )}
+
+        {/* PROCESSING */}
         {recState === 'processing' && (
-          <div style={{ background: 'rgba(0,0,0,0.75)', borderRadius: 8, padding: '7px 12px', color: '#F39C12', fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700 }}>
-            ⚙️ Processing…
+          <div style={{ background: 'rgba(0,0,0,0.85)', borderRadius: 8, padding: '8px 14px', color: '#F39C12', fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700 }}>
+            ⚙️ Saving your video…
           </div>
         )}
+
+        {/* DONE */}
         {recState === 'done' && (
-          <div style={{ background: 'rgba(0,128,0,0.8)', borderRadius: 8, padding: '7px 12px', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700 }}>
-            ✅ Download started!
+          <div style={{ background: 'rgba(0,128,0,0.85)', borderRadius: 8, padding: '8px 14px', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700, lineHeight: 1.6 }}>
+            ✅ Saved! Check your downloads.<br/>
+            <span style={{ fontWeight: 400, fontSize: 10 }}>Upload the .webm file to TikTok / YouTube.</span>
           </div>
         )}
       </div>

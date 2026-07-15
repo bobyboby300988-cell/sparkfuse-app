@@ -318,12 +318,30 @@ export default function DiscoverScreen() {
             <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
               {filtersActive ? "Try adjusting or clearing your filters" : t("discover.checkBackLater")}
             </Text>
-            {filtersActive && (
+            {filtersActive ? (
               <TouchableOpacity
                 style={[styles.clearFiltersBtn, { backgroundColor: colors.primary }]}
                 onPress={() => { setFilterSeeking("everyone"); setFilterMaxKm(null); AsyncStorage.removeItem(FILTER_STORAGE_KEY); }}
               >
                 <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>Clear Filters</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.clearFiltersBtn, { backgroundColor: colors.primary }]}
+                onPress={async () => {
+                  setDismissed([]);
+                  try {
+                    const base = process.env.EXPO_PUBLIC_DOMAIN
+                      ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+                      : "";
+                    await fetch(`${base}/api/swipes`, { method: "DELETE", credentials: "include" });
+                  } catch { /* ignore */ }
+                  refetch();
+                }}
+              >
+                <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                  🔄 See Everyone Again
+                </Text>
               </TouchableOpacity>
             )}
           </View>

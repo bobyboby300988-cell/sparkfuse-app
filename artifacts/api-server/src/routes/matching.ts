@@ -189,4 +189,30 @@ router.get("/matches", requireAuth, async (req: Request, res: Response) => {
   res.json(GetMatchesResponse.parse({ matches: profileRows.map((row) => toApiProfile(row, myProfile)) }));
 });
 
+router.get("/browse", requireAuth, async (req: Request, res: Response) => {
+  const userId = req.dbUser!.id;
+
+  const [myProfile] = await db
+    .select({ latitude: profilesTable.latitude, longitude: profilesTable.longitude })
+    .from(profilesTable)
+    .where(eq(profilesTable.userId, userId));
+
+  const blocks = await db
+    .select({ blockerId: blocksTable.blockerId, blockedId: blocksTable.blockedId })
+    .from(blocksTable)
+    .where(or(eq(blocksTable.blockerId, userId), eq(blocksTable.blockedId, userId)));
+  const blockedIds = blocks.map((b) => (b.blockerId === userId ? b.blockedId : b.blockerId));
+
+  const excludeIds = [userId, ...blockedIds];
+
+  const rows = await db
+    .select()
+    .from(profilesTable)
+    .where(notInArray(profilesTable.userId, excludeIds))
+    .orderBy(sql`random()`)
+    .limit(100);
+
+  res.json({ profiles: rows.map((row) => toApiProfile(row, myProfile)) });
+});
+
 export default router;

@@ -3,13 +3,12 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
-  Animated,
   Dimensions,
-  FlatList,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,13 +19,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { ModeSelector } from "@/components/ModeSelector";
 import { useColors } from "@/hooks/useColors";
-import { useGetFeed, useCreateSwipe } from "@workspace/api-client-react";
-import { getPhotoUrl } from "@/lib/api";
+import { useCreateSwipe } from "@workspace/api-client-react";
+import { getApiUrl, getPhotoUrl } from "@/lib/api";
 import { LockedMediaGrid } from "@/components/LockedMediaGrid";
 
 const { width: W } = Dimensions.get("window");
-const COLS = 3;
-const TILE = (W - 4) / COLS;
+const COLS = 2;
+const GAP = 10;
+const TILE = (W - GAP * (COLS + 1)) / COLS;
 
 const MODE_ACCENT: Record<string, string> = {
   dating:   "#FF3366",
@@ -37,33 +37,16 @@ const MODE_ACCENT: Record<string, string> = {
   social:   "#F59E0B",
 };
 
-const GOLD = "#E8C468";
-const PURPLE_DEEP = "#4B1F63";
-const PURPLE_DARK = "#1A0B24";
+const MODE_LABEL: Record<string, string> = {
+  dating:   "People Near You",
+  naughty:  "Hot & Wild 🔥",
+  business: "Professionals 💼",
+  party:    "Party People 🎉",
+  travel:   "Travellers ✈️",
+  social:   "Social Circle 🤝",
+};
 
-function ExploreLiveBadge() {
-  const pulse = React.useRef(new Animated.Value(1)).current;
-  React.useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.25, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1,    duration: 700, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-  return (
-    <LinearGradient
-      colors={[PURPLE_DEEP, GOLD]}
-      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-      style={styles.liveBadgeWrap}
-    >
-      <Animated.View style={[styles.liveDot, { transform: [{ scale: pulse }] }]} />
-      <Text style={styles.liveBadgeText}>LIVE</Text>
-    </LinearGradient>
-  );
-}
-
-type ServerProfile = {
+type BrowseProfile = {
   userId: string;
   name: string;
   age: number;
@@ -74,12 +57,37 @@ type ServerProfile = {
   distanceKm?: number | null;
 };
 
-function ServerProfileModal({
+function useBrowse() {
+  const [profiles, setProfiles] = useState<BrowseProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
+    try {
+      const base = getApiUrl();
+      const res = await fetch(`${base}/api/browse`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setProfiles(data.profiles ?? []);
+      }
+    } catch { /* ignore */ }
+    setLoading(false);
+    setRefreshing(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { profiles, loading, refreshing, refresh: () => load(true) };
+}
+
+function ProfileModal({
   profile,
   visible,
   onClose,
 }: {
-  profile: ServerProfile | null;
+  profile: BrowseProfile | null;
   visible: boolean;
   onClose: () => void;
 }) {
@@ -89,12 +97,13 @@ function ServerProfileModal({
   if (!profile) return null;
   const alreadyMatched = matches.some((m) => m.profileId === profile.userId);
   const photoUrl = getPhotoUrl(profile.photoUrl);
+  const locationStr = [profile.city, profile.country].filter(Boolean).join(", ");
 
   const handleLike = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     try {
       await createSwipe.mutateAsync({ data: { targetUserId: profile.userId, direction: "like" } });
-    } catch { /* ignore — local match state still works */ }
+    } catch { /* ignore */ }
     if (!alreadyMatched) addMatch(profile.userId);
     onClose();
     router.push({ pathname: "/chat/[id]", params: { id: profile.userId } });
@@ -108,68 +117,49 @@ function ServerProfileModal({
     onClose();
   };
 
-  const locationStr = [profile.city, profile.country].filter(Boolean).join(", ");
-
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={[modalStyles.container, { backgroundColor: colors.background }]}>
-        <TouchableOpacity style={modalStyles.closeBtn} onPress={onClose} activeOpacity={0.8}>
+      <View style={[mStyles.container, { backgroundColor: colors.background }]}>
+        <TouchableOpacity style={mStyles.closeBtn} onPress={onClose} activeOpacity={0.8}>
           <Ionicons name="close" size={22} color="#fff" />
         </TouchableOpacity>
-
         <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
           {photoUrl ? (
-            <Image source={{ uri: photoUrl }} style={modalStyles.photo} contentFit="cover" />
+            <Image source={{ uri: photoUrl }} style={mStyles.photo} contentFit="cover" />
           ) : (
-            <LinearGradient colors={["#FF3366", "#6B21A8"]} style={modalStyles.photo}>
+            <LinearGradient colors={["#FF3366", "#6B21A8"]} style={mStyles.photo}>
               <Text style={{ fontSize: 60 }}>👤</Text>
             </LinearGradient>
           )}
-          <View style={modalStyles.info}>
-            <View style={modalStyles.nameRow}>
-              <Text style={[modalStyles.name, { color: colors.foreground }]}>
-                {profile.name}, {profile.age}
-              </Text>
+          <View style={mStyles.info}>
+            <View style={mStyles.nameRow}>
+              <Text style={[mStyles.name, { color: colors.foreground }]}>{profile.name}, {profile.age}</Text>
               <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
             </View>
             {locationStr ? (
-              <View style={modalStyles.metaRow}>
+              <View style={mStyles.metaRow}>
                 <Ionicons name="location-outline" size={14} color={colors.mutedForeground} />
-                <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>{locationStr}</Text>
+                <Text style={[mStyles.meta, { color: colors.mutedForeground }]}>{locationStr}</Text>
                 {profile.distanceKm != null && (
-                  <>
-                    <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>·</Text>
-                    <Text style={[modalStyles.meta, { color: colors.mutedForeground }]}>{profile.distanceKm} km away</Text>
-                  </>
+                  <Text style={[mStyles.meta, { color: colors.mutedForeground }]}> · {profile.distanceKm} km away</Text>
                 )}
               </View>
             ) : null}
             {profile.bio ? (
-              <Text style={[modalStyles.bio, { color: colors.foreground }]}>{profile.bio}</Text>
+              <Text style={[mStyles.bio, { color: colors.foreground }]}>{profile.bio}</Text>
             ) : (
-              <Text style={[modalStyles.bio, { color: colors.mutedForeground }]}>No bio yet.</Text>
+              <Text style={[mStyles.bio, { color: colors.mutedForeground }]}>No bio yet.</Text>
             )}
           </View>
-
-          {/* ── Locked media grid ── */}
           <LockedMediaGrid userId={profile.userId} />
         </ScrollView>
-
-        <View style={[modalStyles.actions, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-          <TouchableOpacity
-            style={[modalStyles.nopeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={handleNope}
-            activeOpacity={0.8}
-          >
+        <View style={[mStyles.actions, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+          <TouchableOpacity style={[mStyles.nopeBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={handleNope} activeOpacity={0.8}>
             <Ionicons name="close" size={26} color="#FF4D6D" />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[modalStyles.likeBtn, { backgroundColor: colors.primary }]}
-            onPress={handleLike}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity style={[mStyles.likeBtn, { backgroundColor: colors.primary }]} onPress={handleLike} activeOpacity={0.85}>
             <Ionicons name="heart" size={24} color="#fff" />
-            <Text style={modalStyles.likeBtnText}>{alreadyMatched ? "Message" : "Like"}</Text>
+            <Text style={mStyles.likeBtnText}>{alreadyMatched ? "Message" : "Like"}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -177,7 +167,7 @@ function ServerProfileModal({
   );
 }
 
-const modalStyles = StyleSheet.create({
+const mStyles = StyleSheet.create({
   container: { flex: 1 },
   closeBtn: {
     position: "absolute", top: 16, right: 16, zIndex: 10,
@@ -185,29 +175,19 @@ const modalStyles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center", alignItems: "center",
   },
-  photo: { width: "100%", height: W * 1.1 },
+  photo: { width: "100%", height: W * 1.1, justifyContent: "center", alignItems: "center" },
   info: { padding: 24, gap: 12 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   name: { fontSize: 26, fontFamily: "Inter_700Bold" },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   meta: { fontSize: 14, fontFamily: "Inter_400Regular" },
   bio: { fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 23 },
-  sectionLabel: { fontSize: 12, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.8, marginTop: 4 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
-  chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   actions: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 16, padding: 20, borderTopWidth: StyleSheet.hairlineWidth,
   },
-  nopeBtn: {
-    width: 58, height: 58, borderRadius: 29, borderWidth: 1,
-    justifyContent: "center", alignItems: "center",
-  },
-  likeBtn: {
-    flex: 1, flexDirection: "row", alignItems: "center",
-    justifyContent: "center", gap: 8, height: 58, borderRadius: 29,
-  },
+  nopeBtn: { width: 58, height: 58, borderRadius: 29, borderWidth: 1, justifyContent: "center", alignItems: "center" },
+  likeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 58, borderRadius: 29 },
   likeBtnText: { color: "#fff", fontSize: 17, fontFamily: "Inter_700Bold" },
 });
 
@@ -215,119 +195,168 @@ export default function ExploreScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { appMode, setAppMode } = useApp();
-  const [selected, setSelected] = useState<ServerProfile | null>(null);
-  const { data: feedData, isLoading } = useGetFeed();
+  const [selected, setSelected] = useState<BrowseProfile | null>(null);
+  const { profiles, loading, refreshing, refresh } = useBrowse();
 
-  const profiles: ServerProfile[] = feedData?.profiles ?? [];
+  const accentColor = MODE_ACCENT[appMode] ?? colors.primary;
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
-        <View style={styles.headerTopRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: colors.foreground }]}>Explore</Text>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      {/* Gradient header */}
+      <LinearGradient
+        colors={[accentColor + "28", "transparent"]}
+        style={[styles.headerGrad, { paddingTop: topPadding + 16 }]}
+      >
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={[styles.title, { color: colors.foreground }]}>
+              {MODE_LABEL[appMode] ?? "Explore"}
+            </Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              {isLoading ? "Finding people near you…" : `${profiles.length} people to discover`}
+              {loading ? "Loading people…" : `${profiles.length} people found`}
             </Text>
           </View>
+          <TouchableOpacity
+            style={[styles.refreshBtn, { backgroundColor: accentColor + "22", borderColor: accentColor + "55" }]}
+            onPress={refresh}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="refresh" size={18} color={accentColor} />
+          </TouchableOpacity>
         </View>
-      </View>
+      </LinearGradient>
 
       <ModeSelector value={appMode} onChange={setAppMode} />
 
-      {!isLoading && profiles.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={[styles.emptyIcon, { color: colors.primary }]}>🔍</Text>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No profiles yet</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-            Be the first! More people join every day.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={profiles}
-          keyExtractor={(p) => p.userId}
-          numColumns={COLS}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={{ paddingBottom: bottomPadding + 100 }}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => {
-            const photoUrl = getPhotoUrl(item.photoUrl);
-            return (
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: GAP, paddingBottom: bottomPadding + 100 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={accentColor} />}
+      >
+        {!loading && profiles.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <LinearGradient
+              colors={[accentColor + "30", accentColor + "10"]}
+              style={styles.emptyCard}
+            >
+              <Text style={styles.emptyIcon}>🔍</Text>
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No profiles yet</Text>
+              <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>
+                Be the first! More people join every day.
+              </Text>
               <TouchableOpacity
-                style={styles.tile}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelected(item);
-                }}
-                activeOpacity={0.88}
+                style={[styles.emptyBtn, { backgroundColor: accentColor }]}
+                onPress={refresh}
+                activeOpacity={0.8}
               >
-                {photoUrl ? (
-                  <Image source={{ uri: photoUrl }} style={styles.tileImg} contentFit="cover" />
-                ) : (
-                  <LinearGradient colors={["#FF3366", "#6B21A8"]} style={styles.tileImg}>
-                    <Text style={{ fontSize: 36 }}>👤</Text>
-                  </LinearGradient>
-                )}
-                <LinearGradient
-                  colors={["transparent", PURPLE_DARK + "E6"]}
-                  style={styles.tileOverlay}
-                >
-                  <Text style={styles.tileName} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.tileAge}>{item.age}</Text>
-                </LinearGradient>
+                <Text style={styles.emptyBtnText}>Refresh</Text>
               </TouchableOpacity>
-            );
-          }}
-        />
-      )}
+            </LinearGradient>
+          </View>
+        ) : (
+          <View style={styles.grid}>
+            {profiles.map((item) => {
+              const photoUrl = getPhotoUrl(item.photoUrl);
+              return (
+                <TouchableOpacity
+                  key={item.userId}
+                  style={[styles.tile, { borderColor: accentColor + "33" }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelected(item);
+                  }}
+                  activeOpacity={0.88}
+                >
+                  {photoUrl ? (
+                    <Image source={{ uri: photoUrl }} style={styles.tileImg} contentFit="cover" />
+                  ) : (
+                    <LinearGradient
+                      colors={[accentColor, accentColor + "88"]}
+                      style={[styles.tileImg, { justifyContent: "center", alignItems: "center" }]}
+                    >
+                      <Text style={{ fontSize: 48 }}>👤</Text>
+                    </LinearGradient>
+                  )}
 
-      <ServerProfileModal
-        profile={selected}
-        visible={!!selected}
-        onClose={() => setSelected(null)}
-      />
+                  {/* Online dot */}
+                  <View style={[styles.onlineDot, { backgroundColor: "#22c55e", borderColor: colors.background }]} />
+
+                  {/* Info overlay */}
+                  <LinearGradient
+                    colors={["transparent", "rgba(0,0,0,0.82)"]}
+                    style={styles.overlay}
+                  >
+                    <Text style={styles.tileName} numberOfLines={1}>{item.name}, {item.age}</Text>
+                    {item.distanceKm != null && (
+                      <View style={styles.distRow}>
+                        <Ionicons name="location-outline" size={10} color="rgba(255,255,255,0.7)" />
+                        <Text style={styles.tileDistance}>{item.distanceKm < 1 ? "<1 km" : `${item.distanceKm} km`}</Text>
+                      </View>
+                    )}
+                  </LinearGradient>
+
+                  {/* Mode badge */}
+                  <View style={[styles.modeBadge, { backgroundColor: accentColor }]}>
+                    <Text style={styles.modeBadgeText}>{appMode === "naughty" ? "🔥" : appMode === "party" ? "🎉" : "💕"}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
+
+      <ProfileModal profile={selected} visible={!!selected} onClose={() => setSelected(null)} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { paddingHorizontal: 24, paddingBottom: 4 },
-  headerTopRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  title: { fontSize: 32, fontWeight: "800", fontFamily: "Inter_700Bold", marginBottom: 2 },
-  subtitle: { fontSize: 14, fontFamily: "Inter_400Regular" },
-  liveOnlyBtnOuter: { marginTop: 4 },
-  liveOnlyBtn: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 9,
+  root: { flex: 1 },
+  headerGrad: { paddingHorizontal: 20, paddingBottom: 12 },
+  headerRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  title: { fontSize: 30, fontFamily: "Inter_700Bold", marginBottom: 2 },
+  subtitle: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  refreshBtn: {
+    width: 38, height: 38, borderRadius: 19, borderWidth: 1,
+    justifyContent: "center", alignItems: "center", marginTop: 4,
   },
-  liveOnlyBtnText: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  row: { gap: 2, marginBottom: 2, paddingHorizontal: 2 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: GAP, marginTop: GAP },
   tile: {
-    width: TILE, height: TILE * 1.25, borderRadius: 10, margin: 1,
-    overflow: "hidden", position: "relative",
+    width: TILE, height: TILE * 1.4,
+    borderRadius: 16, overflow: "hidden",
+    position: "relative", borderWidth: 1,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2, shadowRadius: 8, elevation: 5,
   },
   tileImg: { width: "100%", height: "100%" },
-  tileOverlay: {
+  onlineDot: {
+    position: "absolute", top: 10, right: 10,
+    width: 10, height: 10, borderRadius: 5, borderWidth: 2,
+  },
+  overlay: {
     position: "absolute", bottom: 0, left: 0, right: 0,
-    paddingHorizontal: 7, paddingBottom: 7, paddingTop: 26,
+    paddingHorizontal: 10, paddingBottom: 10, paddingTop: 32,
   },
-  tileName: { color: "#fff", fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  tileAge: { color: "rgba(255,255,255,0.75)", fontSize: 11, fontFamily: "Inter_400Regular" },
-  emptyState: { flex: 1, justifyContent: "center", alignItems: "center", gap: 10, paddingHorizontal: 40, paddingTop: 60 },
-  emptyIcon: { fontSize: 48 },
+  tileName: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
+  distRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 },
+  tileDistance: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontFamily: "Inter_400Regular" },
+  modeBadge: {
+    position: "absolute", top: 10, left: 10,
+    width: 24, height: 24, borderRadius: 12,
+    justifyContent: "center", alignItems: "center",
+  },
+  modeBadgeText: { fontSize: 12 },
+  emptyWrap: { flex: 1, paddingTop: 40, paddingHorizontal: 16 },
+  emptyCard: {
+    borderRadius: 24, padding: 40,
+    alignItems: "center", gap: 12,
+  },
+  emptyIcon: { fontSize: 52 },
   emptyTitle: { fontSize: 22, fontFamily: "Inter_700Bold", textAlign: "center" },
-  emptySubtitle: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
-  liveBadgeAnchor: { position: "absolute", top: 6, left: 6 },
-  liveBadgeWrap: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: "#FF000099", borderRadius: 20,
-    paddingHorizontal: 6, paddingVertical: 3,
-  },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#fff" },
-  liveBadgeText: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: 0.6 },
+  emptySub: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
+  emptyBtn: { marginTop: 8, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 28 },
+  emptyBtnText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 15 },
 });
