@@ -501,7 +501,6 @@ export default function LiveScreen() {
                   giftLabel: gift.label,
                   giftEmoji: gift.emoji,
                   tokens: gift.tokens,
-                  amountEur: parseFloat((gift.tokens * 0.2).toFixed(2)),
                 }),
               });
             } catch {
