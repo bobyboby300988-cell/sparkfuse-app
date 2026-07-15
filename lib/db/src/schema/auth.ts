@@ -1,4 +1,4 @@
-import { timestamp, pgTable, varchar, boolean } from "drizzle-orm/pg-core";
+import { timestamp, pgTable, varchar, boolean, real } from "drizzle-orm/pg-core";
 
 // Users are keyed by their Clerk user id (JIT-provisioned on first authenticated request).
 export const usersTable = pgTable("users", {
@@ -13,6 +13,7 @@ export const usersTable = pgTable("users", {
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   subscriptionStatus: varchar("subscription_status"),
   subscriptionCurrentPeriodEnd: timestamp("subscription_current_period_end", { withTimezone: true }),
+  earnings: real("earnings").notNull().default(0),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

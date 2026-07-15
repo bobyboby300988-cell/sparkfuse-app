@@ -6,6 +6,7 @@ export interface LiveSession {
   category: string;
   roomUrl: string;
   roomName: string;
+  hostUserId?: string;
   startedAt: number;
   lastHeartbeat: number;
 }
@@ -15,6 +16,7 @@ export async function startLiveSession(opts: {
   category: string;
   roomUrl: string;
   roomName: string;
+  hostUserId?: string;
 }): Promise<string> {
   const res = await fetch(`${API_BASE}/live/start`, {
     method: "POST",

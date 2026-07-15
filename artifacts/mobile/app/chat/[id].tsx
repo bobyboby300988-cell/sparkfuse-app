@@ -23,6 +23,7 @@ import {
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@clerk/expo";
 import { useCreateBlock, useGetMatches, useGetConversation, usePostMessage, useGetCurrentAuthUser } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import { ALL_PROFILES } from "@/data/allProfiles";
@@ -345,6 +346,7 @@ export default function ChatScreen() {
   const { data: conversationData } = useGetConversation(id ?? "", {
     query: { queryKey: ["conversation", id], enabled: !!id && !!myUserId, refetchInterval: 3000, refetchIntervalInBackground: false },
   });
+  const { getToken } = useAuth();
   const { mutateAsync: serverPostMessage } = usePostMessage();
 
   const { data: matchesServerData } = useGetMatches();
@@ -996,7 +998,22 @@ export default function ChatScreen() {
             setGiftSplash(gift);
             if (id) {
               try {
-                await serverPostMessage({ data: { receiverId: id, text: `🎁 ${gift.label} · ${gift.tokens} ST`, mediaType: "gift" } });
+                const token = await getToken();
+                const base = getApiUrl();
+                await fetch(`${base}/api/gifts/send`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                  },
+                  body: JSON.stringify({
+                    receiverId: id,
+                    giftLabel: gift.label,
+                    giftEmoji: gift.emoji,
+                    tokens: gift.tokens,
+                    amountEur: parseFloat((gift.tokens * 0.2).toFixed(2)),
+                  }),
+                });
               } catch {
                 sendMessage(id, `🎁 Gifted a ${gift.label} · ${gift.tokens} ST`);
               }

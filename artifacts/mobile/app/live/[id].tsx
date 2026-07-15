@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import WebView from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@clerk/expo";
 import { useCreateBlock } from "@workspace/api-client-react";
 import GiftModal, { GiftSentInfo } from "@/components/GiftModal";
 import GiftSplashOverlay from "@/components/GiftSplashOverlay";
@@ -143,6 +144,7 @@ export default function LiveScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
+  const { getToken } = useAuth();
   const { coinBalance, spendCoins, addEarning } = useApp();
   const { mutateAsync: blockUser } = useCreateBlock();
 
@@ -479,11 +481,33 @@ export default function LiveScreen() {
         visible={giftOpen}
         onClose={() => setGiftOpen(false)}
         recipientName={stream.name}
-        onGiftSent={(gift) => {
+        onGiftSent={async (gift) => {
           setGiftOpen(false);
           setGiftSplash(gift);
           handleGiftSent();
           pushMsg({ name: "You", text: `🎁 Gifted a ${gift.label} · ${gift.tokens} ST`, isGift: true, gift: `${gift.emoji} ${gift.label}` });
+          if (realSession?.hostUserId) {
+            try {
+              const token = await getToken();
+              const { API_BASE } = await import("@/config/payments");
+              await fetch(`${API_BASE}/gifts/send`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                  receiverId: realSession.hostUserId,
+                  giftLabel: gift.label,
+                  giftEmoji: gift.emoji,
+                  tokens: gift.tokens,
+                  amountEur: parseFloat((gift.tokens * 0.2).toFixed(2)),
+                }),
+              });
+            } catch {
+              // best-effort — local gift animation already shown
+            }
+          }
         }}
       />
 

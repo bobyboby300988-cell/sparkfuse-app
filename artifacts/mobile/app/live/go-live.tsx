@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import WebView from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@clerk/expo";
 import { useGetMyProfile } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import { createMeetingToken, getOrCreateRoom } from "@/lib/daily";
@@ -30,6 +31,7 @@ function formatDuration(seconds: number) {
 
 export default function GoLiveScreen() {
   const insets = useSafeAreaInsets();
+  const { userId } = useAuth();
   const { setIsLive } = useApp();
   const { data: profileData } = useGetMyProfile();
   const userProfile = profileData?.profile ?? null;
@@ -70,7 +72,7 @@ export default function GoLiveScreen() {
       const room = await getOrCreateRoom(roomName);
       const [ownerToken, id] = await Promise.all([
         createMeetingToken(room.name, { isOwner: true, userName: hostName }),
-        startLiveSession({ name: hostName, category, roomUrl: room.url, roomName: room.name }),
+        startLiveSession({ name: hostName, category, roomUrl: room.url, roomName: room.name, hostUserId: userId ?? undefined }),
       ]);
       setSessionId(id);
       setJoinUrl(`${room.url}?t=${ownerToken}`);

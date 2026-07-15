@@ -4,6 +4,7 @@ import { Alert, Platform } from "react-native";
 import { useGetCurrentAuthUser, useActivateSubscription } from "@workspace/api-client-react";
 import { useAuth } from "@clerk/expo";
 import { checkPendingWebTokenCheckout } from "@/config/payments";
+import { getApiUrl } from "@/lib/api";
 
 export interface MyPhoto {
   id: string;
@@ -97,7 +98,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [stripeConnectAccountId, setStripeConnectAccountIdState] = useState<string | null>(null);
   const [myPhotos, setMyPhotos] = useState<MyPhoto[]>([]);
 
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, getToken } = useAuth();
   const { data: authUserData } = useGetCurrentAuthUser({
     query: { enabled: !!isSignedIn, queryKey: ["currentAuthUser"] },
   });
@@ -150,6 +151,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     load();
   }, []);
+
+  // Sync earnings from server — server is the source of truth because it
+  // tracks gifts received from other users' devices.
+  useEffect(() => {
+    if (!isSignedIn) return;
+    async function syncServerEarnings() {
+      try {
+        const token = await getToken();
+        const base = getApiUrl();
+        const res = await fetch(`${base}/api/gifts/earnings`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { earnings: number };
+        setEarnings(data.earnings);
+        AsyncStorage.setItem(KEYS.EARNINGS, String(data.earnings));
+      } catch {
+        // ignore — local value stays
+      }
+    }
+    syncServerEarnings();
+  }, [isSignedIn]);
 
   // On web, Stripe Checkout redirects back with a real page reload (no
   // custom URL scheme like on native), so any pending token purchase has

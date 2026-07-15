@@ -10,6 +10,7 @@ interface LiveSession {
   category: string;
   roomUrl: string;
   roomName: string;
+  hostUserId?: string;
   startedAt: number;
   lastHeartbeat: number;
 }
@@ -28,11 +29,12 @@ function pruneStale() {
 }
 
 router.post('/live/start', (req, res) => {
-  const { name, category, roomUrl, roomName } = req.body as {
+  const { name, category, roomUrl, roomName, hostUserId } = req.body as {
     name?: string;
     category?: string;
     roomUrl?: string;
     roomName?: string;
+    hostUserId?: string;
   };
 
   if (!name || !roomUrl || !roomName) {
@@ -47,6 +49,7 @@ router.post('/live/start', (req, res) => {
     category: category ?? 'Dating',
     roomUrl,
     roomName,
+    hostUserId,
     startedAt: now,
     lastHeartbeat: now,
   });
