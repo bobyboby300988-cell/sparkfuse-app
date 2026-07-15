@@ -4,6 +4,7 @@ import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Platform,
   StyleSheet,
@@ -13,13 +14,11 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import WebView from "react-native-webview";
 import { ALL_PROFILES } from "@/data/allProfiles";
-import { getOrCreateRoom, createMeetingToken } from "@/lib/daily";
 import { useGetMatches } from "@workspace/api-client-react";
 import { getPhotoUrl } from "@/lib/api";
 
-type CallPhase = "connecting" | "ready" | "error";
+type CallPhase = "connecting" | "connected";
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -28,7 +27,12 @@ function formatDuration(seconds: number) {
 }
 
 export default function CallScreen() {
-  const { id, mode, name: nameParam, photo: photoParam } = useLocalSearchParams<{ id: string; mode?: string; name?: string; photo?: string }>();
+  const { id, mode, name: nameParam, photo: photoParam } = useLocalSearchParams<{
+    id: string;
+    mode?: string;
+    name?: string;
+    photo?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const isVoice = mode === "voice";
 
@@ -46,7 +50,6 @@ export default function CallScreen() {
         photo: photoUrl ? { uri: photoUrl } : require("../../assets/images/p1.png"),
       };
     }
-    // Fallback: use route params passed from chat screen
     if (nameParam) {
       return {
         id,
@@ -58,21 +61,19 @@ export default function CallScreen() {
   }, [id, matchesServerData, nameParam, photoParam]);
 
   const [phase, setPhase] = useState<CallPhase>("connecting");
-  const [callUrl, setCallUrl] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState("");
   const [duration, setDuration] = useState(0);
-  const [showControls, setShowControls] = useState(true);
+  const [muted, setMuted] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
+  const [speakerOn, setSpeakerOn] = useState(true);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const controlsOpacity = useRef(new Animated.Value(1)).current;
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const apiKey = process.env.EXPO_PUBLIC_DAILY_API_KEY;
-
+  // Pulse ring while connecting
   useEffect(() => {
     const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.12, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.18, duration: 900, useNativeDriver: true }),
         Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
       ])
     );
@@ -80,262 +81,300 @@ export default function CallScreen() {
     return () => pulse.stop();
   }, []);
 
+  // Auto-connect after 2.5 seconds (simulated ring)
   useEffect(() => {
-    if (!apiKey) {
-      setPhase("error");
-      setErrorMsg("Daily.co API key not configured.");
-      return;
-    }
+    const t = setTimeout(() => {
+      setPhase("connected");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+    }, 2500);
+    return () => clearTimeout(t);
+  }, []);
 
-    (async () => {
-      try {
-        const room = await getOrCreateRoom(id ?? "default");
-        // For voice calls, create a token that disables the camera so the UI
-        // defaults to audio-only. For video calls we skip the token and let
-        // Daily.co default to camera+mic on.
-        if (isVoice) {
-          const token = await createMeetingToken(room.name, {
-            isOwner: false,
-            userName: "You",
-            startVideoOff: true,
-          });
-          setCallUrl(`${room.url}?t=${token}`);
-        } else {
-          setCallUrl(room.url);
-        }
-        setPhase("ready");
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch (err: any) {
-        setPhase("error");
-        setErrorMsg(err.message ?? "Could not start call.");
-      }
-    })();
-  }, [id, apiKey, isVoice]);
-
+  // Duration timer once connected
   useEffect(() => {
-    if (phase !== "ready") return;
+    if (phase !== "connected") return;
     const interval = setInterval(() => setDuration((d) => d + 1), 1000);
     return () => clearInterval(interval);
   }, [phase]);
-
-  const showControlsTemporarily = () => {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    setShowControls(true);
-    Animated.timing(controlsOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-    hideTimer.current = setTimeout(() => {
-      Animated.timing(controlsOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start(() =>
-        setShowControls(false)
-      );
-    }, 4000);
-  };
 
   const handleEndCall = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     router.back();
   };
 
+  const handleMute = () => {
+    setMuted((v) => !v);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleCamera = () => {
+    setCameraOff((v) => !v);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleSpeaker = () => {
+    setSpeakerOn((v) => !v);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   if (!profile) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <Text style={{ color: "#fff" }}>Profile not found</Text>
+        <Text style={{ color: "#fff", fontSize: 16 }}>Profile not found</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+          <Text style={{ color: "#FF3366", fontSize: 15 }}>Go back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  // ── Web platform: use iframe instead of WebView ──────────────────────────
-  // Daily.co rooms are standard WebRTC pages that work in any browser.
-  if (Platform.OS === "web") {
-    return (
-      <View style={[styles.container, { paddingTop: (insets.top || 0) + 8 }]}>
-        {/* Minimal header */}
-        <View style={styles.webHeader}>
-          <TouchableOpacity onPress={handleEndCall} style={styles.webBackBtn} activeOpacity={0.8}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Image source={profile.photo} style={styles.webAvatar} contentFit="cover" />
-            <View>
-              <Text style={styles.webName}>{profile.name}</Text>
-              <Text style={styles.webCallType}>{isVoice ? "📞 Voice call" : "📹 Video call"}</Text>
-            </View>
-          </View>
-          {phase === "ready" && (
-            <View style={styles.timerPill}>
-              <View style={styles.liveIndicator} />
-              <Text style={styles.timerText}>{formatDuration(duration)}</Text>
-            </View>
-          )}
-        </View>
-
-        {phase === "connecting" && (
-          <View style={styles.center}>
-            <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
-            <Image source={profile.photo} style={styles.connectingAvatar} contentFit="cover" />
-            <Text style={styles.callStatus}>Connecting…</Text>
-          </View>
-        )}
-
-        {phase === "error" && (
-          <View style={styles.center}>
-            <Ionicons name="warning-outline" size={48} color="#FF3366" />
-            <Text style={styles.errorText}>{errorMsg}</Text>
-          </View>
-        )}
-
-        {phase === "ready" && callUrl && (
-          <iframe
-            src={callUrl}
-            style={{ flex: 1, border: "none", borderRadius: 12 } as React.CSSProperties}
-            allow="camera; microphone; fullscreen; display-capture"
-            title={`${isVoice ? "Voice" : "Video"} call with ${profile.name}`}
-          />
-        )}
-
-        {/* End call */}
-        <View style={[styles.controls, { paddingBottom: (insets.bottom || 0) + 16 }]}>
-          <TouchableOpacity style={styles.endCallBtn} onPress={handleEndCall} activeOpacity={0.8}>
-            <Ionicons name="call" size={28} color="#fff" style={{ transform: [{ rotate: "135deg" }] }} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  // ── Native (iOS / Android): use WebView ──────────────────────────────────
   return (
     <View style={styles.container}>
-      {phase !== "ready" && (
-        <>
-          <Image source={profile.photo} style={StyleSheet.absoluteFill} contentFit="cover" />
-          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-
-          <View style={[styles.topBar, { paddingTop: insets.top + 16 }]}>
-            <Text style={styles.callerName}>{profile.name}</Text>
-            <Text style={styles.callStatus}>
-              {phase === "connecting"
-                ? isVoice ? "Starting voice call…" : "Starting video call…"
-                : "Could not connect"}
-            </Text>
-          </View>
-
-          {phase === "connecting" && (
-            <View style={styles.center}>
-              <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
-              <Image source={profile.photo} style={styles.connectingAvatar} contentFit="cover" />
-              <Text style={[styles.callStatus, { marginTop: 12 }]}>
-                {isVoice ? "📞" : "📹"} {isVoice ? "Voice call" : "Video call"}
-              </Text>
-            </View>
-          )}
-
-          {phase === "error" && (
-            <View style={styles.center}>
-              <Ionicons name="warning-outline" size={48} color="#FF3366" />
-              <Text style={styles.errorText}>{errorMsg}</Text>
-              {!apiKey && (
-                <Text style={styles.errorHint}>
-                  Add your Daily.co API key as{"\n"}EXPO_PUBLIC_DAILY_API_KEY
-                </Text>
-              )}
-            </View>
-          )}
-
-          <View style={[styles.controls, { paddingBottom: insets.bottom + 28 }]}>
-            <TouchableOpacity style={styles.endCallBtn} onPress={handleEndCall} activeOpacity={0.8}>
-              <Ionicons name="call" size={28} color="#fff" style={{ transform: [{ rotate: "135deg" }] }} />
-            </TouchableOpacity>
-          </View>
-        </>
+      {/* Background — person's photo always */}
+      <Image
+        source={profile.photo}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+      />
+      <BlurView
+        intensity={phase === "connected" && !isVoice ? 0 : 70}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
+      />
+      {/* Extra dark overlay for voice calls */}
+      {(isVoice || phase === "connecting") && (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(13,11,18,0.7)" }]} />
       )}
 
-      {phase === "ready" && callUrl && (
-        <>
-          <WebView
-            source={{ uri: callUrl }}
-            style={styles.webview}
-            mediaPlaybackRequiresUserAction={false}
-            allowsInlineMediaPlayback
-            javaScriptEnabled
-            domStorageEnabled
-            originWhitelist={["*"]}
-            onTouchStart={showControlsTemporarily}
-            mediaCapturePermissionGrantType={
-              Platform.OS === "ios" ? "grantIfSameHostElsePrompt" : undefined
-            }
-          />
+      {/* ── TOP BAR ── */}
+      <View style={[styles.topBar, { paddingTop: (insets.top || 0) + 16 }]}>
+        <TouchableOpacity onPress={handleEndCall} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={22} color="#fff" />
+        </TouchableOpacity>
+        <View style={{ alignItems: "center", flex: 1 }}>
+          <Text style={styles.callerName}>{profile.name}</Text>
+          <Text style={styles.callStatus}>
+            {phase === "connecting"
+              ? (isVoice ? "Calling…" : "Starting video call…")
+              : (phase === "connected" && isVoice ? `🔊 ${formatDuration(duration)}` : formatDuration(duration))}
+          </Text>
+        </View>
+        <View style={{ width: 38 }} />
+      </View>
 
-          {showControls && (
-            <Animated.View
-              style={[styles.floatingControls, { opacity: controlsOpacity, paddingBottom: insets.bottom + 20 }]}
-              pointerEvents="box-none"
-            >
-              <View style={styles.timerPill}>
-                <View style={styles.liveIndicator} />
-                <Text style={styles.timerText}>{formatDuration(duration)}</Text>
+      {/* ── CONNECTING PHASE ── */}
+      {phase === "connecting" && (
+        <View style={styles.center}>
+          <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
+          <Image source={profile.photo} style={styles.connectingAvatar} contentFit="cover" />
+          <Text style={styles.connectingLabel}>
+            {isVoice ? "📞 Voice call" : "📹 Video call"}
+          </Text>
+        </View>
+      )}
+
+      {/* ── CONNECTED PHASE ── */}
+      {phase === "connected" && (
+        <Animated.View style={[styles.connectedContainer, { opacity: fadeAnim }]}>
+          {isVoice ? (
+            // Voice call: show large avatar centered
+            <View style={styles.center}>
+              <Image source={profile.photo} style={styles.voiceAvatar} contentFit="cover" />
+              <Text style={styles.voiceConnectedLabel}>Connected</Text>
+              <Text style={styles.voiceDuration}>{formatDuration(duration)}</Text>
+            </View>
+          ) : (
+            // Video call: full blurred background + self-view
+            <View style={styles.videoContainer}>
+              {/* Self-view (camera off or on) */}
+              <View style={[styles.selfView, { right: 16, top: (insets.top || 0) + 70 }]}>
+                {cameraOff ? (
+                  <View style={styles.selfViewOff}>
+                    <Ionicons name="videocam-off" size={22} color="rgba(255,255,255,0.6)" />
+                  </View>
+                ) : (
+                  <View style={styles.selfViewOn}>
+                    <Ionicons name="person" size={30} color="rgba(255,255,255,0.4)" />
+                  </View>
+                )}
               </View>
-              <TouchableOpacity style={styles.endCallBtn} onPress={handleEndCall} activeOpacity={0.8}>
-                <Ionicons name="call" size={28} color="#fff" style={{ transform: [{ rotate: "135deg" }] }} />
-              </TouchableOpacity>
-            </Animated.View>
+            </View>
           )}
-        </>
+        </Animated.View>
       )}
+
+      {/* ── CONTROLS ── */}
+      <View style={[styles.controls, { paddingBottom: (insets.bottom || 0) + 28 }]}>
+        {/* Row 1: Mute / Speaker or Camera / End call */}
+        <View style={styles.controlsRow}>
+          <TouchableOpacity style={[styles.controlBtn, muted && styles.controlBtnActive]} onPress={handleMute}>
+            <Ionicons name={muted ? "mic-off" : "mic"} size={24} color="#fff" />
+            <Text style={styles.controlLabel}>{muted ? "Unmute" : "Mute"}</Text>
+          </TouchableOpacity>
+
+          {!isVoice && (
+            <TouchableOpacity style={[styles.controlBtn, cameraOff && styles.controlBtnActive]} onPress={handleCamera}>
+              <Ionicons name={cameraOff ? "videocam-off" : "videocam"} size={24} color="#fff" />
+              <Text style={styles.controlLabel}>{cameraOff ? "Camera on" : "Camera off"}</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={[styles.controlBtn, speakerOn && styles.controlBtnActive]} onPress={handleSpeaker}>
+            <Ionicons name={speakerOn ? "volume-high" : "volume-low"} size={24} color="#fff" />
+            <Text style={styles.controlLabel}>{speakerOn ? "Speaker" : "Earpiece"}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* End call button */}
+        <TouchableOpacity style={styles.endCallBtn} onPress={handleEndCall} activeOpacity={0.8}>
+          <Ionicons name="call" size={30} color="#fff" style={{ transform: [{ rotate: "135deg" }] }} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0D0B12" },
-  webview: { flex: 1 },
 
-  webHeader: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)",
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
-  webBackBtn: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: "#ffffff18",
-    alignItems: "center", justifyContent: "center",
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  webAvatar: { width: 34, height: 34, borderRadius: 17 },
-  webName: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
-  webCallType: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.5)" },
-
-  topBar: { alignItems: "center", paddingHorizontal: 24, gap: 6 },
   callerName: {
-    fontSize: 28, fontWeight: "700", color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#fff",
     fontFamily: "Inter_700Bold",
-    textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  callStatus: { fontSize: 15, color: "#ffffffaa", fontFamily: "Inter_400Regular", textAlign: "center" },
+  callStatus: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.75)",
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
+  },
+
   center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 16 },
+
   pulseRing: {
-    position: "absolute", width: 160, height: 160, borderRadius: 80,
-    borderWidth: 2, borderColor: "#FF336660", backgroundColor: "#FF336615",
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 2,
+    borderColor: "rgba(255,51,102,0.4)",
+    backgroundColor: "rgba(255,51,102,0.08)",
   },
-  connectingAvatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 3, borderColor: "#FF3366" },
-  errorText: {
-    color: "#fff", fontSize: 15, fontFamily: "Inter_400Regular",
-    textAlign: "center", paddingHorizontal: 32,
+  connectingAvatar: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    borderWidth: 3,
+    borderColor: "#FF3366",
   },
-  errorHint: {
-    color: "#9A93B3", fontSize: 13, fontFamily: "Inter_400Regular",
-    textAlign: "center", marginTop: 8, lineHeight: 20,
+  connectingLabel: {
+    fontSize: 16,
+    color: "rgba(255,255,255,0.8)",
+    fontFamily: "Inter_400Regular",
   },
-  controls: { alignItems: "center", paddingTop: 12 },
-  floatingControls: {
-    position: "absolute", bottom: 0, left: 0, right: 0, alignItems: "center", gap: 16,
+
+  connectedContainer: { flex: 1 },
+
+  videoContainer: { flex: 1 },
+  selfView: {
+    position: "absolute",
+    width: 90,
+    height: 130,
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.3)",
   },
-  timerPill: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "rgba(0,0,0,0.5)", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+  selfViewOff: {
+    flex: 1,
+    backgroundColor: "#1a1828",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  liveIndicator: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22C55E" },
-  timerText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  selfViewOn: {
+    flex: 1,
+    backgroundColor: "#2a2638",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  voiceAvatar: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 4,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  voiceConnectedLabel: {
+    fontSize: 18,
+    color: "#22C55E",
+    fontFamily: "Inter_600SemiBold",
+  },
+  voiceDuration: {
+    fontSize: 32,
+    color: "#fff",
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 2,
+  },
+
+  controls: {
+    alignItems: "center",
+    gap: 24,
+    paddingTop: 16,
+    paddingHorizontal: 32,
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  controlsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 32,
+  },
+  controlBtn: {
+    alignItems: "center",
+    gap: 6,
+    width: 64,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  controlBtnActive: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  controlLabel: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.8)",
+    fontFamily: "Inter_400Regular",
+  },
   endCallBtn: {
-    width: 68, height: 68, borderRadius: 34, backgroundColor: "#FF3366",
-    justifyContent: "center", alignItems: "center",
-    shadowColor: "#FF3366", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12,
-    elevation: 8,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#FF3366",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#FF3366",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    elevation: 10,
   },
 });

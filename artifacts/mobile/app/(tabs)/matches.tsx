@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -92,14 +93,15 @@ export default function MessagesScreen() {
       };
     });
 
-    // Local-only matches that have messages OR a stored name
-    // (e.g. profiles messaged from Explore before the server match propagates)
+    // Local-only matches that have messages AND a real name stored
+    // (e.g. profiles messaged from Explore before the server match propagates).
+    // Skip entries with no name — those are old ghost entries from before name-tracking was added.
     matches
-      .filter((m) => !serverIds.has(m.profileId) && (m.messages.length > 0 || m.name))
+      .filter((m) => !serverIds.has(m.profileId) && m.messages.length > 0 && m.name && m.name !== "User")
       .forEach((m) => {
         all.push({
           profileId: m.profileId,
-          name: m.name ?? "User",
+          name: m.name!,
           photoUri: m.photoUri ?? null,
           matchedAt: m.matchedAt,
           messages: m.messages,
@@ -116,6 +118,24 @@ export default function MessagesScreen() {
       }),
     };
   }, [matches, data]);
+
+  const handleDeleteConversation = (profileId: string, name: string) => {
+    Alert.alert(
+      "Delete conversation",
+      `Remove your chat with ${name}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            removeMatch(profileId);
+          },
+        },
+      ]
+    );
+  };
 
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
@@ -194,6 +214,8 @@ export default function MessagesScreen() {
                 Haptics.selectionAsync();
                 router.push({ pathname: "/chat/[id]", params: { id: item.profileId, name: item.name, photo: item.photoUri ?? "" } });
               }}
+              onLongPress={() => handleDeleteConversation(item.profileId, item.name)}
+              delayLongPress={500}
               activeOpacity={0.7}
             >
               <View style={styles.convAvatarWrap}>
@@ -212,7 +234,13 @@ export default function MessagesScreen() {
                 </Text>
               </View>
 
-              <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+              <TouchableOpacity
+                onPress={() => handleDeleteConversation(item.profileId, item.name)}
+                style={styles.deleteBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
             </TouchableOpacity>
           )}
         />
@@ -271,6 +299,7 @@ const styles = StyleSheet.create({
   convName: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   convTime: { fontSize: 12, fontFamily: "Inter_400Regular" },
   convLastMsg: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  deleteBtn: { padding: 4, marginLeft: 4 },
 
   empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40, gap: 12 },
   emptyIcon: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center", marginBottom: 8 },
