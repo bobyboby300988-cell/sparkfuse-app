@@ -265,11 +265,11 @@ export default function ChatScreen() {
   };
 
   const handleVideoCall = () => {
-    router.push({ pathname: "/call/[id]", params: { id: id!, mode: "video" } });
+    router.push({ pathname: "/call/[id]", params: { id: id!, mode: "video", name: profile?.name ?? "", photo: typeof profile?.photo === "object" && "uri" in profile.photo ? profile.photo.uri : "" } });
   };
 
   const handleVoiceCall = () => {
-    router.push({ pathname: "/call/[id]", params: { id: id!, mode: "voice" } });
+    router.push({ pathname: "/call/[id]", params: { id: id!, mode: "voice", name: profile?.name ?? "", photo: typeof profile?.photo === "object" && "uri" in profile.photo ? profile.photo.uri : "" } });
   };
 
   const doBlock = async () => {

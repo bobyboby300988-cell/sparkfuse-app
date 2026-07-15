@@ -26,6 +26,8 @@ export interface Match {
   profileId: string;
   matchedAt: number;
   messages: Message[];
+  name?: string;
+  photoUri?: string | null;
 }
 
 export type AppMode = "dating" | "naughty" | "business" | "party" | "travel" | "social";
@@ -41,7 +43,7 @@ interface AppContextType {
   setAppMode: (mode: AppMode) => void;
   setSubscribed: () => Promise<void>;
   matches: Match[];
-  addMatch: (profileId: string) => void;
+  addMatch: (profileId: string, name?: string, photoUri?: string | null) => void;
   sendMessage: (profileId: string, text: string) => void;
   sendMedia: (profileId: string, uri: string, type: "image" | "video") => void;
   sendVoice: (profileId: string, uri: string, duration: number) => void;
@@ -178,10 +180,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addMatch = (profileId: string) => {
+  const addMatch = (profileId: string, name?: string, photoUri?: string | null) => {
     setMatches((prev) => {
-      if (prev.find((m) => m.profileId === profileId)) return prev;
-      const updated = [...prev, { profileId, matchedAt: Date.now(), messages: [] }];
+      const existing = prev.find((m) => m.profileId === profileId);
+      if (existing) {
+        // Update name/photo if we now have them and didn't before
+        if ((name && !existing.name) || (photoUri && !existing.photoUri)) {
+          const updated = prev.map((m) =>
+            m.profileId === profileId
+              ? { ...m, name: name ?? m.name, photoUri: photoUri ?? m.photoUri }
+              : m
+          );
+          AsyncStorage.setItem(KEYS.MATCHES, JSON.stringify(updated));
+          return updated;
+        }
+        return prev;
+      }
+      const updated = [...prev, { profileId, matchedAt: Date.now(), messages: [], name, photoUri }];
       AsyncStorage.setItem(KEYS.MATCHES, JSON.stringify(updated));
       return updated;
     });

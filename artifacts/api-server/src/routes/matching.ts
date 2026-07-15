@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { and, eq, inArray, notInArray, or, sql } from "drizzle-orm";
-import { db, matchesTable, profilesTable, swipesTable, blocksTable } from "@workspace/db";
+import { db, matchesTable, profilesTable, swipesTable, blocksTable, usersTable } from "@workspace/db";
 import { GetFeedResponse, GetMatchesResponse, CreateSwipeBody, CreateSwipeResponse } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 
@@ -189,8 +189,11 @@ router.get("/matches", requireAuth, async (req: Request, res: Response) => {
   res.json(GetMatchesResponse.parse({ matches: profileRows.map((row) => toApiProfile(row, myProfile)) }));
 });
 
+const ONLINE_MS = 5 * 60 * 1000; // 5 minutes
+
 router.get("/browse", requireAuth, async (req: Request, res: Response) => {
   const userId = req.dbUser!.id;
+  const now = Date.now();
 
   const [myProfile] = await db
     .select({ latitude: profilesTable.latitude, longitude: profilesTable.longitude })
@@ -206,13 +209,19 @@ router.get("/browse", requireAuth, async (req: Request, res: Response) => {
   const excludeIds = [userId, ...blockedIds];
 
   const rows = await db
-    .select()
+    .select({ profile: profilesTable, lastSeenAt: usersTable.lastSeenAt })
     .from(profilesTable)
+    .leftJoin(usersTable, eq(profilesTable.userId, usersTable.id))
     .where(notInArray(profilesTable.userId, excludeIds))
     .orderBy(sql`random()`)
     .limit(100);
 
-  res.json({ profiles: rows.map((row) => toApiProfile(row, myProfile)) });
+  res.json({
+    profiles: rows.map(({ profile, lastSeenAt }) => ({
+      ...toApiProfile(profile, myProfile),
+      isOnline: lastSeenAt != null && now - new Date(lastSeenAt).getTime() < ONLINE_MS,
+    })),
+  });
 });
 
 export default router;

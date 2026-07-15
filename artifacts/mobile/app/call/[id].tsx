@@ -28,7 +28,7 @@ function formatDuration(seconds: number) {
 }
 
 export default function CallScreen() {
-  const { id, mode } = useLocalSearchParams<{ id: string; mode?: string }>();
+  const { id, mode, name: nameParam, photo: photoParam } = useLocalSearchParams<{ id: string; mode?: string; name?: string; photo?: string }>();
   const insets = useSafeAreaInsets();
   const isVoice = mode === "voice";
 
@@ -38,14 +38,24 @@ export default function CallScreen() {
     if (mock) return mock;
     if (!id) return null;
     const srv = matchesServerData?.matches?.find((p) => p.userId === id);
-    if (!srv) return null;
-    const photoUrl = getPhotoUrl(srv.photoUrl);
-    return {
-      id: srv.userId,
-      name: srv.name,
-      photo: photoUrl ? { uri: photoUrl } : require("../../assets/images/p1.png"),
-    };
-  }, [id, matchesServerData]);
+    if (srv) {
+      const photoUrl = getPhotoUrl(srv.photoUrl);
+      return {
+        id: srv.userId,
+        name: srv.name,
+        photo: photoUrl ? { uri: photoUrl } : require("../../assets/images/p1.png"),
+      };
+    }
+    // Fallback: use route params passed from chat screen
+    if (nameParam) {
+      return {
+        id,
+        name: nameParam,
+        photo: photoParam ? { uri: photoParam } : require("../../assets/images/p1.png"),
+      };
+    }
+    return null;
+  }, [id, matchesServerData, nameParam, photoParam]);
 
   const [phase, setPhase] = useState<CallPhase>("connecting");
   const [callUrl, setCallUrl] = useState<string | null>(null);

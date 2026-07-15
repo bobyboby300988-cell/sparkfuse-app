@@ -71,26 +71,41 @@ export default function MessagesScreen() {
 
   // Sync server matches → local AsyncStorage so chat works even without swiping
   useEffect(() => {
-    (data?.matches ?? []).forEach((sp) => addMatch(sp.userId));
+    (data?.matches ?? []).forEach((sp) => addMatch(sp.userId, sp.name, getPhotoUrl(sp.photoUrl)));
   }, [data?.matches]);
 
   const { newMatches, conversations } = useMemo(() => {
     const serverMatches = data?.matches ?? [];
+    const serverIds = new Set(serverMatches.map((sp) => sp.userId));
+
+    // Server matches (with local message data merged in)
     const all = serverMatches.map((sp) => {
-      const local = matches.find((m) => m.profileId === sp.userId) ?? {
-        profileId: sp.userId,
-        matchedAt: Date.now(),
-        messages: [],
-      };
+      const local = matches.find((m) => m.profileId === sp.userId);
+      const msgs = local?.messages ?? [];
       return {
         profileId: sp.userId,
         name: sp.name,
         photoUri: getPhotoUrl(sp.photoUrl),
-        matchedAt: local.matchedAt,
-        messages: local.messages,
-        lastMsg: local.messages[local.messages.length - 1] ?? null,
+        matchedAt: local?.matchedAt ?? Date.now(),
+        messages: msgs,
+        lastMsg: msgs[msgs.length - 1] ?? null,
       };
     });
+
+    // Local-only matches that have messages OR a stored name
+    // (e.g. profiles messaged from Explore before the server match propagates)
+    matches
+      .filter((m) => !serverIds.has(m.profileId) && (m.messages.length > 0 || m.name))
+      .forEach((m) => {
+        all.push({
+          profileId: m.profileId,
+          name: m.name ?? "User",
+          photoUri: m.photoUri ?? null,
+          matchedAt: m.matchedAt,
+          messages: m.messages,
+          lastMsg: m.messages[m.messages.length - 1] ?? null,
+        });
+      });
 
     return {
       newMatches: all.filter((m) => m.messages.length === 0).sort((a, b) => b.matchedAt - a.matchedAt),
@@ -147,7 +162,7 @@ export default function MessagesScreen() {
                         style={({ pressed }) => [styles.newMatchItem, { opacity: pressed ? 0.75 : 1 }]}
                         onPress={() => {
                           Haptics.selectionAsync();
-                          router.push({ pathname: "/chat/[id]", params: { id: m.profileId } });
+                          router.push({ pathname: "/chat/[id]", params: { id: m.profileId, name: m.name, photo: m.photoUri ?? "" } });
                         }}
                       >
                         <View style={[styles.newMatchAvatarWrap, { borderColor: colors.primary }]}>
@@ -177,14 +192,12 @@ export default function MessagesScreen() {
               style={[styles.convRow, { borderBottomColor: colors.border }]}
               onPress={() => {
                 Haptics.selectionAsync();
-                router.push({ pathname: "/chat/[id]", params: { id: item.profileId } });
+                router.push({ pathname: "/chat/[id]", params: { id: item.profileId, name: item.name, photo: item.photoUri ?? "" } });
               }}
               activeOpacity={0.7}
             >
               <View style={styles.convAvatarWrap}>
                 <Avatar uri={item.photoUri} size={AVATAR_CONV} />
-                {/* online dot */}
-                <View style={[styles.onlineDot, { borderColor: colors.background }]} />
               </View>
 
               <View style={styles.convInfo}>

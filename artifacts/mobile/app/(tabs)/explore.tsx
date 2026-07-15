@@ -58,6 +58,7 @@ type BrowseProfile = {
   city?: string | null;
   country?: string | null;
   distanceKm?: number | null;
+  isOnline?: boolean;
 };
 
 function useBrowse() {
@@ -376,7 +377,7 @@ function ProfileModal({
     try {
       await createSwipe.mutateAsync({ data: { targetUserId: profile.userId, direction: "like" } });
     } catch { /* ignore */ }
-    if (!alreadyMatched) addMatch(profile.userId);
+    if (!alreadyMatched) addMatch(profile.userId, profile.name, photoUrl);
     onClose();
   };
 
@@ -390,7 +391,7 @@ function ProfileModal({
 
   const handleMessage = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (!alreadyMatched) addMatch(profile.userId);
+    if (!alreadyMatched) addMatch(profile.userId, profile.name, photoUrl);
     onClose();
     router.push({
       pathname: "/chat/[id]",
@@ -624,8 +625,10 @@ export default function ExploreScreen() {
                     </LinearGradient>
                   )}
 
-                  {/* Online dot */}
-                  <View style={[styles.onlineDot, { backgroundColor: "#22c55e", borderColor: colors.background }]} />
+                  {/* Online dot — only shown when server confirms user is active */}
+                  {item.isOnline && (
+                    <View style={[styles.onlineDot, { backgroundColor: "#22c55e", borderColor: colors.background }]} />
+                  )}
 
                   {/* Info overlay */}
                   <LinearGradient
