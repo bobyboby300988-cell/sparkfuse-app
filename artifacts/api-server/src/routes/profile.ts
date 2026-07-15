@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq } from "drizzle-orm";
-import { db, profilesTable } from "@workspace/db";
+import { db, profilesTable, usersTable } from "@workspace/db";
 import { GetMyProfileResponse, UpsertMyProfileBody, UpsertMyProfileResponse } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 
@@ -72,6 +72,32 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
       },
     }),
   );
+});
+
+// GET /api/users/:userId/profile — profil public al altui utilizator
+router.get("/users/:userId/profile", requireAuth, async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, userId));
+  const [user] = await db.select({ lastSeenAt: usersTable.lastSeenAt }).from(usersTable).where(eq(usersTable.id, userId));
+
+  if (!profile) {
+    res.status(404).json({ error: "Profile not found" });
+    return;
+  }
+
+  res.json({
+    profile: {
+      userId: profile.userId,
+      name: profile.name,
+      age: profile.age,
+      bio: profile.bio,
+      seeking: profile.seeking,
+      photoUrl: profile.photoUrl ?? null,
+      city: profile.city ?? null,
+      country: profile.country ?? null,
+      lastSeenAt: user?.lastSeenAt?.toISOString() ?? null,
+    },
+  });
 });
 
 export default router;

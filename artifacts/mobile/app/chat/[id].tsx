@@ -10,6 +10,7 @@ import {
   Alert,
   FlatList,
   Keyboard,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -172,6 +173,10 @@ function CallBubble({
   const handleAnswer = () => {
     if (!roomUrl) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS === "web") {
+      Linking.openURL(roomUrl);
+      return;
+    }
     router.push({
       pathname: "/call/[id]",
       params: {
@@ -299,10 +304,11 @@ const EMOJI_CATEGORIES = [
 
 export default function ChatScreen() {
   const { id, name: nameParam, photo: photoParam } = useLocalSearchParams<{ id: string; name?: string; photo?: string }>();
+  const isDemo = typeof id === "string" && id.startsWith("demo_user_");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { matches, sendMessage, sendMedia, sendVoice, removeMatch, clearMessages } = useApp();
+  const { matches, addMatch, sendMessage, sendMedia, sendVoice, removeMatch, clearMessages } = useApp();
   const { mutateAsync: blockUser } = useCreateBlock();
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -313,6 +319,7 @@ export default function ChatScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const recordingStart = useRef<number>(0);
   const inputRef = useRef<TextInput>(null);
+  const [lastSeenAt, setLastSeenAt] = useState<string | null>(null);
 
   const [fullscreenVideo, setFullscreenVideo] = useState<string | null>(null);
   const [uploadingMedia, setUploadingMedia] = useState(false);
@@ -350,6 +357,23 @@ export default function ChatScreen() {
   const { mutateAsync: serverPostMessage } = usePostMessage();
 
   const { data: matchesServerData } = useGetMatches();
+
+  // Fetch real online status for this user
+  useEffect(() => {
+    if (!id || !myUserId) return;
+    (async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`${getApiUrl()}/api/users/${id}/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setLastSeenAt(data.profile?.lastSeenAt ?? null);
+        }
+      } catch {}
+    })();
+  }, [id, myUserId]);
   const profile = useMemo(() => {
     const mock = ALL_PROFILES.find((p) => p.id === id);
     if (mock) return mock;
@@ -400,10 +424,14 @@ export default function ChatScreen() {
     if (!text || !id) return;
     setInputText("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Always ensure the match exists locally so it appears in the Messages tab
+    const photoUri = typeof profile?.photo === "object" && "uri" in (profile?.photo ?? {}) ? (profile?.photo as { uri: string }).uri : null;
+    addMatch(id, profile?.name, photoUri);
+    sendMessage(id, text);
     try {
       await serverPostMessage({ data: { receiverId: id, text } });
     } catch {
-      sendMessage(id, text);
+      // already saved locally above
     }
   };
 
@@ -430,6 +458,10 @@ export default function ChatScreen() {
     try {
       await serverPostMessage({ data: { receiverId: id, text: "📹 Video call", mediaType: "call_video", mediaUrl: roomUrl } });
     } catch {}
+    if (Platform.OS === "web") {
+      Linking.openURL(roomUrl);
+      return;
+    }
     router.push({
       pathname: "/call/[id]",
       params: { id, mode: "video", roomUrl, name: profile?.name ?? "", photo: typeof profile?.photo === "object" && "uri" in profile.photo ? profile.photo.uri : "" },
@@ -444,6 +476,10 @@ export default function ChatScreen() {
     try {
       await serverPostMessage({ data: { receiverId: id, text: "📞 Voice call", mediaType: "call_voice", mediaUrl: roomUrl } });
     } catch {}
+    if (Platform.OS === "web") {
+      Linking.openURL(roomUrl);
+      return;
+    }
     router.push({
       pathname: "/call/[id]",
       params: { id, mode: "voice", roomUrl, name: profile?.name ?? "", photo: typeof profile?.photo === "object" && "uri" in profile.photo ? profile.photo.uri : "" },
@@ -537,7 +573,47 @@ export default function ChatScreen() {
     }
   };
 
+  const uploadAndSendFile = async (uri: string, mimeType: string, file?: File) => {
+    if (!id) return;
+    const type: "image" | "video" = mimeType.startsWith("video/") ? "video" : "image";
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setUploadingMedia(true);
+    try {
+      const ext = type === "image" ? "jpg" : "mp4";
+      const urlRes = await fetch(`${getApiUrl()}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: `chat-${Date.now()}.${ext}` }),
+      });
+      const { uploadUrl, objectPath } = await urlRes.json();
+      const body = file ?? await (await fetch(uri)).blob();
+      await fetch(uploadUrl, { method: "PUT", body, headers: { "Content-Type": mimeType } });
+      const publicUrl = getPhotoUrl(objectPath);
+      if (publicUrl) {
+        await serverPostMessage({ data: { receiverId: id, mediaUrl: publicUrl, mediaType: type } });
+      } else {
+        sendMedia(id, uri, type);
+      }
+    } catch {
+      sendMedia(id, uri, type);
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
   const pickMedia = async (type: "image" | "video") => {
+    if (Platform.OS === "web") {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = type === "image" ? "image/*" : "video/*";
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        await uploadAndSendFile(URL.createObjectURL(file), file.type, file);
+      };
+      input.click();
+      return;
+    }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       Alert.alert("Permission needed", "Allow photo library access to send media.");
@@ -548,39 +624,26 @@ export default function ChatScreen() {
       quality: 0.85,
       allowsMultipleSelection: false,
     });
-    if (!result.canceled && result.assets.length > 0 && id) {
+    if (!result.canceled && result.assets.length > 0) {
       const asset = result.assets[0];
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setUploadingMedia(true);
-      try {
-        const ext = type === "image" ? "jpg" : "mp4";
-        const urlRes = await fetch(`${getApiUrl()}/api/storage/uploads/request-url`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: `chat-${Date.now()}.${ext}` }),
-        });
-        const { uploadUrl, objectPath } = await urlRes.json();
-        const blob = await (await fetch(asset.uri)).blob();
-        await fetch(uploadUrl, {
-          method: "PUT",
-          body: blob,
-          headers: { "Content-Type": type === "image" ? "image/jpeg" : "video/mp4" },
-        });
-        const publicUrl = getPhotoUrl(objectPath);
-        if (publicUrl) {
-          await serverPostMessage({ data: { receiverId: id, mediaUrl: publicUrl, mediaType: type } });
-        } else {
-          sendMedia(id, asset.uri, type);
-        }
-      } catch {
-        sendMedia(id, asset.uri, type);
-      } finally {
-        setUploadingMedia(false);
-      }
+      await uploadAndSendFile(asset.uri, type === "image" ? "image/jpeg" : "video/mp4");
     }
   };
 
   const handleMediaPress = () => {
+    if (Platform.OS === "web") {
+      // On web show both image + video in one picker
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*,video/*";
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        await uploadAndSendFile(URL.createObjectURL(file), file.type, file);
+      };
+      input.click();
+      return;
+    }
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         { options: ["Cancel", "Photo", "Video"], cancelButtonIndex: 0 },
@@ -685,14 +748,36 @@ export default function ChatScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => setShowProfileCard(true)}
+          onPress={() => router.push({
+            pathname: "/profile/[id]",
+            params: {
+              id: id ?? "",
+              name: profile.name,
+              photo: typeof profile.photo === "object" && "uri" in profile.photo ? profile.photo.uri : "",
+            },
+          })}
           activeOpacity={0.8}
           style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
         >
           <Image source={profile.photo} style={styles.headerAvatar} contentFit="cover" />
           <View style={styles.headerInfo}>
             <Text style={[styles.headerName, { color: colors.foreground }]}>{profile.name}</Text>
-            <Text style={[styles.headerStatus, { color: colors.like }]}>Active now</Text>
+            <Text style={[styles.headerStatus, { color: (() => {
+              if (!lastSeenAt) return colors.mutedForeground;
+              const mins = Math.floor((Date.now() - new Date(lastSeenAt).getTime()) / 60000);
+              return mins < 5 ? colors.like : colors.mutedForeground;
+            })() }]}>
+              {(() => {
+                if (!lastSeenAt) return "Offline";
+                const diff = Date.now() - new Date(lastSeenAt).getTime();
+                const mins = Math.floor(diff / 60000);
+                if (mins < 5) return "Online acum";
+                if (mins < 60) return `Văzut acum ${mins} min`;
+                const hrs = Math.floor(mins / 60);
+                if (hrs < 24) return `Văzut acum ${hrs}h`;
+                return `Văzut acum ${Math.floor(hrs / 24)}z`;
+              })()}
+            </Text>
           </View>
         </TouchableOpacity>
 
@@ -933,13 +1018,15 @@ export default function ChatScreen() {
             <Text style={{ fontSize: 20 }}>😊</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.mediaBtn, { backgroundColor: colors.card }]}
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowGiftModal(true); }}
-            activeOpacity={0.7}
-          >
-            <Text style={{ fontSize: 20 }}>🎁</Text>
-          </TouchableOpacity>
+          {!isDemo && (
+            <TouchableOpacity
+              style={[styles.mediaBtn, { backgroundColor: colors.card }]}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowGiftModal(true); }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 20 }}>🎁</Text>
+            </TouchableOpacity>
+          )}
 
           <TextInput
             ref={inputRef}
@@ -1031,63 +1118,55 @@ export default function ChatScreen() {
       <Modal visible={showProfileCard} transparent animationType="slide" onRequestClose={() => setShowProfileCard(false)}>
         <View style={{ flex: 1 }}>
           <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)" }} activeOpacity={1} onPress={() => setShowProfileCard(false)} />
-          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden", maxHeight: "88%" }}>
-            {/* Photo */}
-            <Image
-              source={profile.photo}
-              style={{ width: "100%", height: 340 }}
-              contentFit="cover"
-            />
-            {/* Close pill */}
-            <TouchableOpacity
-              onPress={() => setShowProfileCard(false)}
-              style={{ position: "absolute", top: 14, right: 16, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 }}
-            >
-              <Text style={{ color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" }}>Close</Text>
-            </TouchableOpacity>
-
-            {/* Info */}
-            <View style={{ padding: 20, gap: 10 }}>
-              {/* Name + age */}
-              <Text style={{ color: colors.foreground, fontSize: 26, fontFamily: "Inter_700Bold" }}>
-                {profile.name}{"age" in profile && (profile as any).age ? `, ${(profile as any).age}` : ""}
-              </Text>
-
-              {/* Location + distance */}
-              {"location" in profile && (profile as any).location ? (
-                <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
-                  📍 {(profile as any).location}{"distance" in profile ? `  ·  ${(profile as any).distance} km away` : ""}
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden" }}>
+            {/* Photo cu info overlay deasupra */}
+            <View style={{ width: "100%", height: 360 }}>
+              <Image source={profile.photo} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+              {/* gradient overlay jos */}
+              <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 140, backgroundColor: "rgba(0,0,0,0.55)" }} />
+              {/* Nume + vârstă pe foto */}
+              <View style={{ position: "absolute", bottom: 20, left: 20, right: 60 }}>
+                <Text style={{ color: "#fff", fontSize: 28, fontFamily: "Inter_700Bold", textShadowColor: "rgba(0,0,0,0.6)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>
+                  {profile.name}{"age" in profile && (profile as any).age ? `, ${(profile as any).age}` : ""}
                 </Text>
-              ) : null}
+                {"location" in profile && (profile as any).location ? (
+                  <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, fontFamily: "Inter_400Regular", marginTop: 4 }}>
+                    📍 {(profile as any).location}{"distance" in profile ? `  ·  ${(profile as any).distance} km` : ""}
+                  </Text>
+                ) : null}
+              </View>
+              {/* Buton Close */}
+              <TouchableOpacity
+                onPress={() => setShowProfileCard(false)}
+                style={{ position: "absolute", top: 14, right: 16, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 }}
+              >
+                <Text style={{ color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" }}>Închide</Text>
+              </TouchableOpacity>
+            </View>
 
-              {/* Height */}
-              {"height" in profile && (profile as any).height ? (
-                <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
-                  📏 {(profile as any).height}
-                </Text>
-              ) : null}
-
-              {/* Bio */}
-              {"bio" in profile && (profile as any).bio ? (
-                <Text style={{ color: colors.foreground, fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 22, marginTop: 2 }}>
+            {/* Info suplimentară (bio + interese) dacă există */}
+            {"bio" in profile && (profile as any).bio ? (
+              <View style={{ padding: 20, gap: 10 }}>
+                {"height" in profile && (profile as any).height ? (
+                  <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular" }}>
+                    📏 {(profile as any).height}
+                  </Text>
+                ) : null}
+                <Text style={{ color: colors.foreground, fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 22 }}>
                   {(profile as any).bio}
                 </Text>
-              ) : null}
-
-              {/* Interests */}
-              {"interests" in profile && Array.isArray((profile as any).interests) && (profile as any).interests.length > 0 ? (
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
-                  {((profile as any).interests as string[]).map((tag: string) => (
-                    <View key={tag} style={{ backgroundColor: colors.card, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: colors.border }}>
-                      <Text style={{ color: colors.foreground, fontSize: 13, fontFamily: "Inter_500Medium" }}>{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-
-              {/* Bottom spacing for home indicator */}
-              <View style={{ height: insets.bottom + 8 }} />
-            </View>
+                {"interests" in profile && Array.isArray((profile as any).interests) && (profile as any).interests.length > 0 ? (
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+                    {((profile as any).interests as string[]).map((tag: string) => (
+                      <View key={tag} style={{ backgroundColor: colors.card, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: colors.border }}>
+                        <Text style={{ color: colors.foreground, fontSize: 13, fontFamily: "Inter_500Medium" }}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+            <View style={{ height: insets.bottom + 12 }} />
           </View>
         </View>
       </Modal>
@@ -1165,10 +1244,10 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   messageList: { paddingHorizontal: 16, paddingVertical: 16, gap: 4 },
-  bubbleWrap: { marginVertical: 3 },
+  bubbleWrap: { marginVertical: 3, width: "100%" },
   bubbleWrapMe: { alignItems: "flex-end" },
   bubbleWrapThem: { alignItems: "flex-start" },
-  bubble: { maxWidth: "78%", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20 },
+  bubble: { maxWidth: "78%", minWidth: 52, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20 },
   bubbleMe: { borderBottomRightRadius: 6 },
   bubbleThem: { borderBottomLeftRadius: 6 },
   bubbleText: { fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 21 },

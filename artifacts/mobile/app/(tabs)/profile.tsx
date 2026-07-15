@@ -23,6 +23,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
 import { useGetMyProfile, useUpsertMyProfile, useResetAccount, useDeleteAccount } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import WithdrawModal from "@/components/WithdrawModal";
@@ -44,6 +45,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { signOut } = useAuth();
+  const queryClient = useQueryClient();
   const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, addCoins, isLive, setIsLive, myPhotos, addMyPhoto, removeMyPhoto, togglePhotoExclusive, resetLocalState } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
@@ -172,6 +174,7 @@ export default function ProfileScreen() {
               await resetAccountMutation.mutateAsync();
             } catch {}
             await resetLocalState();
+            queryClient.clear();
             router.replace("/onboarding");
           },
         },
