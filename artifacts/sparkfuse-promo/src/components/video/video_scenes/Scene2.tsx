@@ -36,8 +36,8 @@ export function Scene2() {
               initial={{ opacity: 0, y: -20 }}
               animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: -20 }}
             >
-              <h1 style={{ fontFamily: 'Bebas Neue', fontSize: 36, letterSpacing: '0.05em' }}>🔒 UNLOCK SPARKFUSE</h1>
-              <p style={{ fontFamily: 'Inter', color: '#F39C12', fontSize: 14, fontWeight: 600, marginTop: 4 }}>Adult Premium · €2 / month</p>
+              <h1 style={{ fontFamily: 'Bebas Neue', fontSize: 36, letterSpacing: '0.05em' }}>🔥 UNLOCK SPARKFUSE</h1>
+              <p style={{ fontFamily: 'Inter', color: '#F39C12', fontSize: 14, fontWeight: 600, marginTop: 4 }}>Premium Dating · €2 / month</p>
             </motion.div>
 
             <motion.div className="flex justify-center my-6"
@@ -54,13 +54,13 @@ export function Scene2() {
               {[
                 "Unlimited swipes & matches",
                 "Chat with all your matches",
-                "Send & receive gifts",
-                "Video calls & live streams",
+                "HD video calls",
+                "Live streams with the community",
                 "No ads, ever"
               ].map((perk, i) => (
                 <motion.div key={i} className="flex items-center gap-3"
                   initial={{ opacity: 0, x: -20 }}
-                  animate={phase >= 3 + (i*0.2) ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
+                  animate={phase >= 3 + (i * 0.2) ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
                 >
                   <div className="w-5 h-5 rounded-full bg-[#27ae60] flex items-center justify-center text-xs">✓</div>
                   <span style={{ fontFamily: 'Inter', fontSize: 13 }}>{perk}</span>
@@ -83,7 +83,7 @@ export function Scene2() {
                 animate={phase >= 6 ? { opacity: 1, y: 0, scale: [1, 1.02, 1] } : { opacity: 0, y: 20 }}
                 transition={phase >= 6 ? { scale: { repeat: Infinity, duration: 1.5 } } : undefined}
               >
-                SUBSCRIBE — €2/MONTH
+                START CONNECTING — €2/MONTH
               </motion.button>
               <p className="text-center text-[10px] text-white/40">🔒 Secure · SSL encrypted · Cancel anytime</p>
             </div>

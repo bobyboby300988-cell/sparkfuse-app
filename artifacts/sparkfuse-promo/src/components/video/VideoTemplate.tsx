@@ -202,7 +202,7 @@ function TapToPlay({ onStart }: { onStart: () => void }) {
             SPARK<span style={{ color: '#FF6B9D' }}>FUSE</span>
           </div>
           <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em', marginTop: 4 }}>
-            THE DATING APP THAT PAYS YOU
+            WHERE REAL CONNECTIONS HAPPEN
           </div>
         </motion.div>
 

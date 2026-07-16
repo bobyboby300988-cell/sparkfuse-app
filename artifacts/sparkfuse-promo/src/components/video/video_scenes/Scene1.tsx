@@ -9,7 +9,7 @@ export function Scene1() {
       setTimeout(() => setPhase(1), 500),
       setTimeout(() => setPhase(2), 1500),
       setTimeout(() => setPhase(3), 2500),
-      setTimeout(() => setPhase(4), 4500), // begin exit
+      setTimeout(() => setPhase(4), 4500),
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
@@ -35,9 +35,7 @@ export function Scene1() {
             top: `${Math.random() * 100}%`,
             opacity: Math.random() * 0.5 + 0.1
           }}
-          animate={{
-            y: [0, -40, 0],
-          }}
+          animate={{ y: [0, -40, 0] }}
           transition={{ duration: 3 + Math.random() * 3, repeat: Infinity, ease: 'easeInOut' }}
         />
       ))}
@@ -66,12 +64,12 @@ export function Scene1() {
           transition={{ duration: 0.6 }}
         >
           <span style={{ fontFamily: 'Inter', color: '#F39C12', letterSpacing: '0.2em', fontSize: '1.2rem', fontWeight: 600 }}>
-            THE DATING APP THAT PAYS YOU
+            WHERE REAL CONNECTIONS HAPPEN
           </span>
         </motion.div>
 
         <div className="flex justify-center gap-4 mt-16">
-          {['💳 €2/month', '💰 Earn Real Cash', '📱 App & Web'].map((text, i) => (
+          {['❤️ Real Matches', '📹 Video Calls', '📱 App & Web'].map((text, i) => (
             <motion.div key={text}
               className="px-5 py-2 rounded-full border border-white/20 bg-white/5 backdrop-blur-md text-white text-sm font-medium"
               initial={{ opacity: 0, y: 20 }}

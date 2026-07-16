@@ -35,16 +35,15 @@ export function Scene7() {
           SPARK<span style={{ color: '#FF6B9D' }}>FUSE</span>
         </div>
         <div style={{ fontFamily: 'Inter', color: '#F39C12', letterSpacing: '0.2em', fontSize: '0.85rem', fontWeight: 600, marginTop: 6 }}>
-          THE DATING APP THAT PAYS YOU
+          WHERE REAL CONNECTIONS HAPPEN
         </div>
       </motion.div>
 
-      {/* Store buttons — vertical stack so nothing overflows */}
+      {/* Store buttons */}
       <motion.div className="flex flex-col gap-3 mb-8 relative z-10 w-full"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={phase >= 2 ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0 }}
       >
-        {/* Row 1: App Store + Google Play */}
         <div className="flex gap-3">
           <div className="flex-1 bg-[rgba(22,18,32,0.97)] border border-white/10 px-4 py-3 rounded-xl flex items-center gap-3">
             <span className="text-xl">🍎</span>
@@ -61,11 +60,10 @@ export function Scene7() {
             </div>
           </div>
         </div>
-        {/* Row 2: Web App full-width */}
         <div className="bg-[rgba(22,18,32,0.97)] border border-[#C0392B] px-4 py-3 rounded-xl flex items-center justify-center gap-3 shadow-[0_0_15px_rgba(192,57,43,0.3)]">
           <span className="text-xl">🌐</span>
           <div className="text-left">
-            <div className="text-[9px] text-[#FF6B9D]">PLAY NOW IN BROWSER</div>
+            <div className="text-[9px] text-[#FF6B9D]">OPEN IN BROWSER</div>
             <div className="text-sm font-bold">Web App — No Download Needed</div>
           </div>
         </div>
@@ -98,7 +96,7 @@ export function Scene7() {
           animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
-          SWIPE · MATCH · EARN
+          SWIPE · MATCH · CONNECT
         </motion.div>
       </motion.div>
     </motion.div>
