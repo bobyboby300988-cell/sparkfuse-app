@@ -148,7 +148,7 @@ export default function DiscoverScreen() {
   const upsertMyProfile = useUpsertMyProfile();
   const [filterVisible, setFilterVisible] = useState(false);
   const [filterSeeking, setFilterSeeking] = useState("everyone");
-  const [filterMaxKm, setFilterMaxKm] = useState<number | null>(null);
+  const [filterMaxKm, setFilterMaxKm] = useState<number | null>(null); // null = Anywhere (default)
 
   const { data, isLoading, refetch } = useGetFeed();
   const createSwipe = useCreateSwipe();
