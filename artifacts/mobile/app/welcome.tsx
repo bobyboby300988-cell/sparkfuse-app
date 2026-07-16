@@ -26,8 +26,10 @@ import { useTranslation } from "react-i18next";
 
 const { width: W } = Dimensions.get("window");
 
-const API_BASE = "https://match-maker-2025ap.replit.app/api";
-const APP_DOMAIN = "https://match-maker-2025ap.replit.app";
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
+  : (typeof window !== "undefined" ? `${window.location.origin}/api` : "https://workspace.2025ap.replit.app/api");
+const APP_DOMAIN = typeof window !== "undefined" ? window.location.origin : "https://workspace.2025ap.replit.app";
 
 const KEYWORDS = [
   { label: "Love",          icon: "❤️", color: "#FF3366" },

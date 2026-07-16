@@ -78,6 +78,7 @@ const KEYS = {
   CREATOR_MODE: "@spark/creator_mode",
   CREATOR_PRICE: "@spark/creator_price",
   EARNINGS: "@spark/earnings",
+  PENDING_COINS: "@spark/pending_coins_credit",
   COINS: "@spark/coins",
   IS_LIVE: "@spark/is_live",
   STRIPE_CONNECT_ACCOUNT_ID: "@spark/stripe_connect_account_id",
@@ -152,14 +153,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     load();
   }, []);
 
-  // Sync earnings AND coin balance from server — server is the source of truth.
+  // Sync earnings, coin balance, and subscription from server when signed in.
+  // Also flushes any pending coin credit stored from a pre-auth Stripe redirect.
   useEffect(() => {
     if (!isSignedIn) return;
     async function syncServerData() {
       try {
         const token = await getToken();
         const base = getApiUrl();
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+        // Flush any pending coin credit saved before auth was ready
+        const pendingCoins = await AsyncStorage.getItem(KEYS.PENDING_COINS);
+        if (pendingCoins) {
+          const amount = parseFloat(pendingCoins);
+          await AsyncStorage.removeItem(KEYS.PENDING_COINS);
+          if (amount > 0) {
+            await fetch(`${base}/api/coins/add`, {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ amount }),
+            });
+          }
+        }
+
+        // Check for pending subscription success redirect
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get("stripe_sub") === "success") {
+            window.history.replaceState({}, "", window.location.pathname);
+            try {
+              const restoreRes = await fetch(`${base}/api/subscription/restore`, {
+                method: "POST",
+                headers: { ...headers, "Content-Type": "application/json" },
+              });
+              if (restoreRes.ok) {
+                const data = await restoreRes.json();
+                if (data.restored) {
+                  setIsSubscribedState(true);
+                  await AsyncStorage.setItem(KEYS.SUBSCRIBED, "true");
+                }
+              }
+            } catch {}
+          }
+        }
 
         const [earningsRes, coinsRes] = await Promise.all([
           fetch(`${base}/api/gifts/earnings`, { headers }),
@@ -183,24 +220,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     syncServerData();
   }, [isSignedIn]);
 
-  // On web, Stripe Checkout redirects back with a real page reload (no
-  // custom URL scheme like on native), so any pending token purchase has
-  // to be recovered from the URL after the app remounts.
+  // On web, Stripe Checkout redirects back with a real page reload. We verify
+  // the session here (URL params available immediately), but save the tokens to
+  // AsyncStorage so we can credit them server-side once Clerk auth loads.
   useEffect(() => {
     if (Platform.OS !== "web") return;
     checkPendingWebTokenCheckout()
       .then((result) => {
         if (!result) return;
-        setCoinBalance((prev) => {
-          const updated = parseFloat((prev + result.tokens).toFixed(2));
-          AsyncStorage.setItem(KEYS.COINS, String(updated));
-          return updated;
-        });
-        Alert.alert("Spark Tokens added! 🔥", `${result.tokens} ST added to your wallet!`);
+        // Stash pending credit — will be applied once isSignedIn becomes true
+        AsyncStorage.setItem(KEYS.PENDING_COINS, String(result.tokens));
       })
-      .catch(() => {
-        // ignore — nothing to recover or verification failed
-      });
+      .catch(() => {});
   }, []);
 
   const setSubscribed = async () => {

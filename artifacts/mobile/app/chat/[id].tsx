@@ -649,16 +649,9 @@ export default function ChatScreen() {
 
   const handleMediaPress = () => {
     if (Platform.OS === "web") {
-      Alert.alert(
-        "Trimite media",
-        undefined,
-        [
-          { text: "📷 Galerie foto/video", onPress: () => openWebFilePicker("image/*,video/*") },
-          { text: "📸 Fă o poză acum", onPress: () => openWebFilePicker("image/*", "environment") },
-          { text: "🎥 Filmează acum", onPress: () => openWebFilePicker("video/*", "environment") },
-          { text: "Anulează", style: "cancel" },
-        ]
-      );
+      // On web, Alert.alert callbacks can't reliably trigger file pickers (browser
+      // security requires direct user gesture). Open the file picker immediately.
+      openWebFilePicker("image/*,video/*");
       return;
     }
     if (Platform.OS === "ios") {

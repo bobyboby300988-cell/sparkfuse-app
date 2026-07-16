@@ -38,73 +38,11 @@ function loadJitsiScript(cb: () => void) {
   document.head.appendChild(s);
 }
 
-export function openInAppCall(roomUrl: string, isVideo: boolean, onEnd?: () => void) {
+export function openInAppCall(roomUrl: string, _isVideo: boolean, _onEnd?: () => void) {
   if (Platform.OS !== "web") return;
-
-  const url = new URL(roomUrl);
-  const domain = url.hostname;
-  const roomName = url.pathname.replace("/", "");
-
-  const overlay = document.createElement("div");
-  overlay.style.cssText = `
-    position: fixed; inset: 0; z-index: 99999;
-    background: #000; display: flex; flex-direction: column;
-  `;
-
-  const container = document.createElement("div");
-  container.style.cssText = "flex: 1; width: 100%; height: 100%;";
-  overlay.appendChild(container);
-
-  document.body.appendChild(overlay);
-  document.body.style.overflow = "hidden";
-
-  let api: { dispose: () => void; addListener: (e: string, cb: () => void) => void } | null = null;
-
-  const cleanup = () => {
-    try { api?.dispose(); } catch {}
-    if (document.body.contains(overlay)) {
-      document.body.removeChild(overlay);
-    }
-    document.body.style.overflow = "";
-    onEnd?.();
-  };
-
-  loadJitsiScript(() => {
-    if (!document.body.contains(overlay)) return;
-    try {
-      api = new window.JitsiMeetExternalAPI(domain, {
-        roomName,
-        width: "100%",
-        height: "100%",
-        parentNode: container,
-        configOverwrite: {
-          startWithVideoMuted: !isVideo,
-          startWithAudioMuted: false,
-          prejoinPageEnabled: false,
-          disableDeepLinking: true,
-          disableThirdPartyRequests: false,
-          enableNoisyMicDetection: false,
-        },
-        interfaceConfigOverwrite: {
-          SHOW_JITSI_WATERMARK: false,
-          SHOW_WATERMARK_FOR_GUESTS: false,
-          TOOLBAR_BUTTONS: [
-            "microphone",
-            "camera",
-            "hangup",
-            "tileview",
-            ...(isVideo ? ["fullscreen"] : []),
-          ],
-          DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
-        },
-        userInfo: { displayName: "SparkFuse" },
-      });
-      api.addListener("readyToClose", cleanup);
-      api.addListener("videoConferenceLeft", cleanup);
-    } catch {
-      cleanup();
-    }
-  });
+  // Open the Jitsi room directly in a new tab — most reliable on web browsers.
+  // Both caller and recipient join the same named room this way.
+  window.open(roomUrl, "_blank", "noopener,noreferrer");
 }
 
 export default function InAppCall(_props: InAppCallProps) {

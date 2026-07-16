@@ -5,6 +5,7 @@ import { getStripeClient } from '../stripeClient';
 import { logger } from '../lib/logger';
 import { db, usersTable } from '@workspace/db';
 import { requireAuth } from '../middlewares/requireAuth';
+import { ensureDbUser } from '../lib/jitUser';
 
 const router: IRouter = Router();
 
@@ -64,12 +65,16 @@ router.post('/stripe/checkout-session', async (req, res) => {
 });
 
 // Create a Stripe Subscription Checkout (€2/month)
-router.post('/stripe/subscription-checkout', async (req, res) => {
+router.post('/stripe/subscription-checkout', requireAuth, async (req, res) => {
   try {
     const { successUrl, cancelUrl } = req.body as {
       successUrl: string;
       cancelUrl: string;
     };
+
+    const userId = req.auth!.userId;
+    // Ensure the user record exists in DB so webhook can find them
+    await ensureDbUser(userId);
 
     const stripe = getStripeClient();
     const session = await stripe.checkout.sessions.create({
@@ -91,6 +96,7 @@ router.post('/stripe/subscription-checkout', async (req, res) => {
       mode: 'subscription',
       success_url: successUrl,
       cancel_url: cancelUrl,
+      metadata: { userId },
     });
 
     res.json({ url: session.url });
@@ -300,19 +306,29 @@ router.post('/stripe/webhook', async (req, res) => {
         const customerId = typeof session.customer === 'string' ? session.customer : session.customer.id;
         const subscriptionId = typeof session.subscription === 'string' ? session.subscription : (session.subscription as Stripe.Subscription).id;
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        const customer = await stripe.customers.retrieve(customerId);
-        if ((customer as Stripe.DeletedCustomer).deleted) break;
-        const email = (customer as Stripe.Customer).email;
-        if (!email) break;
-        await db.update(usersTable).set({
+        const subData = {
           isSubscribed: true,
           subscribedAt: new Date(),
           stripeCustomerId: customerId,
           stripeSubscriptionId: subscriptionId,
           subscriptionStatus: subscription.status,
           subscriptionCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
-        }).where(eq(usersTable.email, email));
-        logger.info({ email, customerId }, 'Subscription activated via webhook');
+        };
+        // Prefer userId from metadata (most reliable); fall back to email match
+        const metaUserId = session.metadata?.userId;
+        if (metaUserId) {
+          // Ensure user exists in DB before updating (handles new registrants)
+          await ensureDbUser(metaUserId);
+          await db.update(usersTable).set(subData).where(eq(usersTable.id, metaUserId));
+          logger.info({ userId: metaUserId, customerId }, 'Subscription activated via webhook (userId)');
+        } else {
+          const customer = await stripe.customers.retrieve(customerId);
+          if ((customer as Stripe.DeletedCustomer).deleted) break;
+          const email = (customer as Stripe.Customer).email;
+          if (!email) break;
+          await db.update(usersTable).set(subData).where(eq(usersTable.email, email));
+          logger.info({ email, customerId }, 'Subscription activated via webhook (email)');
+        }
         break;
       }
 
@@ -375,6 +391,56 @@ router.post('/stripe/webhook', async (req, res) => {
   } catch (err: any) {
     logger.error({ err, eventType: event.type }, 'Webhook handler error');
     res.status(500).json({ error: 'Handler error' });
+  }
+});
+
+// Restore subscription — looks up paid Stripe subscriptions by the user's
+// email and activates the account if one is found. Useful when the Stripe
+// webhook fired but couldn't match a DB record (e.g. user hadn't logged in yet).
+router.post('/subscription/restore', requireAuth, async (req, res) => {
+  const user = req.dbUser!;
+  // Already active — nothing to do
+  if (user.isSubscribed) {
+    res.json({ restored: true, alreadyActive: true });
+    return;
+  }
+  if (!user.email) {
+    res.status(400).json({ error: 'No email on account — cannot look up subscription.' });
+    return;
+  }
+  try {
+    const stripe = getStripeClient();
+    // Search Stripe for customers with this email
+    const customers = await stripe.customers.list({ email: user.email, limit: 5 });
+    if (customers.data.length === 0) {
+      res.json({ restored: false });
+      return;
+    }
+    for (const customer of customers.data) {
+      const subs = await stripe.subscriptions.list({
+        customer: customer.id,
+        status: 'active',
+        limit: 1,
+      });
+      if (subs.data.length > 0) {
+        const sub = subs.data[0];
+        await db.update(usersTable).set({
+          isSubscribed: true,
+          subscribedAt: new Date(),
+          stripeCustomerId: customer.id,
+          stripeSubscriptionId: sub.id,
+          subscriptionStatus: sub.status,
+          subscriptionCurrentPeriodEnd: new Date(sub.current_period_end * 1000),
+        }).where(eq(usersTable.id, user.id));
+        logger.info({ userId: user.id, customerId: customer.id }, 'Subscription restored manually');
+        res.json({ restored: true });
+        return;
+      }
+    }
+    res.json({ restored: false });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to restore subscription');
+    res.status(500).json({ error: err.message ?? 'Restore failed' });
   }
 });
 
