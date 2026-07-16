@@ -45,7 +45,7 @@ export default function WithdrawModal({ visible, onClose }: Props) {
     method: "stripe" | "paypal";
   } | null>(null);
 
-  const PLATFORM_FEE = 0.15;
+  const PLATFORM_FEE = 0.20;
   const fee = parseFloat((earnings * PLATFORM_FEE).toFixed(2));
   const netAmount = parseFloat((earnings - fee).toFixed(2));
   const canWithdraw = earnings >= 1;
@@ -214,7 +214,7 @@ export default function WithdrawModal({ visible, onClose }: Props) {
                   <Text style={[styles.breakdownValue, { color: colors.foreground }]}>€{success.gross.toFixed(2)}</Text>
                 </View>
                 <View style={styles.breakdownRow}>
-                  <Text style={[styles.breakdownLabel, { color: colors.mutedForeground }]}>Platform fee (15%)</Text>
+                  <Text style={[styles.breakdownLabel, { color: colors.mutedForeground }]}>Platform fee (20%)</Text>
                   <Text style={[styles.breakdownValue, { color: "#EF4444" }]}>−€{success.fee.toFixed(2)}</Text>
                 </View>
                 <View style={[styles.breakdownDivider, { backgroundColor: colors.border }]} />
@@ -359,7 +359,7 @@ export default function WithdrawModal({ visible, onClose }: Props) {
                     <Text style={[styles.feeValue, { color: colors.foreground }]}>€{earnings.toFixed(2)}</Text>
                   </View>
                   <View style={styles.feeRow}>
-                    <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Platform fee (15%)</Text>
+                    <Text style={[styles.feeLabel, { color: colors.mutedForeground }]}>Platform fee (20%)</Text>
                     <Text style={[styles.feeValue, { color: "#EF4444" }]}>−€{fee.toFixed(2)}</Text>
                   </View>
                   <View style={[styles.feeDivider, { backgroundColor: colors.border }]} />

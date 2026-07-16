@@ -13,6 +13,7 @@ import accountRouter from "./account";
 import messagesRouter from "./messages";
 import giftsRouter from "./gifts";
 import coinsRouter from "./coins";
+import callsRouter from "./calls";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(accountRouter);
 router.use(messagesRouter);
 router.use(giftsRouter);
 router.use(coinsRouter);
+router.use(callsRouter);
 
 export default router;

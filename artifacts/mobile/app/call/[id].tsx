@@ -4,7 +4,9 @@ import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -24,13 +26,14 @@ function formatDuration(seconds: number) {
 }
 
 export default function CallScreen() {
-  const { id, mode, name: nameParam, photo: photoParam, roomUrl } =
+  const { id, mode, name: nameParam, photo: photoParam, roomUrl, token } =
     useLocalSearchParams<{
       id: string;
       mode?: string;
       name?: string;
       photo?: string;
       roomUrl?: string;
+      token?: string;
     }>();
   const insets = useSafeAreaInsets();
   const isVoice = mode === "voice";
@@ -67,6 +70,13 @@ export default function CallScreen() {
   const [duration, setDuration] = useState(0);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // Build final Daily.co URL with token
+  const dailyUrl = useMemo(() => {
+    if (!roomUrl) return null;
+    const base = roomUrl.includes("?") ? roomUrl : roomUrl;
+    return token ? `${base}?t=${token}` : base;
+  }, [roomUrl, token]);
+
   useEffect(() => {
     const pulse = Animated.loop(
       Animated.sequence([
@@ -83,11 +93,12 @@ export default function CallScreen() {
       ])
     );
     pulse.start();
+    // Show connecting screen briefly, then reveal the Daily iframe
     const t = setTimeout(() => {
       setReady(true);
       pulse.stop();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }, 1500);
+    }, 1200);
     return () => {
       pulse.stop();
       clearTimeout(t);
@@ -107,37 +118,48 @@ export default function CallScreen() {
 
   if (!profile) {
     return (
-      <View
-        style={[
-          styles.container,
-          { justifyContent: "center", alignItems: "center" },
-        ]}
-      >
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <Text style={{ color: "#fff", fontSize: 16 }}>Profile not found</Text>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{ marginTop: 20 }}
-        >
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
           <Text style={{ color: "#FF3366", fontSize: 15 }}>Go back</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  if (!roomUrl) {
+  if (!dailyUrl) {
     return (
-      <View
-        style={[
-          styles.container,
-          { justifyContent: "center", alignItems: "center" },
-        ]}
-      >
-        <Text style={{ color: "#fff", fontSize: 16 }}>Setting up call…</Text>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{ marginTop: 20 }}
-        >
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator color="#FF3366" size="large" />
+        <Text style={{ color: "#fff", fontSize: 15, marginTop: 12 }}>Setting up call…</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
           <Text style={{ color: "#FF3366", fontSize: 15 }}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // On web, Daily.co works natively in the browser — render a full-page iframe
+  if (Platform.OS === "web") {
+    return (
+      <View style={styles.container}>
+        <iframe
+          src={dailyUrl}
+          style={{ flex: 1, border: "none", width: "100%", height: "100%" }}
+          allow="camera; microphone; autoplay; display-capture; fullscreen"
+          title="Video Call"
+        />
+        <TouchableOpacity
+          style={[styles.endCallBtn, { position: "absolute", bottom: 40, alignSelf: "center" }]}
+          onPress={handleEndCall}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="call"
+            size={30}
+            color="#fff"
+            style={{ transform: [{ rotate: "135deg" }] }}
+          />
         </TouchableOpacity>
       </View>
     );
@@ -146,27 +168,17 @@ export default function CallScreen() {
   return (
     <View style={styles.container}>
       {!ready ? (
+        /* ─── Connecting screen ─── */
         <>
           <Image
             source={profile.photo}
             style={StyleSheet.absoluteFill}
             contentFit="cover"
           />
-          <BlurView
-            intensity={70}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-          />
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: "rgba(13,11,18,0.72)" },
-            ]}
-          />
+          <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(13,11,18,0.72)" }]} />
 
-          <View
-            style={[styles.topBar, { paddingTop: (insets.top || 0) + 16 }]}
-          >
+          <View style={[styles.topBar, { paddingTop: (insets.top || 0) + 16 }]}>
             <TouchableOpacity onPress={handleEndCall} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={22} color="#fff" />
             </TouchableOpacity>
@@ -181,10 +193,7 @@ export default function CallScreen() {
 
           <View style={styles.center}>
             <Animated.View
-              style={[
-                styles.pulseRing,
-                { transform: [{ scale: pulseAnim }] },
-              ]}
+              style={[styles.pulseRing, { transform: [{ scale: pulseAnim }] }]}
             />
             <Image
               source={profile.photo}
@@ -196,12 +205,7 @@ export default function CallScreen() {
             </Text>
           </View>
 
-          <View
-            style={[
-              styles.controls,
-              { paddingBottom: (insets.bottom || 0) + 28 },
-            ]}
-          >
+          <View style={[styles.controls, { paddingBottom: (insets.bottom || 0) + 28 }]}>
             <TouchableOpacity
               style={styles.endCallBtn}
               onPress={handleEndCall}
@@ -217,36 +221,42 @@ export default function CallScreen() {
           </View>
         </>
       ) : (
+        /* ─── Live Daily.co call inside the app ─── */
         <>
           <WebView
-            source={{ uri: roomUrl }}
+            source={{ uri: dailyUrl }}
             style={StyleSheet.absoluteFill}
             allowsInlineMediaPlayback
             mediaPlaybackRequiresUserAction={false}
             javaScriptEnabled
             domStorageEnabled
+            allowsFullscreenVideo
+            // Grant camera + microphone access automatically on iOS
+            mediaCapturePermissionGrantType="grant"
+            // Grant on Android
+            onPermissionRequest={(event) => {
+              event.nativeEvent.grant(event.nativeEvent.resources);
+            }}
           />
 
+          {/* Floating end-call button */}
           <View
-            style={[styles.webOverlay, { paddingTop: (insets.top || 0) + 8 }]}
+            style={[styles.endCallOverlay, { bottom: (insets.bottom || 0) + 28 }]}
             pointerEvents="box-none"
           >
-            <View style={styles.topBar} pointerEvents="box-none">
-              <TouchableOpacity
-                onPress={handleEndCall}
-                style={styles.backBtn}
-              >
-                <Ionicons name="chevron-back" size={22} color="#fff" />
-              </TouchableOpacity>
-              <View
-                style={{ alignItems: "center", flex: 1 }}
-                pointerEvents="none"
-              >
-                <Text style={styles.callerName}>{profile.name}</Text>
-                <Text style={styles.callStatus}>{formatDuration(duration)}</Text>
-              </View>
-              <View style={{ width: 38 }} />
-            </View>
+            <Text style={styles.timerText}>{formatDuration(duration)}</Text>
+            <TouchableOpacity
+              style={styles.endCallBtn}
+              onPress={handleEndCall}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="call"
+                size={30}
+                color="#fff"
+                style={{ transform: [{ rotate: "135deg" }] }}
+              />
+            </TouchableOpacity>
           </View>
         </>
       )}
@@ -317,6 +327,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     backgroundColor: "rgba(0,0,0,0.35)",
   },
+  endCallOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    gap: 12,
+  },
+  timerText: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    backgroundColor: "rgba(0,0,0,0.4)",
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
   endCallBtn: {
     width: 72,
     height: 72,
@@ -329,12 +355,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 14,
     elevation: 10,
-  },
-
-  webOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
   },
 });

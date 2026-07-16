@@ -6,7 +6,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 const router: IRouter = Router();
 
 // 1 ST = €0.01. Receiver is credited 100% of the gift's euro value.
-// The platform's 15% revenue share is deducted at withdrawal time, not here.
+// The platform's 20% revenue share is deducted at withdrawal time, not here.
 const ST_TO_EUR = 0.01;
 
 router.post("/gifts/send", requireAuth, async (req: Request, res: Response) => {

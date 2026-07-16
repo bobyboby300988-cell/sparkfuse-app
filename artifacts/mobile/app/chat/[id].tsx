@@ -168,16 +168,43 @@ function CallBubble({
   targetPhoto: string;
   colors: ReturnType<typeof useColors>;
 }) {
-  const isExpired = Date.now() - timestamp > 60 * 60 * 1000; // 1 oră
+  const isExpired = Date.now() - timestamp > 60 * 60 * 1000;
+  const { getToken } = useAuth();
+  const [joining, setJoining] = React.useState(false);
 
-  const handleAnswer = () => {
-    if (!roomUrl) return;
+  const handleAnswer = async () => {
+    if (!roomUrl || joining) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // Jitsi blocks WebView/iframe embedding — always open in browser
-    if (Platform.OS === "web") {
-      window.open(roomUrl, "_blank", "noopener,noreferrer");
-    } else {
+    setJoining(true);
+    try {
+      // Extract Daily room name from URL: https://xxx.daily.co/spark-abc → spark-abc
+      const roomName = roomUrl.replace(/\?.*$/, "").split("/").pop() ?? "";
+      const tok = await getToken();
+      const res = await fetch(`${getApiUrl()}/api/calls/room`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tok}`,
+        },
+        body: JSON.stringify({ roomName, isOwner: false, userName: targetName }),
+      });
+      const data = (await res.json()) as { roomUrl: string; token: string };
+      router.push({
+        pathname: "/call/[id]",
+        params: {
+          id: targetId,
+          mode: isVoice ? "voice" : "video",
+          roomUrl: data.roomUrl,
+          token: data.token,
+          name: targetName,
+          photo: targetPhoto,
+        },
+      });
+    } catch {
+      // Fallback: open in browser if something goes wrong
       Linking.openURL(roomUrl);
+    } finally {
+      setJoining(false);
     }
   };
 
@@ -442,49 +469,56 @@ export default function ChatScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Build a clean Jitsi URL that skips the moderator/pre-join screen
-  const buildJitsiUrl = (roomId: string) => {
-    const base = `https://meet.jit.si/SparkFuse-${roomId}`;
-    const params = [
-      "config.prejoinPageEnabled=false",
-      "config.startWithVideoMuted=false",
-      "config.startWithAudioMuted=false",
-      "config.disableDeepLinking=true",
-      "config.toolbarButtons=[\"microphone\",\"camera\",\"hangup\"]",
-    ].join("&");
-    return `${base}#${params}`;
-  };
-
-  const handleVideoCall = async () => {
+  // Create a Daily.co room + token via our API, then navigate in-app to the call screen
+  const startDailyCall = async (isVideo: boolean) => {
     if (!id) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const roomId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const roomUrl = buildJitsiUrl(roomId);
+    const roomId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     try {
-      await serverPostMessage({ data: { receiverId: id, text: "📹 Video call", mediaType: "call_video", mediaUrl: roomUrl } });
-    } catch {}
-    // Open in browser — works on both web and mobile (Jitsi blocks WebView/iframe)
-    if (Platform.OS === "web") {
-      window.open(roomUrl, "_blank", "noopener,noreferrer");
-    } else {
-      Linking.openURL(roomUrl);
+      const tok = await getToken();
+      const res = await fetch(`${getApiUrl()}/api/calls/room`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tok}`,
+        },
+        body: JSON.stringify({ roomName: roomId, isOwner: true, userName: authData?.user?.name ?? "User" }),
+      });
+      const data = (await res.json()) as { roomUrl: string; token: string };
+      // Send the room URL (without token) so the other person can join with their own token
+      try {
+        await serverPostMessage({
+          data: {
+            receiverId: id,
+            text: isVideo ? "📹 Video call" : "📞 Voice call",
+            mediaType: isVideo ? "call_video" : "call_voice",
+            mediaUrl: data.roomUrl,
+          },
+        });
+      } catch {}
+      // Navigate in-app — Daily.co works in WebView
+      const photoStr = typeof profile?.photo === "object" && "uri" in profile.photo
+        ? profile.photo.uri
+        : "";
+      router.push({
+        pathname: "/call/[id]",
+        params: {
+          id,
+          mode: isVideo ? "video" : "voice",
+          roomUrl: data.roomUrl,
+          token: data.token,
+          name: profile?.name ?? "",
+          photo: photoStr,
+        },
+      });
+    } catch {
+      // API unavailable — notify user
+      Alert.alert("Call failed", "Could not start call. Please try again.");
     }
   };
 
-  const handleVoiceCall = async () => {
-    if (!id) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const roomId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const roomUrl = buildJitsiUrl(roomId);
-    try {
-      await serverPostMessage({ data: { receiverId: id, text: "📞 Voice call", mediaType: "call_voice", mediaUrl: roomUrl } });
-    } catch {}
-    if (Platform.OS === "web") {
-      window.open(roomUrl, "_blank", "noopener,noreferrer");
-    } else {
-      Linking.openURL(roomUrl);
-    }
-  };
+  const handleVideoCall = () => startDailyCall(true);
+  const handleVoiceCall = () => startDailyCall(false);
 
   const doBlock = async () => {
     if (!id) return;
