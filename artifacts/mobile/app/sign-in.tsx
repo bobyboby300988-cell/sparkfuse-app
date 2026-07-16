@@ -6,7 +6,6 @@ import { router, type Href } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -29,34 +28,11 @@ export default function SignInScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const isLoading = fetchStatus === "fetching" || loading;
+  // OTP verification step
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [otp, setOtp] = useState("");
 
-  const attemptSignIn = async () => {
-    if (!signIn) return false;
-    const { error } = await signIn.password({
-      emailAddress: email.trim().toLowerCase(),
-      password,
-    });
-    if (error) {
-      const code: string = (error as any)?.code ?? "";
-      const msg =
-        code === "form_password_incorrect"
-          ? "Incorrect password. Please try again."
-          : code === "form_identifier_not_found"
-          ? "No account found with that email."
-          : code === "form_param_format_invalid"
-          ? "Please enter a valid email address."
-          : (error as any)?.longMessage ?? (error as any)?.message ?? "Sign in failed. Please try again.";
-      setErrorMsg(msg);
-      return false;
-    }
-    if (signIn.status === "complete") {
-      await signIn.finalize();
-      return true;
-    }
-    setErrorMsg("Sign in incomplete. Please try again.");
-    return false;
-  };
+  const isLoading = fetchStatus === "fetching" || loading;
 
   const isSessionError = (err: any) => {
     const code: string = err?.errors?.[0]?.code ?? err?.code ?? "";
@@ -73,39 +49,92 @@ export default function SignInScreen() {
   const handleSubmit = async () => {
     if (!signIn) return;
     if (!email.trim() || !password) {
-      setErrorMsg("Please enter your email and password.");
+      setErrorMsg("Introdu email-ul și parola.");
       return;
     }
     setErrorMsg("");
     setLoading(true);
     try {
-      await attemptSignIn();
+      const { error } = await signIn.password({
+        emailAddress: email.trim().toLowerCase(),
+        password,
+      });
+
+      if (error) {
+        const code: string = (error as any)?.code ?? "";
+        const msg =
+          code === "form_password_incorrect"
+            ? "Parolă incorectă. Încearcă din nou."
+            : code === "form_identifier_not_found"
+            ? "Nu există cont cu acest email."
+            : code === "form_param_format_invalid"
+            ? "Introdu un email valid."
+            : (error as any)?.longMessage ?? (error as any)?.message ?? "Autentificare eșuată. Încearcă din nou.";
+        setErrorMsg(msg);
+        return;
+      }
+
+      if (signIn.status === "complete") {
+        await signIn.finalize();
+        router.replace("/");
+        return;
+      }
+
+      // Needs second factor (email OTP) — send code and show verification screen
+      if (
+        signIn.status === "needs_second_factor" ||
+        signIn.status === "needs_first_factor"
+      ) {
+        try {
+          await (signIn as any).verifications?.sendEmailCode?.();
+        } catch (_) {
+          // code may have been sent automatically
+        }
+        setNeedsVerification(true);
+        return;
+      }
+
+      // Fallback: try sending email code anyway
+      try {
+        await (signIn as any).verifications?.sendEmailCode?.();
+        setNeedsVerification(true);
+      } catch (_) {
+        setErrorMsg("Autentificare incompletă. Încearcă din nou.");
+      }
     } catch (err: any) {
       if (isSessionError(err)) {
-        // Stale session left over from a previous logout — clear it and retry once.
         try { await signOut(); } catch (_) {}
         try {
-          await attemptSignIn();
-        } catch (retryErr: any) {
-          const code: string = retryErr?.errors?.[0]?.code ?? retryErr?.code ?? "";
-          const msg =
-            code === "form_password_incorrect"
-              ? "Incorrect password. Please try again."
-              : code === "form_identifier_not_found"
-              ? "No account found with that email."
-              : retryErr?.errors?.[0]?.longMessage ?? retryErr?.message ?? "Sign in failed. Please try again.";
-          setErrorMsg(msg);
+          const { error: retryErr } = await signIn.password({
+            emailAddress: email.trim().toLowerCase(),
+            password,
+          });
+          if (!retryErr && signIn.status === "complete") {
+            await signIn.finalize();
+            router.replace("/");
+          } else if (retryErr) {
+            const code: string = (retryErr as any)?.code ?? "";
+            setErrorMsg(
+              code === "form_password_incorrect"
+                ? "Parolă incorectă."
+                : code === "form_identifier_not_found"
+                ? "Nu există cont cu acest email."
+                : (retryErr as any)?.longMessage ?? (retryErr as any)?.message ?? "Autentificare eșuată."
+            );
+          }
+        } catch (retryErr2: any) {
+          setErrorMsg(retryErr2?.message ?? "Autentificare eșuată.");
         }
       } else {
         const code: string = err?.errors?.[0]?.code ?? err?.code ?? "";
         const msg =
           code === "form_password_incorrect"
-            ? "Incorrect password. Please try again."
+            ? "Parolă incorectă. Încearcă din nou."
             : code === "form_identifier_not_found"
-            ? "No account found with that email."
+            ? "Nu există cont cu acest email."
             : code === "form_param_format_invalid"
-            ? "Please enter a valid email address."
-            : err?.errors?.[0]?.longMessage ?? err?.message ?? "Sign in failed. Please try again.";
+            ? "Introdu un email valid."
+            : err?.errors?.[0]?.longMessage ?? err?.message ?? "Autentificare eșuată. Încearcă din nou.";
         setErrorMsg(msg);
       }
     } finally {
@@ -113,6 +142,141 @@ export default function SignInScreen() {
     }
   };
 
+  const handleVerifyOtp = async () => {
+    if (!signIn) return;
+    if (!otp.trim()) {
+      setErrorMsg("Introdu codul primit pe email.");
+      return;
+    }
+    setErrorMsg("");
+    setLoading(true);
+    try {
+      const { error } = await (signIn as any).verifications.verifyEmailCode({ code: otp.trim() });
+      if (error) {
+        const code: string = (error as any)?.code ?? "";
+        setErrorMsg(
+          code === "form_code_incorrect"
+            ? "Cod incorect. Încearcă din nou."
+            : code === "verification_expired"
+            ? "Codul a expirat. Apasă Retrimite."
+            : (error as any)?.longMessage ?? (error as any)?.message ?? "Cod invalid."
+        );
+        return;
+      }
+      if (signIn.status === "complete") {
+        await signIn.finalize();
+        router.replace("/");
+      } else {
+        setErrorMsg("Verificare incompletă. Încearcă din nou.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.errors?.[0]?.longMessage ?? err?.message ?? "Eroare la verificare.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!signIn) return;
+    setErrorMsg("");
+    setLoading(true);
+    try {
+      await (signIn as any).verifications?.sendEmailCode?.();
+      setErrorMsg("Cod nou trimis pe email.");
+    } catch (err: any) {
+      setErrorMsg("Nu s-a putut retrimite codul.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── OTP Screen ─────────────────────────────────────────────────────────────
+  if (needsVerification) {
+    return (
+      <LinearGradient colors={["#0D0D1A", "#15080F", "#0D0D1A"]} style={styles.root}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.scroll,
+              { paddingTop: insets.top + (Platform.OS === "web" ? 80 : 20), paddingBottom: insets.bottom + 40 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <TouchableOpacity onPress={() => setNeedsVerification(false)} style={styles.backBtn} activeOpacity={0.7}>
+              <Ionicons name="chevron-back" size={24} color="rgba(255,255,255,0.6)" />
+            </TouchableOpacity>
+
+            <View style={styles.logoBlock}>
+              <View style={styles.flameRing}>
+                <BrandLogo size={44} />
+              </View>
+              <Text style={styles.title}>Verificare email</Text>
+              <Text style={styles.subtitle}>
+                Am trimis un cod de verificare la{"\n"}{email.trim().toLowerCase()}
+              </Text>
+            </View>
+
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Cod de verificare</Text>
+                <View style={styles.inputWrap}>
+                  <Ionicons name="shield-checkmark-outline" size={18} color="rgba(255,255,255,0.35)" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="123456"
+                    placeholderTextColor="rgba(255,255,255,0.25)"
+                    value={otp}
+                    onChangeText={(v) => { setOtp(v); setErrorMsg(""); }}
+                    keyboardType="number-pad"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    maxLength={6}
+                    returnKeyType="done"
+                    onSubmitEditing={handleVerifyOtp}
+                    autoFocus
+                  />
+                </View>
+              </View>
+
+              {!!errorMsg && (
+                <View style={styles.errorBox}>
+                  <Ionicons name="alert-circle-outline" size={16} color="#FF6B6B" />
+                  <Text style={styles.errorText}>{errorMsg}</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.submitBtn, isLoading && { opacity: 0.6 }]}
+                onPress={handleVerifyOtp}
+                disabled={isLoading}
+                activeOpacity={0.88}
+              >
+                <LinearGradient
+                  colors={["#FF3366", "#FF6B35"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitBtnInner}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Verifică</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleResendOtp} disabled={isLoading} style={{ alignItems: "center", marginTop: 4 }}>
+                <Text style={styles.footerLink}>Retrimite codul</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    );
+  }
+
+  // ── Sign In Screen ──────────────────────────────────────────────────────────
   return (
     <LinearGradient colors={["#0D0D1A", "#15080F", "#0D0D1A"]} style={styles.root}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
@@ -124,12 +288,10 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Back */}
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
             <Ionicons name="chevron-back" size={24} color="rgba(255,255,255,0.6)" />
           </TouchableOpacity>
 
-          {/* Logo */}
           <View style={styles.logoBlock}>
             <View style={styles.flameRing}>
               <BrandLogo size={44} />
@@ -138,7 +300,6 @@ export default function SignInScreen() {
             <Text style={styles.subtitle}>Sign in to keep the sparks flying</Text>
           </View>
 
-          {/* Form */}
           <View style={styles.form}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email address</Text>
@@ -213,7 +374,6 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
             <TouchableOpacity onPress={() => router.replace("/sign-up" as Href)} activeOpacity={0.7}>
