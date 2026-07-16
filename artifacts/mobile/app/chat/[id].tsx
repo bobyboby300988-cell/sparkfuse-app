@@ -590,6 +590,7 @@ export default function ChatScreen() {
       await fetch(uploadUrl, { method: "PUT", body, headers: { "Content-Type": mimeType } });
       const publicUrl = getPhotoUrl(objectPath);
       if (publicUrl) {
+        sendMedia(id, publicUrl, type);
         await serverPostMessage({ data: { receiverId: id, mediaUrl: publicUrl, mediaType: type } });
       } else {
         sendMedia(id, uri, type);
@@ -630,34 +631,70 @@ export default function ChatScreen() {
     }
   };
 
+  const openWebFilePicker = (accept: string, capture?: string) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    if (capture) input.setAttribute("capture", capture);
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      await uploadAndSendFile(URL.createObjectURL(file), file.type, file);
+    };
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => document.body.removeChild(input), 5000);
+  };
+
   const handleMediaPress = () => {
     if (Platform.OS === "web") {
-      // On web show both image + video in one picker
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*,video/*";
-      input.onchange = async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        await uploadAndSendFile(URL.createObjectURL(file), file.type, file);
-      };
-      input.click();
+      Alert.alert(
+        "Trimite media",
+        undefined,
+        [
+          { text: "📷 Galerie foto/video", onPress: () => openWebFilePicker("image/*,video/*") },
+          { text: "📸 Fă o poză acum", onPress: () => openWebFilePicker("image/*", "environment") },
+          { text: "🎥 Filmează acum", onPress: () => openWebFilePicker("video/*", "environment") },
+          { text: "Anulează", style: "cancel" },
+        ]
+      );
       return;
     }
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
-        { options: ["Cancel", "Photo", "Video"], cancelButtonIndex: 0 },
+        { options: ["Anulează", "Galerie foto", "Galerie video", "Cameră foto", "Cameră video"], cancelButtonIndex: 0 },
         (idx) => {
           if (idx === 1) pickMedia("image");
           if (idx === 2) pickMedia("video");
+          if (idx === 3) launchCamera("image");
+          if (idx === 4) launchCamera("video");
         }
       );
     } else {
-      Alert.alert("Send Media", "What would you like to send?", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Photo", onPress: () => pickMedia("image") },
-        { text: "Video", onPress: () => pickMedia("video") },
+      Alert.alert("Trimite media", undefined, [
+        { text: "Galerie foto", onPress: () => pickMedia("image") },
+        { text: "Galerie video", onPress: () => pickMedia("video") },
+        { text: "Cameră foto", onPress: () => launchCamera("image") },
+        { text: "Cameră video", onPress: () => launchCamera("video") },
+        { text: "Anulează", style: "cancel" },
       ]);
+    }
+  };
+
+  const launchCamera = async (type: "image" | "video") => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Permisiune necesară", "Permite accesul la cameră pentru a trimite media.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: type === "image" ? ["images"] : ["videos"],
+      quality: 0.85,
+      videoMaxDuration: 60,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      const asset = result.assets[0];
+      await uploadAndSendFile(asset.uri, type === "image" ? "image/jpeg" : "video/mp4");
     }
   };
 
