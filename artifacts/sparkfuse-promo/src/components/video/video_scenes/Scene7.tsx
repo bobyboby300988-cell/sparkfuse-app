@@ -8,26 +8,23 @@ export function Scene7() {
     const timers = [
       setTimeout(() => setPhase(1), 500),
       setTimeout(() => setPhase(2), 1500),
-      setTimeout(() => setPhase(3), 2500),
-      setTimeout(() => setPhase(4), 3500),
+      setTimeout(() => setPhase(3), 2800),
+      setTimeout(() => setPhase(4), 4000),
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
 
   return (
     <motion.div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0D0B12] overflow-hidden px-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.8 }}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }}
     >
       <motion.div className="absolute inset-0"
         style={{ background: 'radial-gradient(circle at 50% 50%, rgba(192,57,43,0.2) 0%, transparent 70%)' }}
-        animate={{ opacity: [0.3, 0.6, 0.3] }}
-        transition={{ duration: 4, repeat: Infinity }}
+        animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 4, repeat: Infinity }}
       />
 
       {/* Logo */}
-      <motion.div className="relative z-10 text-center mb-8"
+      <motion.div className="relative z-10 text-center mb-6"
         initial={{ y: -30, opacity: 0 }}
         animate={phase >= 1 ? { y: 0, opacity: 1 } : { y: -30, opacity: 0 }}
       >
@@ -39,46 +36,66 @@ export function Scene7() {
         </div>
       </motion.div>
 
+      {/* Availability label */}
+      <motion.div className="relative z-10 mb-4 text-center"
+        initial={{ opacity: 0, y: 10 }}
+        animate={phase >= 2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+      >
+        <span style={{ fontFamily: 'Inter', fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+          Available on
+        </span>
+      </motion.div>
+
       {/* Store buttons */}
-      <motion.div className="flex flex-col gap-3 mb-8 relative z-10 w-full"
+      <motion.div className="flex flex-col gap-3 mb-6 relative z-10 w-full"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={phase >= 2 ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
+        {/* Web browser — highlighted first */}
+        <motion.div
+          className="bg-[rgba(22,18,32,0.97)] border-2 border-[#C0392B] px-4 py-3 rounded-xl flex items-center gap-3 shadow-[0_0_20px_rgba(192,57,43,0.35)]"
+          animate={{ boxShadow: ['0 0 15px rgba(192,57,43,0.3)', '0 0 30px rgba(192,57,43,0.6)', '0 0 15px rgba(192,57,43,0.3)'] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          <span className="text-2xl">🌐</span>
+          <div>
+            <div style={{ fontSize: 9, color: '#FF6B9D', letterSpacing: '0.1em', fontWeight: 700 }}>OPEN NOW — NO DOWNLOAD</div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>Web Browser</div>
+          </div>
+          <div className="ml-auto bg-[#C0392B] text-white text-[9px] font-bold px-2 py-0.5 rounded-full">FREE</div>
+        </motion.div>
+
         <div className="flex gap-3">
-          <div className="flex-1 bg-[rgba(22,18,32,0.97)] border border-white/10 px-4 py-3 rounded-xl flex items-center gap-3">
-            <span className="text-xl">🍎</span>
-            <div className="text-left">
-              <div className="text-[9px] text-white/50">Download on the</div>
-              <div className="text-sm font-bold">App Store</div>
-            </div>
-          </div>
-          <div className="flex-1 bg-[rgba(22,18,32,0.97)] border border-white/10 px-4 py-3 rounded-xl flex items-center gap-3">
+          {/* Google Play */}
+          <div className="flex-1 bg-[rgba(22,18,32,0.97)] border border-white/10 px-3 py-3 rounded-xl flex items-center gap-2">
             <span className="text-xl">▶️</span>
-            <div className="text-left">
-              <div className="text-[9px] text-white/50">GET IT ON</div>
-              <div className="text-sm font-bold">Google Play</div>
+            <div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.05em' }}>GET IT ON</div>
+              <div style={{ fontSize: 12, fontWeight: 700 }}>Google Play</div>
             </div>
           </div>
-        </div>
-        <div className="bg-[rgba(22,18,32,0.97)] border border-[#C0392B] px-4 py-3 rounded-xl flex items-center justify-center gap-3 shadow-[0_0_15px_rgba(192,57,43,0.3)]">
-          <span className="text-xl">🌐</span>
-          <div className="text-left">
-            <div className="text-[9px] text-[#FF6B9D]">OPEN IN BROWSER</div>
-            <div className="text-sm font-bold">Web App — No Download Needed</div>
+          {/* App Store */}
+          <div className="flex-1 bg-[rgba(22,18,32,0.97)] border border-white/10 px-3 py-3 rounded-xl flex items-center gap-2">
+            <span className="text-xl">🍎</span>
+            <div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.05em' }}>DOWNLOAD ON</div>
+              <div style={{ fontSize: 12, fontWeight: 700 }}>App Store</div>
+            </div>
           </div>
         </div>
       </motion.div>
 
       {/* URL */}
-      <motion.div className="relative z-10 bg-black/50 border border-[#F39C12] px-6 py-3 rounded-2xl mb-8 overflow-hidden w-full"
+      <motion.div className="relative z-10 bg-black/50 border border-[#F39C12] px-6 py-3 rounded-2xl mb-6 overflow-hidden w-full"
         initial={{ y: 30, opacity: 0 }}
         animate={phase >= 3 ? { y: 0, opacity: 1 } : { y: 30, opacity: 0 }}
       >
-        <motion.div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full"
+        <motion.div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
           animate={{ translateX: ['-100%', '200%'] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
         />
-        <div style={{ fontFamily: 'Inter', fontSize: 'clamp(14px,4vw,22px)', color: '#F39C12', fontWeight: 600, letterSpacing: '0.05em', textAlign: 'center' }}>
+        <div style={{ fontFamily: 'Inter', fontSize: 'clamp(13px,3.5vw,20px)', color: '#F39C12', fontWeight: 700, letterSpacing: '0.04em', textAlign: 'center' }}>
           match-maker-2025ap.replit.app
         </div>
       </motion.div>
@@ -92,7 +109,7 @@ export function Scene7() {
           <span className="bg-[#C0392B] text-white px-2 py-0.5 rounded text-xs font-bold shadow-[0_0_10px_rgba(192,57,43,0.5)]">18+</span>
           Adult Content · 18 and over only
         </div>
-        <motion.div className="mt-6 text-2xl font-bold tracking-[0.3em] text-white/80" style={{ fontFamily: 'Bebas Neue' }}
+        <motion.div className="mt-4 text-2xl font-bold tracking-[0.3em] text-white/80" style={{ fontFamily: 'Bebas Neue' }}
           animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }}
           transition={{ duration: 2, repeat: Infinity }}
         >

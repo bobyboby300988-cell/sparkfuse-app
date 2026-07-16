@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "sy3yfytmBjsM4xD_s_Y6f"
@@ -102,3 +101,45 @@ id = "0E5Qea8QoegF7iVareP7L"
 uri = "file://artifacts/mockup-sandbox/public/coach.png"
 type = "image"
 title = "dating coach portrait"
+
+[[outputs]]
+id = "DaoxMAP-neXdbJ2FoBCqT"
+uri = "file://artifacts/sparkfuse-promo/public/audio/scene-hook.mp3"
+type = "audio"
+title = "scene-hook"
+
+[[outputs]]
+id = "ncs89wRg5Y33IkUmv0FJ5"
+uri = "file://artifacts/sparkfuse-promo/public/audio/scene-paywall.mp3"
+type = "audio"
+title = "scene-paywall"
+
+[[outputs]]
+id = "GRyuFNKXLPbg5y9ECCNWz"
+uri = "file://artifacts/sparkfuse-promo/public/audio/scene-discover.mp3"
+type = "audio"
+title = "scene-discover"
+
+[[outputs]]
+id = "Pz90upq7F8Viub9eVbZIT"
+uri = "file://artifacts/sparkfuse-promo/public/audio/scene-messages.mp3"
+type = "audio"
+title = "scene-messages"
+
+[[outputs]]
+id = "hfQXq_G9lAGHvd-q39rey"
+uri = "file://artifacts/sparkfuse-promo/public/audio/scene-live.mp3"
+type = "audio"
+title = "scene-live"
+
+[[outputs]]
+id = "fyCYqCONBqQWfdVAHY3A6"
+uri = "file://artifacts/sparkfuse-promo/public/audio/scene-earn.mp3"
+type = "audio"
+title = "scene-earn"
+
+[[outputs]]
+id = "nre6RgNVOCNyPTaxTWMxu"
+uri = "file://artifacts/sparkfuse-promo/public/audio/scene-cta.mp3"
+type = "audio"
+title = "scene-cta"

@@ -10,24 +10,24 @@ import { Scene5 } from './video_scenes/Scene5';
 import { Scene6 } from './video_scenes/Scene6';
 import { Scene7 } from './video_scenes/Scene7';
 
-/* ─── Scene durations — locked to actual audio lengths via ffprobe ───
- *  Formula: 300ms narration-start delay + audio_duration_ms + ~900ms buffer
- *  hook:     300 + 4362 + 838  = 5500   (audio 4.36 s)
- *  paywall:  300 + 7523 + 1177 = 9000   (audio 7.52 s)
- *  discover: 300 + 5251 + 1449 = 7000   (audio 5.25 s)
- *  messages: 300 + 7236 + 964  = 8500   (audio 7.24 s)
- *  live:     300 + 6269 + 1431 = 8000   (audio 6.27 s)
- *  earn:     300 + 6531 + 1169 = 8000   (audio 6.53 s)
- *  cta:      no audio           = 9000
- *  TOTAL = 55 000 ms = 55 s exactly ─── */
+/* ─── Scene durations — locked to actual ElevenLabs MP3 lengths ───
+ *  Formula: 300ms start-delay + audio_ms + buffer
+ *  hook:     300 + 5251 + 449  = 6000   (audio 5.25 s)
+ *  paywall:  300 + 10214 + 486 = 11000  (audio 10.21 s)
+ *  discover: 300 + 8072 + 628  = 9000   (audio 8.07 s)
+ *  messages: 300 + 6034 + 666  = 7000   (audio 6.03 s)
+ *  live:     300 + 6870 + 330  = 7500   (audio 6.87 s)
+ *  earn:     300 + 6583 + 617  = 7500   (audio 6.58 s)
+ *  cta:      300 + 9143 + 557  = 10000  (audio 9.14 s)
+ *  TOTAL = 58 000 ms ≈ 58 s ─── */
 export const SCENE_DURATIONS: Record<string, number> = {
-  hook:      5500,
-  paywall:   9000,
-  discover:  7000,
-  messages:  8500,
-  live:      8000,
-  earn:      8000,
-  cta:       9000,
+  hook:      6000,
+  paywall:   11000,
+  discover:  9000,
+  messages:  7000,
+  live:      7500,
+  earn:      7500,
+  cta:       10000,
 };
 
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {

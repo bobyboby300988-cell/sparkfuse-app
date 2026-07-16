@@ -1,61 +1,54 @@
-/* ─── Audio narration — Web Speech API (browser TTS, no MP3 files needed) ─── */
+/* ─── Audio narration — ElevenLabs pre-generated MP3 files ─── */
 
-const SCENE_SCRIPTS: Record<string, string> = {
-  hook:      "SparkFuse. Where real connections happen. Meet amazing singles near you today.",
-  paywall:   "For just two euros a month, unlock unlimited swipes, chat with all your matches, video calls, and live streams. No ads, ever.",
-  discover:  "Discover amazing people nearby. Swipe right to like, swipe left to pass. Your perfect match is just one swipe away.",
-  messages:  "Match, then chat and video call instantly. Real conversations that lead to real chemistry.",
-  live:      "Go live and connect with thousands of viewers. Real-time comments and genuine new connections every day.",
-  earn:      "Build your profile, get discovered, and create meaningful connections with people who share your spark.",
+const BASE = import.meta.env.BASE_URL as string;
+
+const SCENE_AUDIO: Record<string, string> = {
+  hook:      BASE + 'audio/scene-hook.mp3',
+  paywall:   BASE + 'audio/scene-paywall.mp3',
+  discover:  BASE + 'audio/scene-discover.mp3',
+  messages:  BASE + 'audio/scene-messages.mp3',
+  live:      BASE + 'audio/scene-live.mp3',
+  earn:      BASE + 'audio/scene-earn.mp3',
+  cta:       BASE + 'audio/scene-cta.mp3',
 };
 
-let currentUtterance: SpeechSynthesisUtterance | null = null;
-
-function getPreferredVoice(): SpeechSynthesisVoice | null {
-  if (typeof window === 'undefined') return null;
-  const voices = window.speechSynthesis.getVoices();
-  const preferred = voices.find(v =>
-    v.lang.startsWith('en') &&
-    (v.name.toLowerCase().includes('samantha') ||
-     v.name.toLowerCase().includes('victoria') ||
-     v.name.toLowerCase().includes('karen') ||
-     v.name.toLowerCase().includes('moira') ||
-     v.name.toLowerCase().includes('tessa') ||
-     (v.name.toLowerCase().includes('google') && v.name.toLowerCase().includes('us')))
-  );
-  return preferred || voices.find(v => v.lang.startsWith('en')) || null;
-}
+const audioCache: Record<string, HTMLAudioElement> = {};
+let current: HTMLAudioElement | null = null;
 
 export function preloadNarration() {
   if (typeof window === 'undefined') return;
-  window.speechSynthesis.getVoices();
-  window.speechSynthesis.onvoiceschanged = () => {
-    window.speechSynthesis.getVoices();
-  };
+  for (const [key, src] of Object.entries(SCENE_AUDIO)) {
+    const a = new Audio(src);
+    a.preload = 'auto';
+    a.volume = 1.0;
+    audioCache[key] = a;
+  }
 }
 
 export function speakScene(sceneKey: string) {
   if (typeof window === 'undefined') return;
-  stopNarration();
+
+  if (current) {
+    current.pause();
+    current.currentTime = 0;
+    current = null;
+  }
 
   const baseKey = sceneKey.replace(/_r\d+$/, '');
-  const text = SCENE_SCRIPTS[baseKey];
-  if (!text) return;
+  const audio = audioCache[baseKey];
+  if (!audio) return;
 
   setTimeout(() => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.92;
-    utterance.pitch = 1.08;
-    utterance.volume = 1.0;
-    const voice = getPreferredVoice();
-    if (voice) utterance.voice = voice;
-    currentUtterance = utterance;
-    window.speechSynthesis.speak(utterance);
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+    current = audio;
   }, 300);
 }
 
 export function stopNarration() {
-  if (typeof window === 'undefined') return;
-  window.speechSynthesis.cancel();
-  currentUtterance = null;
+  if (current) {
+    current.pause();
+    current.currentTime = 0;
+    current = null;
+  }
 }
