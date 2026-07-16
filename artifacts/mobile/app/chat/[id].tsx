@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { openInAppCall } from "@/components/InAppCall";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { Audio, Video, ResizeMode } from "expo-av";
@@ -174,7 +175,7 @@ function CallBubble({
     if (!roomUrl) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (Platform.OS === "web") {
-      Linking.openURL(roomUrl);
+      openInAppCall(roomUrl, !isVoice);
       return;
     }
     router.push({
@@ -454,12 +455,12 @@ export default function ChatScreen() {
     if (!id) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const roomId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const roomUrl = `https://meet.jit.si/SparkFuse-${roomId}#config.startWithVideoMuted=false&config.startWithAudioMuted=false&config.prejoinPageEnabled=false&config.disableDeepLinking=true`;
+    const roomUrl = `https://meet.jit.si/SparkFuse-${roomId}`;
     try {
       await serverPostMessage({ data: { receiverId: id, text: "📹 Video call", mediaType: "call_video", mediaUrl: roomUrl } });
     } catch {}
     if (Platform.OS === "web") {
-      Linking.openURL(roomUrl);
+      openInAppCall(roomUrl, true);
       return;
     }
     router.push({
@@ -472,12 +473,12 @@ export default function ChatScreen() {
     if (!id) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const roomId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const roomUrl = `https://meet.jit.si/SparkFuse-${roomId}#config.startWithVideoMuted=true&config.startWithAudioMuted=false&config.prejoinPageEnabled=false&config.disableDeepLinking=true`;
+    const roomUrl = `https://meet.jit.si/SparkFuse-${roomId}`;
     try {
       await serverPostMessage({ data: { receiverId: id, text: "📞 Voice call", mediaType: "call_voice", mediaUrl: roomUrl } });
     } catch {}
     if (Platform.OS === "web") {
-      Linking.openURL(roomUrl);
+      openInAppCall(roomUrl, false);
       return;
     }
     router.push({
