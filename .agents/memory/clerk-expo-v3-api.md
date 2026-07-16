@@ -35,6 +35,20 @@ if (!error && signIn.status === 'complete') {
 }
 ```
 
+### Sign In — Email Code First Factor (needs_first_factor)
+```ts
+const { error } = await signIn.emailCode.sendCode(); // sends code
+const { error } = await signIn.emailCode.verifyCode({ code }); // verifies
+```
+
+### Sign In — MFA Email Code Second Factor (needs_second_factor / needs_client_trust)
+```ts
+const { error } = await signIn.mfa.sendEmailCode(); // sends code
+const { error } = await signIn.mfa.verifyEmailCode({ code }); // verifies
+```
+
+**NOT** `signIn.verifications.sendEmailCode()` — that is a sign-UP method and does not exist on SignInFutureResource.
+
 ## Critical pitfalls
 
 1. **`signUp` / `signIn` can be null** — always check and show a visible error, never silently `return`.

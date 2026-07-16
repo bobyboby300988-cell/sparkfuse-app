@@ -17,6 +17,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+type VerifyMode = "emailCode" | "mfaEmailCode";
+
 export default function SignInScreen() {
   const insets = useSafeAreaInsets();
   const { signIn, fetchStatus } = useSignIn();
@@ -29,7 +31,7 @@ export default function SignInScreen() {
   const [errorMsg, setErrorMsg] = useState("");
 
   // OTP verification step
-  const [needsVerification, setNeedsVerification] = useState(false);
+  const [verifyMode, setVerifyMode] = useState<VerifyMode | null>(null);
   const [otp, setOtp] = useState("");
 
   const isLoading = fetchStatus === "fetching" || loading;
@@ -44,6 +46,17 @@ export default function SignInScreen() {
       msg.includes("already logged in") ||
       msg.includes("session exists")
     );
+  };
+
+  const parseError = (err: any): string => {
+    const code: string = err?.errors?.[0]?.code ?? err?.code ?? (err as any)?.code ?? "";
+    return code === "form_password_incorrect"
+      ? "Parolă incorectă. Încearcă din nou."
+      : code === "form_identifier_not_found"
+      ? "Nu există cont cu acest email."
+      : code === "form_param_format_invalid"
+      ? "Introdu un email valid."
+      : err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? err?.message ?? "Autentificare eșuată.";
   };
 
   const handleSubmit = async () => {
@@ -61,16 +74,7 @@ export default function SignInScreen() {
       });
 
       if (error) {
-        const code: string = (error as any)?.code ?? "";
-        const msg =
-          code === "form_password_incorrect"
-            ? "Parolă incorectă. Încearcă din nou."
-            : code === "form_identifier_not_found"
-            ? "Nu există cont cu acest email."
-            : code === "form_param_format_invalid"
-            ? "Introdu un email valid."
-            : (error as any)?.longMessage ?? (error as any)?.message ?? "Autentificare eșuată. Încearcă din nou.";
-        setErrorMsg(msg);
+        setErrorMsg(parseError(error));
         return;
       }
 
@@ -80,27 +84,29 @@ export default function SignInScreen() {
         return;
       }
 
-      // Needs second factor (email OTP) — send code and show verification screen
-      if (
-        signIn.status === "needs_second_factor" ||
-        signIn.status === "needs_first_factor"
-      ) {
-        try {
-          await (signIn as any).verifications?.sendEmailCode?.();
-        } catch (_) {
-          // code may have been sent automatically
+      // First factor needs email code (e.g. account has email_code as primary strategy)
+      if (signIn.status === "needs_first_factor") {
+        const { error: sendErr } = await signIn.emailCode.sendCode();
+        if (sendErr) {
+          setErrorMsg(parseError(sendErr));
+          return;
         }
-        setNeedsVerification(true);
+        setVerifyMode("emailCode");
         return;
       }
 
-      // Fallback: try sending email code anyway
-      try {
-        await (signIn as any).verifications?.sendEmailCode?.();
-        setNeedsVerification(true);
-      } catch (_) {
-        setErrorMsg("Autentificare incompletă. Încearcă din nou.");
+      // Second factor / MFA / client trust — send email code via MFA
+      if (signIn.status === "needs_second_factor" || signIn.status === "needs_client_trust" as any) {
+        const { error: sendErr } = await signIn.mfa.sendEmailCode();
+        if (sendErr) {
+          setErrorMsg(parseError(sendErr));
+          return;
+        }
+        setVerifyMode("mfaEmailCode");
+        return;
       }
+
+      setErrorMsg("Autentificare incompletă. Încearcă din nou.");
     } catch (err: any) {
       if (isSessionError(err)) {
         try { await signOut(); } catch (_) {}
@@ -113,29 +119,13 @@ export default function SignInScreen() {
             await signIn.finalize();
             router.replace("/");
           } else if (retryErr) {
-            const code: string = (retryErr as any)?.code ?? "";
-            setErrorMsg(
-              code === "form_password_incorrect"
-                ? "Parolă incorectă."
-                : code === "form_identifier_not_found"
-                ? "Nu există cont cu acest email."
-                : (retryErr as any)?.longMessage ?? (retryErr as any)?.message ?? "Autentificare eșuată."
-            );
+            setErrorMsg(parseError(retryErr));
           }
         } catch (retryErr2: any) {
           setErrorMsg(retryErr2?.message ?? "Autentificare eșuată.");
         }
       } else {
-        const code: string = err?.errors?.[0]?.code ?? err?.code ?? "";
-        const msg =
-          code === "form_password_incorrect"
-            ? "Parolă incorectă. Încearcă din nou."
-            : code === "form_identifier_not_found"
-            ? "Nu există cont cu acest email."
-            : code === "form_param_format_invalid"
-            ? "Introdu un email valid."
-            : err?.errors?.[0]?.longMessage ?? err?.message ?? "Autentificare eșuată. Încearcă din nou.";
-        setErrorMsg(msg);
+        setErrorMsg(parseError(err));
       }
     } finally {
       setLoading(false);
@@ -143,7 +133,7 @@ export default function SignInScreen() {
   };
 
   const handleVerifyOtp = async () => {
-    if (!signIn) return;
+    if (!signIn || !verifyMode) return;
     if (!otp.trim()) {
       setErrorMsg("Introdu codul primit pe email.");
       return;
@@ -151,18 +141,28 @@ export default function SignInScreen() {
     setErrorMsg("");
     setLoading(true);
     try {
-      const { error } = await (signIn as any).verifications.verifyEmailCode({ code: otp.trim() });
-      if (error) {
-        const code: string = (error as any)?.code ?? "";
+      let verifyError: any = null;
+
+      if (verifyMode === "emailCode") {
+        const { error } = await signIn.emailCode.verifyCode({ code: otp.trim() });
+        verifyError = error;
+      } else {
+        const { error } = await signIn.mfa.verifyEmailCode({ code: otp.trim() });
+        verifyError = error;
+      }
+
+      if (verifyError) {
+        const code: string = (verifyError as any)?.code ?? "";
         setErrorMsg(
           code === "form_code_incorrect"
             ? "Cod incorect. Încearcă din nou."
             : code === "verification_expired"
             ? "Codul a expirat. Apasă Retrimite."
-            : (error as any)?.longMessage ?? (error as any)?.message ?? "Cod invalid."
+            : (verifyError as any)?.longMessage ?? (verifyError as any)?.message ?? "Cod invalid."
         );
         return;
       }
+
       if (signIn.status === "complete") {
         await signIn.finalize();
         router.replace("/");
@@ -177,11 +177,15 @@ export default function SignInScreen() {
   };
 
   const handleResendOtp = async () => {
-    if (!signIn) return;
+    if (!signIn || !verifyMode) return;
     setErrorMsg("");
     setLoading(true);
     try {
-      await (signIn as any).verifications?.sendEmailCode?.();
+      if (verifyMode === "emailCode") {
+        await signIn.emailCode.sendCode();
+      } else {
+        await signIn.mfa.sendEmailCode();
+      }
       setErrorMsg("Cod nou trimis pe email.");
     } catch (err: any) {
       setErrorMsg("Nu s-a putut retrimite codul.");
@@ -191,7 +195,7 @@ export default function SignInScreen() {
   };
 
   // ── OTP Screen ─────────────────────────────────────────────────────────────
-  if (needsVerification) {
+  if (verifyMode) {
     return (
       <LinearGradient colors={["#0D0D1A", "#15080F", "#0D0D1A"]} style={styles.root}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
@@ -203,7 +207,7 @@ export default function SignInScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <TouchableOpacity onPress={() => setNeedsVerification(false)} style={styles.backBtn} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => setVerifyMode(null)} style={styles.backBtn} activeOpacity={0.7}>
               <Ionicons name="chevron-back" size={24} color="rgba(255,255,255,0.6)" />
             </TouchableOpacity>
 
@@ -213,7 +217,7 @@ export default function SignInScreen() {
               </View>
               <Text style={styles.title}>Verificare email</Text>
               <Text style={styles.subtitle}>
-                Am trimis un cod de verificare la{"\n"}{email.trim().toLowerCase()}
+                Am trimis un cod de 6 cifre la{"\n"}{email.trim().toLowerCase()}
               </Text>
             </View>
 
@@ -240,9 +244,13 @@ export default function SignInScreen() {
               </View>
 
               {!!errorMsg && (
-                <View style={styles.errorBox}>
-                  <Ionicons name="alert-circle-outline" size={16} color="#FF6B6B" />
-                  <Text style={styles.errorText}>{errorMsg}</Text>
+                <View style={[styles.errorBox, errorMsg.includes("trimis") && { borderColor: "rgba(100,220,100,0.3)", backgroundColor: "rgba(100,220,100,0.1)" }]}>
+                  <Ionicons
+                    name={errorMsg.includes("trimis") ? "checkmark-circle-outline" : "alert-circle-outline"}
+                    size={16}
+                    color={errorMsg.includes("trimis") ? "#6adc6a" : "#FF6B6B"}
+                  />
+                  <Text style={[styles.errorText, errorMsg.includes("trimis") && { color: "#6adc6a" }]}>{errorMsg}</Text>
                 </View>
               )}
 
