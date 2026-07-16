@@ -67,20 +67,5 @@ router.post('/coins/spend', requireAuth, async (req, res) => {
   }
 });
 
-// POST /coins/admin-set — owner-only: set exact balance for a user (temporary)
-router.post('/coins/admin-set', async (req, res) => {
-  const { userId, amount, secret } = req.body as { userId: string; amount: number; secret: string };
-  if (secret !== 'spark-owner-boby-2025') {
-    res.status(403).json({ error: 'Forbidden' });
-    return;
-  }
-  const [updated] = await db
-    .update(usersTable)
-    .set({ coinBalance: amount })
-    .where(eq(usersTable.id, userId))
-    .returning({ coinBalance: usersTable.coinBalance });
-  logger.info({ userId, amount }, 'Admin set coins');
-  res.json({ coinBalance: updated?.coinBalance ?? 0 });
-});
 
 export default router;
