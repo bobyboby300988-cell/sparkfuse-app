@@ -9,7 +9,13 @@ const router: IRouter = Router();
 // GET /coins — current balance for the signed-in user
 router.get('/coins', requireAuth, async (req, res) => {
   const user = req.dbUser!;
-  res.json({ coinBalance: user.coinBalance ?? 0 });
+  // Always fetch fresh balance directly from DB (avoid stale cache)
+  const [fresh] = await db
+    .select({ coinBalance: usersTable.coinBalance })
+    .from(usersTable)
+    .where(eq(usersTable.id, user.id));
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ coinBalance: fresh?.coinBalance ?? 0 });
 });
 
 // POST /coins/add — credit tokens (called after Stripe checkout verified client-side)

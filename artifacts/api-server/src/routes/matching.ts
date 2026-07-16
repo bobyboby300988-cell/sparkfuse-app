@@ -40,6 +40,8 @@ function toApiProfile(
     photoUrl: row.photoUrl,
     latitude: row.latitude,
     longitude: row.longitude,
+    city: row.city ?? null,
+    country: row.country ?? null,
     distanceKm,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

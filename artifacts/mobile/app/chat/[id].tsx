@@ -614,10 +614,14 @@ export default function ChatScreen() {
     setUploadingMedia(true);
     try {
       const ext = type === "image" ? "jpg" : "mp4";
+      const tok = await getToken();
       const urlRes = await fetch(`${getApiUrl()}/api/storage/uploads/request-url`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: `chat-${Date.now()}.${ext}` }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
+        },
+        body: JSON.stringify({ fileName: `chat-${Date.now()}.${ext}`, contentType: mimeType }),
       });
       const { uploadUrl, objectPath } = await urlRes.json();
       const body = file ?? await (await fetch(uri)).blob();
