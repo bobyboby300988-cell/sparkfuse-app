@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { openInAppCall } from "@/components/InAppCall";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { Audio, Video, ResizeMode } from "expo-av";
@@ -169,25 +168,17 @@ function CallBubble({
   targetPhoto: string;
   colors: ReturnType<typeof useColors>;
 }) {
-  const isExpired = Date.now() - timestamp > 5 * 60 * 1000;
+  const isExpired = Date.now() - timestamp > 60 * 60 * 1000; // 1 oră
 
   const handleAnswer = () => {
     if (!roomUrl) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Jitsi blocks WebView/iframe embedding — always open in browser
     if (Platform.OS === "web") {
-      openInAppCall(roomUrl, !isVoice);
-      return;
+      window.open(roomUrl, "_blank", "noopener,noreferrer");
+    } else {
+      Linking.openURL(roomUrl);
     }
-    router.push({
-      pathname: "/call/[id]",
-      params: {
-        id: targetId,
-        mode: isVoice ? "voice" : "video",
-        roomUrl,
-        name: targetName,
-        photo: targetPhoto,
-      },
-    });
   };
 
   return (
@@ -451,40 +442,48 @@ export default function ChatScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  // Build a clean Jitsi URL that skips the moderator/pre-join screen
+  const buildJitsiUrl = (roomId: string) => {
+    const base = `https://meet.jit.si/SparkFuse-${roomId}`;
+    const params = [
+      "config.prejoinPageEnabled=false",
+      "config.startWithVideoMuted=false",
+      "config.startWithAudioMuted=false",
+      "config.disableDeepLinking=true",
+      "config.toolbarButtons=[\"microphone\",\"camera\",\"hangup\"]",
+    ].join("&");
+    return `${base}#${params}`;
+  };
+
   const handleVideoCall = async () => {
     if (!id) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const roomId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const roomUrl = `https://meet.jit.si/SparkFuse-${roomId}`;
+    const roomUrl = buildJitsiUrl(roomId);
     try {
       await serverPostMessage({ data: { receiverId: id, text: "📹 Video call", mediaType: "call_video", mediaUrl: roomUrl } });
     } catch {}
+    // Open in browser — works on both web and mobile (Jitsi blocks WebView/iframe)
     if (Platform.OS === "web") {
-      openInAppCall(roomUrl, true);
-      return;
+      window.open(roomUrl, "_blank", "noopener,noreferrer");
+    } else {
+      Linking.openURL(roomUrl);
     }
-    router.push({
-      pathname: "/call/[id]",
-      params: { id, mode: "video", roomUrl, name: profile?.name ?? "", photo: typeof profile?.photo === "object" && "uri" in profile.photo ? profile.photo.uri : "" },
-    });
   };
 
   const handleVoiceCall = async () => {
     if (!id) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const roomId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const roomUrl = `https://meet.jit.si/SparkFuse-${roomId}`;
+    const roomUrl = buildJitsiUrl(roomId);
     try {
       await serverPostMessage({ data: { receiverId: id, text: "📞 Voice call", mediaType: "call_voice", mediaUrl: roomUrl } });
     } catch {}
     if (Platform.OS === "web") {
-      openInAppCall(roomUrl, false);
-      return;
+      window.open(roomUrl, "_blank", "noopener,noreferrer");
+    } else {
+      Linking.openURL(roomUrl);
     }
-    router.push({
-      pathname: "/call/[id]",
-      params: { id, mode: "voice", roomUrl, name: profile?.name ?? "", photo: typeof profile?.photo === "object" && "uri" in profile.photo ? profile.photo.uri : "" },
-    });
   };
 
   const doBlock = async () => {
