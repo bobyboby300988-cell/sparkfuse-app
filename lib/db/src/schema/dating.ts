@@ -1,4 +1,4 @@
-import { doublePrecision, index, integer, pgTable, primaryKey, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, index, integer, pgTable, primaryKey, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 
 export const profilesTable = pgTable("profiles", {
@@ -93,9 +93,28 @@ export const messagesTable = pgTable(
   ],
 );
 
+export const userPhotosTable = pgTable(
+  "user_photos",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: varchar("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    objectPath: text("object_path").notNull(),
+    isExclusive: boolean("is_exclusive").notNull().default(false),
+    mediaType: varchar("media_type", { enum: ["image", "video"] }).notNull().default("image"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("user_photos_user_id_idx").on(table.userId),
+  ],
+);
+
 export type Profile = typeof profilesTable.$inferSelect;
 export type UpsertProfile = typeof profilesTable.$inferInsert;
 export type Swipe = typeof swipesTable.$inferSelect;
 export type Match = typeof matchesTable.$inferSelect;
 export type Block = typeof blocksTable.$inferSelect;
 export type ServerMessage = typeof messagesTable.$inferSelect;
+export type UserPhoto = typeof userPhotosTable.$inferSelect;

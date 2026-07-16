@@ -44,7 +44,7 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { signOut } = useAuth();
+  const { signOut, getToken } = useAuth();
   const queryClient = useQueryClient();
   const { matches, creatorMode, creatorPrice, setCreatorMode, setCreatorPrice, earnings, coinBalance, addCoins, isLive, setIsLive, myPhotos, addMyPhoto, removeMyPhoto, togglePhotoExclusive, resetLocalState } = useApp();
   const [withdrawVisible, setWithdrawVisible] = useState(false);
@@ -244,6 +244,35 @@ export default function ProfileScreen() {
     }
   };
 
+  const uploadGalleryFile = async (uri: string, mediaType: "image" | "video", exclusive: boolean) => {
+    try {
+      const token = await getToken();
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
+
+      const urlRes = await fetch(`${getApiUrl()}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ filename: mediaType === "video" ? "gallery.mp4" : "gallery.jpg" }),
+      });
+      if (!urlRes.ok) throw new Error("Could not get upload URL");
+      const { uploadUrl, objectPath } = await urlRes.json();
+
+      const blob = await (await fetch(uri)).blob();
+      const contentType = mediaType === "video" ? "video/mp4" : "image/jpeg";
+      await fetch(uploadUrl, { method: "PUT", body: blob, headers: { "Content-Type": contentType } });
+
+      await fetch(`${getApiUrl()}/api/my/photos`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ objectPath, isExclusive: exclusive, mediaType }),
+      });
+
+      addMyPhoto(uri, exclusive, mediaType);
+    } catch {
+      Alert.alert("Upload eșuat", "Nu s-a putut salva poza. Încearcă din nou.");
+    }
+  };
+
   const pickGalleryPhoto = async (exclusive: boolean) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -256,7 +285,7 @@ export default function ProfileScreen() {
       quality: 0.8,
     });
     if (result.canceled) return;
-    addMyPhoto(result.assets[0].uri, exclusive, "image");
+    await uploadGalleryFile(result.assets[0].uri, "image", exclusive);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setAddPhotoVisible(false);
   };
@@ -273,7 +302,7 @@ export default function ProfileScreen() {
       quality: 0.8,
     });
     if (result.canceled) return;
-    addMyPhoto(result.assets[0].uri, exclusive, "video");
+    await uploadGalleryFile(result.assets[0].uri, "video", exclusive);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setAddPhotoVisible(false);
   };
