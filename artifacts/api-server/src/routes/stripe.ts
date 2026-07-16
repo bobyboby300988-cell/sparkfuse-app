@@ -1,5 +1,5 @@
 import { Router, type IRouter } from 'express';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { getStripeClient } from '../stripeClient';
 import { logger } from '../lib/logger';
@@ -101,7 +101,7 @@ router.post('/stripe/subscription-checkout', async (req, res) => {
 });
 
 // Buy Spark Tokens (one-time payment, real money in)
-router.post('/stripe/token-checkout', async (req, res) => {
+router.post('/stripe/token-checkout', requireAuth, async (req, res) => {
   try {
     const { tokens, priceEur, successUrl, cancelUrl } = req.body as {
       tokens: number;
@@ -115,6 +115,7 @@ router.post('/stripe/token-checkout', async (req, res) => {
       return;
     }
 
+    const userId = req.auth!.userId;
     const stripe = getStripeClient();
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -134,7 +135,7 @@ router.post('/stripe/token-checkout', async (req, res) => {
       mode: 'payment',
       success_url: successUrl,
       cancel_url: cancelUrl,
-      metadata: { type: 'token_purchase', tokens: String(tokens) },
+      metadata: { type: 'token_purchase', tokens: String(tokens), userId },
     });
 
     res.json({ url: session.url, sessionId: session.id });
@@ -281,6 +282,20 @@ router.post('/stripe/webhook', async (req, res) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        // One-time token purchase
+        if (session.mode === 'payment' && session.metadata?.type === 'token_purchase') {
+          const tokens = parseInt(session.metadata.tokens ?? '0', 10);
+          const userId = session.metadata.userId;
+          if (tokens > 0 && userId) {
+            await db.update(usersTable).set({
+              coinBalance: sql`${usersTable.coinBalance} + ${tokens}`,
+            }).where(eq(usersTable.id, userId));
+            logger.info({ userId, tokens }, 'Coins credited via Stripe webhook');
+          }
+          break;
+        }
+
         if (session.mode !== 'subscription' || !session.subscription || !session.customer) break;
         const customerId = typeof session.customer === 'string' ? session.customer : session.customer.id;
         const subscriptionId = typeof session.subscription === 'string' ? session.subscription : (session.subscription as Stripe.Subscription).id;

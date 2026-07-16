@@ -14,6 +14,7 @@ export const usersTable = pgTable("users", {
   subscriptionStatus: varchar("subscription_status"),
   subscriptionCurrentPeriodEnd: timestamp("subscription_current_period_end", { withTimezone: true }),
   earnings: real("earnings").notNull().default(0),
+  coinBalance: real("coin_balance").notNull().default(0),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

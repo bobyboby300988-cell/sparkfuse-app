@@ -12,6 +12,7 @@ import blocksRouter from "./blocks";
 import accountRouter from "./account";
 import messagesRouter from "./messages";
 import giftsRouter from "./gifts";
+import coinsRouter from "./coins";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(blocksRouter);
 router.use(accountRouter);
 router.use(messagesRouter);
 router.use(giftsRouter);
+router.use(coinsRouter);
 
 export default router;

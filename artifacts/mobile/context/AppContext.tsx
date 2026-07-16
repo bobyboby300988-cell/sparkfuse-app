@@ -152,26 +152,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     load();
   }, []);
 
-  // Sync earnings from server — server is the source of truth because it
-  // tracks gifts received from other users' devices.
+  // Sync earnings AND coin balance from server — server is the source of truth.
   useEffect(() => {
     if (!isSignedIn) return;
-    async function syncServerEarnings() {
+    async function syncServerData() {
       try {
         const token = await getToken();
         const base = getApiUrl();
-        const res = await fetch(`${base}/api/gifts/earnings`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as { earnings: number };
-        setEarnings(data.earnings);
-        AsyncStorage.setItem(KEYS.EARNINGS, String(data.earnings));
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const [earningsRes, coinsRes] = await Promise.all([
+          fetch(`${base}/api/gifts/earnings`, { headers }),
+          fetch(`${base}/api/coins`, { headers }),
+        ]);
+
+        if (earningsRes.ok) {
+          const data = (await earningsRes.json()) as { earnings: number };
+          setEarnings(data.earnings);
+          AsyncStorage.setItem(KEYS.EARNINGS, String(data.earnings));
+        }
+        if (coinsRes.ok) {
+          const data = (await coinsRes.json()) as { coinBalance: number };
+          setCoinBalance(data.coinBalance);
+          AsyncStorage.setItem(KEYS.COINS, String(data.coinBalance));
+        }
       } catch {
-        // ignore — local value stays
+        // ignore — local values stay
       }
     }
-    syncServerEarnings();
+    syncServerData();
   }, [isSignedIn]);
 
   // On web, Stripe Checkout redirects back with a real page reload (no
@@ -321,6 +330,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.setItem(KEYS.COINS, String(updated));
       return updated;
     });
+    // Persist to server in background (fire-and-forget)
+    getToken().then((token) => {
+      const base = getApiUrl();
+      fetch(`${base}/api/coins/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ amount }),
+      }).then((res) => {
+        if (res.ok) return res.json();
+      }).then((data) => {
+        if (data?.coinBalance != null) {
+          setCoinBalance(data.coinBalance);
+          AsyncStorage.setItem(KEYS.COINS, String(data.coinBalance));
+        }
+      }).catch(() => {});
+    }).catch(() => {});
   };
 
   const spendCoins = (amount: number) => {
@@ -329,6 +354,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.setItem(KEYS.COINS, String(updated));
       return updated;
     });
+    // Persist to server in background (fire-and-forget)
+    getToken().then((token) => {
+      const base = getApiUrl();
+      fetch(`${base}/api/coins/spend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ amount }),
+      }).then((res) => {
+        if (res.ok) return res.json();
+      }).then((data) => {
+        if (data?.coinBalance != null) {
+          setCoinBalance(data.coinBalance);
+          AsyncStorage.setItem(KEYS.COINS, String(data.coinBalance));
+        }
+      }).catch(() => {});
+    }).catch(() => {});
   };
 
   const setIsLive = async (on: boolean) => {
