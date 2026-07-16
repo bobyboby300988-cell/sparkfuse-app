@@ -342,6 +342,8 @@ export default function ChatScreen() {
 
   const [fullscreenVideo, setFullscreenVideo] = useState<string | null>(null);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [showActionSheet, setShowActionSheet] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translating, setTranslating] = useState<Record<string, boolean>>({});
@@ -587,23 +589,19 @@ export default function ChatScreen() {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ["Cancel", "Remove Match", "Delete Chat", "Block"],
-          destructiveButtonIndex: 3,
+          options: ["Cancel", "Remove Match", "Delete Chat", isMuted ? "Unmute Notifications" : "Mute Notifications", "Block"],
+          destructiveButtonIndex: 4,
           cancelButtonIndex: 0,
         },
         (idx) => {
           if (idx === 1) doRemoveMatch();
           else if (idx === 2) doDeleteChat();
-          else if (idx === 3) confirmBlock();
+          else if (idx === 3) setIsMuted((m) => !m);
+          else if (idx === 4) confirmBlock();
         }
       );
     } else {
-      Alert.alert(profile?.name ?? "Options", undefined, [
-        { text: "Remove Match", onPress: doRemoveMatch },
-        { text: "Delete Chat", onPress: doDeleteChat },
-        { text: "Block", style: "destructive", onPress: confirmBlock },
-        { text: "Cancel", style: "cancel" },
-      ]);
+      setShowActionSheet(true);
     }
   };
 
@@ -935,18 +933,30 @@ export default function ChatScreen() {
                     ) : (
                       <TouchableOpacity
                         activeOpacity={0.85}
-                        onPress={() => setFullscreenVideo(item.mediaUri!)}
+                        onPress={() => {
+                          if (Platform.OS === "web") {
+                            Linking.openURL(item.mediaUri!);
+                          } else {
+                            setFullscreenVideo(item.mediaUri!);
+                          }
+                        }}
                       >
-                        <Video
-                          source={{ uri: item.mediaUri }}
-                          style={styles.mediaImage}
-                          resizeMode={ResizeMode.COVER}
-                          useNativeControls
-                          shouldPlay={false}
-                          isLooping={false}
-                        />
+                        <View style={[styles.mediaImage, { backgroundColor: "#1a1a2e", alignItems: "center", justifyContent: "center" }]}>
+                          {Platform.OS !== "web" && (
+                            <Video
+                              source={{ uri: item.mediaUri }}
+                              style={StyleSheet.absoluteFill}
+                              resizeMode={ResizeMode.COVER}
+                              shouldPlay={false}
+                              isMuted
+                            />
+                          )}
+                          <View style={{ zIndex: 10, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 30, padding: 10 }}>
+                            <Ionicons name="play" size={30} color="#fff" />
+                          </View>
+                        </View>
                         <View style={styles.videoTapHint}>
-                          <Ionicons name="expand" size={16} color="#fff" />
+                          <Ionicons name={Platform.OS === "web" ? "open-outline" : "expand"} size={16} color="#fff" />
                         </View>
                       </TouchableOpacity>
                     )}
@@ -1077,6 +1087,16 @@ export default function ChatScreen() {
           >
             <Ionicons name="image" size={22} color={colors.primary} />
           </TouchableOpacity>
+
+          {Platform.OS === "web" ? (
+            <TouchableOpacity
+              style={[styles.mediaBtn, { backgroundColor: colors.card }]}
+              onPress={() => openWebFilePicker("image/*,video/*", "environment")}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="camera" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          ) : null}
 
           <TouchableOpacity
             style={[styles.mediaBtn, { backgroundColor: showEmojiPicker ? colors.primary : colors.card }]}
@@ -1236,6 +1256,46 @@ export default function ChatScreen() {
             ) : null}
             <View style={{ height: insets.bottom + 12 }} />
           </View>
+        </View>
+      </Modal>
+
+      {/* ── Action sheet (Android/web replacement for Alert.alert) ── */}
+      <Modal visible={showActionSheet} transparent animationType="slide" onRequestClose={() => setShowActionSheet(false)}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }} activeOpacity={1} onPress={() => setShowActionSheet(false)} />
+        <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: insets.bottom + 12, overflow: "hidden" }}>
+          <View style={{ backgroundColor: colors.background, paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16 }}>{profile?.name}</Text>
+          </View>
+          {[
+            { label: "Delete Chat", icon: "trash-outline" as const, onPress: () => { setShowActionSheet(false); doDeleteChat(); } },
+            { label: "Remove Match", icon: "heart-dislike-outline" as const, onPress: () => { setShowActionSheet(false); doRemoveMatch(); } },
+            { label: isMuted ? "Unmute Notifications" : "Mute Notifications", icon: isMuted ? "notifications-outline" as const : "notifications-off-outline" as const, onPress: () => { setShowActionSheet(false); setIsMuted((m) => !m); } },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              onPress={item.onPress}
+              style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name={item.icon} size={20} color={colors.foreground} />
+              <Text style={{ color: colors.foreground, fontSize: 16, fontFamily: "Inter_400Regular" }}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            onPress={() => { setShowActionSheet(false); confirmBlock(); }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="ban-outline" size={20} color="#e74c3c" />
+            <Text style={{ color: "#e74c3c", fontSize: 16, fontFamily: "Inter_600SemiBold" }}>Block</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowActionSheet(false)}
+            style={{ paddingVertical: 16, alignItems: "center" }}
+            activeOpacity={0.7}
+          >
+            <Text style={{ color: colors.mutedForeground, fontSize: 15, fontFamily: "Inter_600SemiBold" }}>Cancel</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
 

@@ -63,6 +63,7 @@ interface AppContextType {
   coinBalance: number;
   addCoins: (amount: number) => void;
   spendCoins: (amount: number) => void;
+  deletedMatchIds: string[];
   isLive: boolean;
   setIsLive: (on: boolean) => Promise<void>;
   stripeConnectAccountId: string | null;
@@ -80,6 +81,7 @@ const KEYS = {
   EARNINGS: "@spark/earnings",
   PENDING_COINS: "@spark/pending_coins_credit",
   COINS: "@spark/coins",
+  DELETED_MATCHES: "@spark/deleted_matches",
   IS_LIVE: "@spark/is_live",
   STRIPE_CONNECT_ACCOUNT_ID: "@spark/stripe_connect_account_id",
   MY_PHOTOS: "@spark/my_photos",
@@ -98,6 +100,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLive, setIsLiveState] = useState(false);
   const [stripeConnectAccountId, setStripeConnectAccountIdState] = useState<string | null>(null);
   const [myPhotos, setMyPhotos] = useState<MyPhoto[]>([]);
+  const [deletedMatchIds, setDeletedMatchIds] = useState<string[]>([]);
 
   const { isSignedIn, getToken } = useAuth();
   const { data: authUserData } = useGetCurrentAuthUser({
@@ -142,6 +145,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (creatorPriceRaw) setCreatorPriceState(Number(creatorPriceRaw));
         if (earningsRaw) setEarnings(parseFloat(earningsRaw));
         if (coinsRaw) setCoinBalance(parseFloat(coinsRaw));
+        const deletedRaw = await AsyncStorage.getItem(KEYS.DELETED_MATCHES);
+        if (deletedRaw) setDeletedMatchIds(JSON.parse(deletedRaw));
         if (isLiveRaw === "true") setIsLiveState(true);
         if (stripeConnectAccountIdRaw) setStripeConnectAccountIdState(stripeConnectAccountIdRaw);
       } catch {
@@ -154,9 +159,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Sync earnings, coin balance, and subscription from server when signed in.
-  // Also flushes any pending coin credit stored from a pre-auth Stripe redirect.
+  // Triggered on authUserData.user.id so Clerk is fully ready and getToken() works.
   useEffect(() => {
-    if (!isSignedIn) return;
+    if (!authUserData?.user?.id) return;
     async function syncServerData() {
       try {
         const token = await getToken();
@@ -218,7 +223,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
     syncServerData();
-  }, [isSignedIn]);
+  }, [authUserData?.user?.id]);
 
   // On web, Stripe Checkout redirects back with a real page reload. We verify
   // the session here (URL params available immediately), but save the tokens to
@@ -444,6 +449,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.setItem(KEYS.MATCHES, JSON.stringify(updated));
       return updated;
     });
+    setDeletedMatchIds((prev) => {
+      if (prev.includes(profileId)) return prev;
+      const updated = [...prev, profileId];
+      AsyncStorage.setItem(KEYS.DELETED_MATCHES, JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const clearMessages = (profileId: string) => {
@@ -502,6 +513,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         coinBalance,
         addCoins,
         spendCoins,
+        deletedMatchIds,
         isLive,
         setIsLive,
         stripeConnectAccountId,

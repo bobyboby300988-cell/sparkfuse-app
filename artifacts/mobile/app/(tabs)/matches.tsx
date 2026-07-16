@@ -67,7 +67,7 @@ export default function MessagesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { matches, addMatch, removeMatch } = useApp();
+  const { matches, addMatch, removeMatch, deletedMatchIds } = useApp();
   const { data } = useGetMatches();
 
   // Sync server matches → local AsyncStorage so chat works even without swiping
@@ -79,8 +79,8 @@ export default function MessagesScreen() {
     const serverMatches = data?.matches ?? [];
     const serverIds = new Set(serverMatches.map((sp) => sp.userId));
 
-    // Server matches (with local message data merged in)
-    const all = serverMatches.map((sp) => {
+    // Server matches (with local message data merged in), excluding deleted ones
+    const all = serverMatches.filter((sp) => !deletedMatchIds.includes(sp.userId)).map((sp) => {
       const local = matches.find((m) => m.profileId === sp.userId);
       const msgs = local?.messages ?? [];
       return {
