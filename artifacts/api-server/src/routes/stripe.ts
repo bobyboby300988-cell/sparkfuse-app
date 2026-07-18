@@ -112,7 +112,10 @@ router.post('/stripe/subscription-checkout', async (req, res) => {
 });
 
 // Buy Spark Tokens (one-time payment, real money in)
-router.post('/stripe/token-checkout', requireAuth, async (req, res) => {
+// Auth is optional — the userId is stored in metadata if present so the
+// webhook can credit tokens automatically; otherwise the app credits them
+// client-side after verifying the session on return.
+router.post('/stripe/token-checkout', async (req, res) => {
   try {
     const { tokens, priceEur, successUrl, cancelUrl } = req.body as {
       tokens: number;
@@ -126,7 +129,7 @@ router.post('/stripe/token-checkout', requireAuth, async (req, res) => {
       return;
     }
 
-    const userId = req.auth!.userId;
+    const userId = req.auth?.userId ?? null;
     const stripe = getStripeClient();
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -146,7 +149,9 @@ router.post('/stripe/token-checkout', requireAuth, async (req, res) => {
       mode: 'payment',
       success_url: successUrl,
       cancel_url: cancelUrl,
-      metadata: { type: 'token_purchase', tokens: String(tokens), userId },
+      metadata: userId
+        ? { type: 'token_purchase', tokens: String(tokens), userId }
+        : { type: 'token_purchase', tokens: String(tokens) },
     });
 
     res.json({ url: session.url, sessionId: session.id });

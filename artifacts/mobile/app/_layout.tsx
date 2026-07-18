@@ -77,13 +77,14 @@ function RootLayoutNav() {
   const profileDone = !profileLoading;
   const isLoaded = (authLoaded || timedOut) && appLoaded && (!isAuthenticated || profileDone);
 
-  // Safety net: if Clerk takes more than 6 s to initialise (network issue,
-  // missing publishable key, etc.) treat auth as "not signed in" and redirect
-  // to welcome so the user never gets stuck on the tabs screen.
+  // Safety net: if Clerk takes too long (slow network / proxy issue) show a
+  // retry screen instead of falsely redirecting to /welcome and logging the
+  // user out. We never redirect on timeout — only Clerk definitively saying
+  // "not signed in" triggers that redirect.
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (authLoaded) return;
-    timeoutRef.current = setTimeout(() => setTimedOut(true), 20000);
+    timeoutRef.current = setTimeout(() => setTimedOut(true), 30000);
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
@@ -98,11 +99,16 @@ function RootLayoutNav() {
     const inSignIn = segments[0] === "sign-in";
     const inSignUp = segments[0] === "sign-up";
 
-    // Never redirect away from the app because of a transient network error on
-    // the profile fetch — that falsely logs the user out. Only redirect to
-    // /welcome when Clerk definitively says the user is not signed in.
-    if (!isAuthenticated && !inOnboarding && !inWelcome && !inSignIn && !inSignUp) {
-      router.replace("/welcome");
+    // Only redirect to /welcome when Clerk definitively says the user is NOT
+    // signed in. A timeout alone is NOT a definitive answer — the user may
+    // simply have a slow connection. Redirect also if someone tries to reach
+    // /sign-up without having completed payment first (isSubscribed check).
+    if (!isAuthenticated && !inOnboarding && !inWelcome && !inSignIn) {
+      // Allow /sign-up ONLY if the user has already paid (isSubscribed from
+      // AsyncStorage is set right before opening the Stripe/PayPal browser).
+      if (!inSignUp || !isSubscribed) {
+        router.replace("/welcome");
+      }
     } else if (isAuthenticated && !hasProfile && !profileError && !profileLoading && !inOnboarding && !inWelcome && !inSignIn && !inSignUp) {
       // Signed in but genuinely has no profile yet → send to onboarding
       router.replace("/onboarding");
