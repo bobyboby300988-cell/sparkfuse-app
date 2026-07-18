@@ -83,13 +83,17 @@ export async function getSavedLanguage(): Promise<SupportedLanguage> {
   } catch {
     // ignore
   }
-  return getDeviceLanguage();
+  // New users always start in English — they can change from the welcome screen.
+  return "en";
 }
 
 export async function saveLanguage(lang: SupportedLanguage): Promise<void> {
   await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
 }
 
+// Default to English for all new users — they can pick their language
+// from the welcome screen. Device-language auto-detection was removed so
+// the app always starts in English (the universal language for a global app).
 i18n.use(initReactI18next).init({
   resources: {
     en: { translation: en },
@@ -143,7 +147,7 @@ i18n.use(initReactI18next).init({
     cy: { translation: cy },
     mr: { translation: mr },
   },
-  lng: getDeviceLanguage(),
+  lng: "en",
   fallbackLng: "en",
   interpolation: { escapeValue: false },
   compatibilityJSON: "v4",

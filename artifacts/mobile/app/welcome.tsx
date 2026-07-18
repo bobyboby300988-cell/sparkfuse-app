@@ -10,6 +10,8 @@ import {
   Alert,
   Animated,
   Dimensions,
+  FlatList,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -23,6 +25,8 @@ import BrandLogo from "@/components/BrandLogo";
 import { useApp } from "@/context/AppContext";
 import { buildPayPalCheckoutUrl } from "@/config/payments";
 import { useTranslation } from "react-i18next";
+import i18n, { SUPPORTED_LANGUAGES, saveLanguage, type SupportedLanguage } from "@/i18n";
+import { LANGUAGE_NATIVE_NAMES, LANGUAGE_FLAGS } from "@/i18n/locales/_languages";
 
 const { width: W } = Dimensions.get("window");
 
@@ -89,6 +93,10 @@ export default function WelcomeScreen() {
   const login = async () => router.push("/sign-in");
   const [loadingStripe, setLoadingStripe] = useState(false);
   const [loadingPayPal, setLoadingPayPal] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [currentLang, setCurrentLang] = useState<SupportedLanguage>(
+    (i18n.language as SupportedLanguage) ?? "en"
+  );
   const [ageVerified, setAgeVerified] = useState(false);
   const [showUnderage, setShowUnderage] = useState(false);
   const gateOpacity = useRef(new Animated.Value(1)).current;
@@ -100,6 +108,13 @@ export default function WelcomeScreen() {
       if (val === "1") setAgeVerified(true);
     });
   }, []);
+
+  const handleSelectLanguage = async (lang: SupportedLanguage) => {
+    await saveLanguage(lang);
+    await i18n.changeLanguage(lang);
+    setCurrentLang(lang);
+    setShowLangPicker(false);
+  };
 
   const handleConfirmAdult = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -367,6 +382,54 @@ export default function WelcomeScreen() {
         <Text style={styles.copyright}>© 2026 SparkFuse · All Rights Reserved</Text>
       </ScrollView>
 
+      {/* ── Language picker button (floating top-right) ── */}
+      <TouchableOpacity
+        style={[styles.langBtn, { top: insets.top + 12 }]}
+        onPress={() => setShowLangPicker(true)}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.langBtnFlag}>{LANGUAGE_FLAGS[currentLang] ?? "🌐"}</Text>
+        <Text style={styles.langBtnLabel}>{LANGUAGE_NATIVE_NAMES[currentLang] ?? "English"}</Text>
+        <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.7)" />
+      </TouchableOpacity>
+
+      {/* ── Language picker modal ── */}
+      <Modal
+        visible={showLangPicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowLangPicker(false)}
+      >
+        <View style={styles.langModalOverlay}>
+          <View style={styles.langModalSheet}>
+            <View style={styles.langModalHandle} />
+            <Text style={styles.langModalTitle}>🌐  Choose Language</Text>
+            <FlatList
+              data={[...SUPPORTED_LANGUAGES]}
+              keyExtractor={(item) => item}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+              renderItem={({ item }) => {
+                const selected = item === currentLang;
+                return (
+                  <TouchableOpacity
+                    style={[styles.langItem, selected && styles.langItemSelected]}
+                    onPress={() => handleSelectLanguage(item as SupportedLanguage)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.langItemFlag}>{LANGUAGE_FLAGS[item as SupportedLanguage]}</Text>
+                    <Text style={[styles.langItemName, selected && styles.langItemNameSelected]}>
+                      {LANGUAGE_NATIVE_NAMES[item as SupportedLanguage]}
+                    </Text>
+                    {selected && <Ionicons name="checkmark-circle" size={18} color="#FF3366" />}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Age gate ── */}
       {!ageVerified && (
         <Animated.View style={[styles.ageGate, { opacity: gateOpacity }]}>
@@ -424,6 +487,78 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     gap: 28,
+  },
+  langBtn: {
+    position: "absolute",
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    zIndex: 99,
+  },
+  langBtnFlag: { fontSize: 16 },
+  langBtnLabel: {
+    color: "rgba(255,255,255,0.85)",
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    maxWidth: 80,
+  },
+  langModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  langModalSheet: {
+    backgroundColor: "#12101A",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "75%",
+    paddingTop: 12,
+  },
+  langModalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  langModalTitle: {
+    color: "#fff",
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 12,
+    paddingHorizontal: 20,
+  },
+  langItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+  },
+  langItemSelected: {
+    backgroundColor: "rgba(255,51,102,0.10)",
+  },
+  langItemFlag: { fontSize: 22 },
+  langItemName: {
+    flex: 1,
+    color: "rgba(255,255,255,0.75)",
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+  },
+  langItemNameSelected: {
+    color: "#fff",
+    fontFamily: "Inter_600SemiBold",
   },
 
   /* Logo */
