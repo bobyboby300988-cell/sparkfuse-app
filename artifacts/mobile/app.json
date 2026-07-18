@@ -54,7 +54,7 @@
       ]
     ],
     "updates": {
-      "url": "https://u.expo.dev/0245bd50-5c67-49ed-a709-8f7f358ea527"
+      "url": "https://u.expo.dev/cfadee4d-7ec0-4a0b-a4ca-12c04d0323de"
     },
     "runtimeVersion": {
       "policy": "appVersion"
@@ -64,7 +64,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "0245bd50-5c67-49ed-a709-8f7f358ea527"
+        "projectId": "cfadee4d-7ec0-4a0b-a4ca-12c04d0323de"
       }
     },
     "owner": "bobydumitru"
