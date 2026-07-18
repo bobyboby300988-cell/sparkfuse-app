@@ -207,13 +207,12 @@ export default function DiscoverScreen() {
         // if I want "women", show me profiles that say they're seeking "men" or "everyone"
         // (rough heuristic since we have no explicit gender field)
         if (filterSeeking !== "everyone" && p.seeking && p.seeking !== "everyone") {
-          // If their seeking doesn't include what we represent, skip
-          // We can't fully filter without a gender field — so we just filter
-          // by whether their seeking overlaps with ours (symmetric check)
+          // Complementary-seeking filter:
+          // If I seek "women" → show profiles that seek "men" (they are women looking for men)
+          // Hide profiles with the same seeking as mine (same-preference, not complementary)
           const theyWant = p.seeking.toLowerCase();
           const iWant    = filterSeeking.toLowerCase();
-          // Heuristic: if both have explicit preferences and they don't match, hide
-          if (theyWant !== "everyone" && theyWant !== iWant) return false;
+          if (theyWant !== "everyone" && theyWant === iWant) return false;
         }
         return true;
       })

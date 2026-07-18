@@ -65,16 +65,21 @@ router.post('/stripe/checkout-session', async (req, res) => {
 });
 
 // Create a Stripe Subscription Checkout (€2/month)
-router.post('/stripe/subscription-checkout', requireAuth, async (req, res) => {
+// Auth is OPTIONAL — payment happens before account creation (payment-first flow).
+// If the user is already signed in the userId is stored in metadata so the
+// webhook can link the subscription; otherwise the webhook uses the email.
+router.post('/stripe/subscription-checkout', async (req, res) => {
   try {
     const { successUrl, cancelUrl } = req.body as {
       successUrl: string;
       cancelUrl: string;
     };
 
-    const userId = req.auth!.userId;
-    // Ensure the user record exists in DB so webhook can find them
-    await ensureDbUser(userId);
+    // userId is present only when an existing user re-subscribes from paywall
+    const userId = req.auth?.userId ?? null;
+    if (userId) {
+      await ensureDbUser(userId);
+    }
 
     const stripe = getStripeClient();
     const session = await stripe.checkout.sessions.create({
@@ -85,8 +90,8 @@ router.post('/stripe/subscription-checkout', requireAuth, async (req, res) => {
             currency: 'eur',
             unit_amount: 200, // €2.00
             product_data: {
-              name: 'Spark Premium',
-              description: 'Full access to Spark — matches, chat, video calls & coaching.',
+              name: 'SparkFuse Premium',
+              description: 'Full access to SparkFuse — matches, chat, video calls & coaching.',
             },
             recurring: { interval: 'month' },
           },
@@ -96,7 +101,7 @@ router.post('/stripe/subscription-checkout', requireAuth, async (req, res) => {
       mode: 'subscription',
       success_url: successUrl,
       cancel_url: cancelUrl,
-      metadata: { userId },
+      metadata: userId ? { userId } : {},
     });
 
     res.json({ url: session.url });

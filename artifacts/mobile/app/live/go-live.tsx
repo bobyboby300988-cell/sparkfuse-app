@@ -4,7 +4,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
+  PermissionsAndroid,
   Platform,
   StyleSheet,
   Text,
@@ -65,6 +67,24 @@ export default function GoLiveScreen() {
       setPhase("error");
       setErrorMsg("Daily.co API key not configured.");
       return;
+    }
+    // Request camera and microphone OS permissions before opening WebView.
+    // On Android the WebView cannot access hardware without these grants.
+    if (Platform.OS === "android") {
+      const result = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+      ]);
+      const camOk = result[PermissionsAndroid.PERMISSIONS.CAMERA] === PermissionsAndroid.RESULTS.GRANTED;
+      const micOk = result[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
+      if (!camOk || !micOk) {
+        Alert.alert(
+          "Permissions required",
+          "SparkFuse needs access to your camera and microphone to go live. Please allow them in Settings.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
     }
     setStarted(true);
     try {
@@ -223,9 +243,11 @@ export default function GoLiveScreen() {
             javaScriptEnabled
             domStorageEnabled
             originWhitelist={["*"]}
-            mediaCapturePermissionGrantType={
-              Platform.OS === "ios" ? "grantIfSameHostElsePrompt" : undefined
-            }
+            mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
+            onPermissionRequest={(event) => {
+              // Android: grant camera/mic access to the Daily.co web page
+              event.grant(event.resources);
+            }}
           />
 
           <View style={[styles.liveTopBar, { paddingTop: insets.top + 12 }]} pointerEvents="box-none">

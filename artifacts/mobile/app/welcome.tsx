@@ -348,25 +348,6 @@ export default function WelcomeScreen() {
 
         {/* Copyright */}
         <Text style={styles.copyright}>© 2026 SparkFuse · All Rights Reserved</Text>
-
-        {/* Browse / create account link */}
-        <TouchableOpacity
-          style={styles.skipBtn}
-          onPress={() => {
-            Haptics.selectionAsync();
-            if (isAuthenticated) {
-              router.push("/onboarding");
-            } else {
-              router.push("/sign-up");
-            }
-          }}
-          activeOpacity={0.7}
-          disabled={authLoading}
-        >
-          <Text style={styles.skipText}>
-            {isAuthenticated ? t("welcome.browseFirst") : t("welcome.createAccount")}
-          </Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* ── Age gate ── */}
@@ -611,15 +592,6 @@ const styles = StyleSheet.create({
     paddingVertical: 17,
   },
   loginBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
-
-  /* Skip */
-  skipBtn: { paddingVertical: 8 },
-  skipText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.3)",
-    textDecorationLine: "underline",
-  },
 
   /* Copyright */
   copyright: {

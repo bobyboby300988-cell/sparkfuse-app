@@ -61,8 +61,8 @@ function RootLayoutNav() {
   const { isSubscribed, isLoaded: appLoaded } = useApp();
   const { isSignedIn, isLoaded: authLoaded, getToken } = useAuth();
   const isAuthenticated = !!isSignedIn;
-  const { data: profileData, isLoading: profileLoading } = useGetMyProfile({
-    query: { enabled: isAuthenticated, queryKey: ["myProfile"] },
+  const { data: profileData, isLoading: profileLoading, isError: profileError } = useGetMyProfile({
+    query: { enabled: isAuthenticated, queryKey: ["myProfile"], retry: 3 },
   });
   const segments = useSegments();
   const [timedOut, setTimedOut] = useState(false);
@@ -72,7 +72,10 @@ function RootLayoutNav() {
   }, [getToken]);
 
   const hasProfile = !!profileData?.profile;
-  const isLoaded = (authLoaded || timedOut) && appLoaded && (!isAuthenticated || !profileLoading);
+  // Only treat profile as "done loading" when we have a definitive answer (data or non-retryable error).
+  // Never count a network error as "no profile" — that would falsely log the user out.
+  const profileDone = !profileLoading;
+  const isLoaded = (authLoaded || timedOut) && appLoaded && (!isAuthenticated || profileDone);
 
   // Safety net: if Clerk takes more than 6 s to initialise (network issue,
   // missing publishable key, etc.) treat auth as "not signed in" and redirect
@@ -95,8 +98,14 @@ function RootLayoutNav() {
     const inSignIn = segments[0] === "sign-in";
     const inSignUp = segments[0] === "sign-up";
 
-    if ((!isAuthenticated || !hasProfile) && !inOnboarding && !inWelcome && !inSignIn && !inSignUp) {
+    // Never redirect away from the app because of a transient network error on
+    // the profile fetch — that falsely logs the user out. Only redirect to
+    // /welcome when Clerk definitively says the user is not signed in.
+    if (!isAuthenticated && !inOnboarding && !inWelcome && !inSignIn && !inSignUp) {
       router.replace("/welcome");
+    } else if (isAuthenticated && !hasProfile && !profileError && !profileLoading && !inOnboarding && !inWelcome && !inSignIn && !inSignUp) {
+      // Signed in but genuinely has no profile yet → send to onboarding
+      router.replace("/onboarding");
     } else if (isAuthenticated && hasProfile && inOnboarding) {
       if (!isSubscribed) {
         router.replace("/paywall");
