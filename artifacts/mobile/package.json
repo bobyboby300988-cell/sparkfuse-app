@@ -61,6 +61,7 @@
     "expo-av": "^16.0.8",
     "expo-build-properties": "^1.0.10",
     "expo-localization": "^17.0.9",
+    "expo-updates": "^57.0.8",
     "i18next": "^26.3.6",
     "lottie-react-native": "^7.3.8",
     "react-i18next": "^17.0.9",
