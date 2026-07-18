@@ -2,10 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
+  FlatList,
   Modal,
   Platform,
   ScrollView,
@@ -21,9 +23,11 @@ import { useApp } from "@/context/AppContext";
 import { getApiUrl, getPhotoUrl } from "@/lib/api";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { LockedPhotoGrid } from "@/components/LockedPhotoGrid";
+import { fetchActiveLiveSessions } from "@/lib/liveApi";
 
 const { width: W } = Dimensions.get("window");
 const TILE = (W - 40 - 8) / 3;
+const CAROUSEL_H = W * 1.35;
 
 type ServerProfile = {
   userId: string;
@@ -78,13 +82,17 @@ export default function ProfileViewScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { getToken } = useAuth();
-  const { addMatch } = useApp();
+  const { addMatch, coinBalance, addCoins, unlockedPhotos, unlockPhoto } = useApp();
 
   const [profile, setProfile] = useState<ServerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [photos, setPhotos] = useState<ServerPhoto[]>([]);
   const [liked, setLiked] = useState(false);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [isLive, setIsLive] = useState(false);
+  const [liveSessionId, setLiveSessionId] = useState<string | null>(null);
+  const flatRef = useRef<FlatList>(null);
 
   const mockProfile = ALL_PROFILES.find((p) => p.id === id);
 
@@ -105,6 +113,15 @@ export default function ProfileViewScreen() {
       } catch {}
       setLoading(false);
     })();
+  }, [id]);
+
+  // Check if this user is currently live
+  useEffect(() => {
+    if (!id) return;
+    fetchActiveLiveSessions().then((sessions) => {
+      const found = sessions.find((s) => s.hostUserId === id);
+      if (found) { setIsLive(true); setLiveSessionId(found.id); }
+    }).catch(() => {});
   }, [id]);
 
   const displayName = mockProfile?.name ?? profile?.name ?? nameParam ?? "Utilizator";
@@ -139,6 +156,25 @@ export default function ProfileViewScreen() {
       ? [{ id: "hero", uri: heroUri, isVideo: false }]
       : [];
 
+  type CarouselSlide = { id: string; source: any; isLocked: boolean; isVideo: boolean; price?: string };
+  const carouselItems = useMemo<CarouselSlide[]>(() => {
+    const items: CarouselSlide[] = [{ id: "hero", source: heroSource, isLocked: false, isVideo: false }];
+    if (!mockProfile) {
+      freePhotos.forEach((p) => {
+        const uri = getPhotoUrl(p.objectPath) ?? p.objectPath;
+        items.push({ id: p.id, source: { uri }, isLocked: false, isVideo: p.mediaType === "video" });
+      });
+      exclusivePhotos.forEach((p) => {
+        const uri = getPhotoUrl(p.objectPath) ?? p.objectPath;
+        items.push({
+          id: p.id, source: { uri }, isLocked: true, isVideo: p.mediaType === "video",
+          price: p.mediaType === "video" ? "500 ST · €5.00" : "20 ST · €0.20",
+        });
+      });
+    }
+    return items;
+  }, [heroSource, mockProfile, freePhotos, exclusivePhotos]);
+
   const handleMessage = () => {
     const photoUri = heroUri ?? "";
     addMatch(id, displayName, photoUri);
@@ -149,33 +185,92 @@ export default function ProfileViewScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}>
 
-        {/* ── Hero foto cu gradient ── */}
-        <View style={styles.heroWrap}>
-          <Image source={heroSource} style={styles.heroImg} contentFit="cover" />
+        {/* ── Photo Carousel ── */}
+        <View style={{ width: W, height: CAROUSEL_H }}>
+          <FlatList
+            ref={flatRef}
+            horizontal
+            pagingEnabled
+            data={carouselItems}
+            keyExtractor={(item) => item.id}
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onMomentumScrollEnd={(e) =>
+              setCarouselIndex(Math.round(e.nativeEvent.contentOffset.x / W))
+            }
+            renderItem={({ item }) => {
+              const locked = item.isLocked && !unlockedPhotos.includes(item.id);
+              return (
+                <TouchableOpacity
+                  activeOpacity={locked ? 0.88 : 0.95}
+                  style={{ width: W, height: CAROUSEL_H }}
+                  onPress={() => {
+                    if (locked) {
+                      const price = item.isVideo ? 500 : 20;
+                      const priceEur = item.isVideo ? "€5.00" : "€0.20";
+                      const label = item.isVideo ? "video" : "foto";
+                      if (coinBalance < price) {
+                        Alert.alert("Jetoane insuficiente 🔥", `Ai nevoie de ${price} CT (${priceEur}) pentru a debloca acest ${label}.\n\nAi ${coinBalance} CT.`, [{ text: "OK" }]);
+                        return;
+                      }
+                      Alert.alert(`Deblochează ${label}`, `Cheltuiești ${price} CT (${priceEur}) pentru a debloca?`, [
+                        { text: "Anulează", style: "cancel" },
+                        { text: `Deblochează · ${price} CT`, onPress: () => { addCoins(-price); unlockPhoto(item.id); } },
+                      ]);
+                    } else if (!item.isVideo && item.source?.uri) {
+                      setLightboxUri(item.source.uri);
+                    }
+                  }}
+                >
+                  <Image
+                    source={item.source}
+                    style={{ width: W, height: CAROUSEL_H }}
+                    contentFit="cover"
+                    blurRadius={locked ? 22 : 0}
+                  />
+                  {locked && (
+                    <View style={styles.lockOverlay}>
+                      <View style={styles.lockCircle}>
+                        <Ionicons name={item.isVideo ? "videocam" : "lock-closed"} size={30} color="#fff" />
+                      </View>
+                      <Text style={styles.lockPrice}>{item.price}</Text>
+                      <Text style={styles.lockHint}>Atinge pentru a debloca</Text>
+                    </View>
+                  )}
+                  {!locked && item.isVideo && (
+                    <View style={styles.videoBadge}>
+                      <Ionicons name="play" size={28} color="#fff" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            }}
+          />
+
+          {/* Gradient overlay at bottom */}
           <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.15)", "rgba(0,0,0,0.75)"]}
+            colors={["transparent", "rgba(0,0,0,0.12)", "rgba(0,0,0,0.78)"]}
             style={styles.heroGradient}
+            pointerEvents="none"
           />
 
           {/* Back button */}
           <TouchableOpacity
             onPress={() => router.back()}
             style={[styles.backBtn, { top: insets.top + 10 }]}
+            activeOpacity={0.8}
           >
             <Ionicons name="chevron-back" size={22} color="#fff" />
           </TouchableOpacity>
 
-          {/* Name + badges */}
-          <View style={[styles.heroInfo, { bottom: 24 }]}>
+          {/* Name + status overlay */}
+          <View style={[styles.heroInfo, { bottom: 24 }]} pointerEvents="none">
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <Text style={styles.heroName}>
                 {displayName}{displayAge ? `, ${displayAge}` : ""}
               </Text>
               {!mockProfile && (
-                <View style={[
-                  styles.onlinePill,
-                  { backgroundColor: displayLastSeen.online ? "#22C55E" : "rgba(255,255,255,0.2)" }
-                ]}>
+                <View style={[styles.onlinePill, { backgroundColor: displayLastSeen.online ? "#22C55E" : "rgba(255,255,255,0.2)" }]}>
                   <View style={[styles.onlineDot, { backgroundColor: displayLastSeen.online ? "#fff" : "rgba(255,255,255,0.6)" }]} />
                   <Text style={styles.onlinePillText}>{displayLastSeen.online ? "Online" : "Offline"}</Text>
                 </View>
@@ -190,7 +285,40 @@ export default function ProfileViewScreen() {
               </View>
             )}
           </View>
+
+          {/* Dot indicators */}
+          {carouselItems.length > 1 && (
+            <View style={styles.dotsRow} pointerEvents="none">
+              {carouselItems.map((_, i) => (
+                <View
+                  key={i}
+                  style={[styles.dot, {
+                    backgroundColor: i === carouselIndex ? "#fff" : "rgba(255,255,255,0.38)",
+                    width: i === carouselIndex ? 18 : 6,
+                  }]}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Photo counter */}
+          <View style={styles.photoCounter} pointerEvents="none">
+            <Text style={styles.photoCounterText}>{carouselIndex + 1} / {carouselItems.length}</Text>
+          </View>
         </View>
+
+        {/* ── Este LIVE banner ── */}
+        {isLive && liveSessionId && (
+          <TouchableOpacity
+            style={styles.liveBanner}
+            activeOpacity={0.85}
+            onPress={() => router.push({ pathname: "/live/[id]", params: { id: liveSessionId } })}
+          >
+            <View style={styles.liveBannerDot} />
+            <Text style={styles.liveBannerText}>Este live acum • Intră pe stream</Text>
+            <Ionicons name="chevron-forward" size={16} color="#FF3366" />
+          </TouchableOpacity>
+        )}
 
         {loading && !mockProfile && (
           <View style={{ paddingVertical: 32, alignItems: "center" }}>
@@ -318,9 +446,7 @@ export default function ProfileViewScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
-  heroWrap: { width: "100%", height: 500, position: "relative" },
-  heroImg: { width: "100%", height: "100%" },
-  heroGradient: { position: "absolute", bottom: 0, left: 0, right: 0, height: 260 },
+  heroGradient: { position: "absolute", bottom: 0, left: 0, right: 0, height: 280 },
   backBtn: {
     position: "absolute", left: 16,
     width: 38, height: 38, borderRadius: 19,
@@ -329,6 +455,45 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: "rgba(255,255,255,0.15)",
   },
   heroInfo: { position: "absolute", left: 20, right: 20 },
+
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center", justifyContent: "center", gap: 10,
+  },
+  lockCircle: {
+    width: 68, height: 68, borderRadius: 34,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderWidth: 2, borderColor: "rgba(255,255,255,0.3)",
+    alignItems: "center", justifyContent: "center",
+  },
+  lockPrice: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+  lockHint: { color: "rgba(255,255,255,0.65)", fontSize: 13, fontFamily: "Inter_400Regular" },
+  videoBadge: {
+    position: "absolute", bottom: 20, right: 20,
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center",
+  },
+  dotsRow: {
+    position: "absolute", bottom: 10, alignSelf: "center",
+    flexDirection: "row", gap: 5, alignItems: "center",
+  },
+  dot: { height: 5, borderRadius: 3, backgroundColor: "#fff" },
+  photoCounter: {
+    position: "absolute", top: 14, right: 14,
+    backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 12,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  photoCounterText: { color: "#fff", fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  liveBanner: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    marginHorizontal: 16, marginTop: 12, marginBottom: 2,
+    backgroundColor: "#FF336612", borderWidth: 1.5, borderColor: "#FF336640",
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13,
+  },
+  liveBannerDot: {
+    width: 10, height: 10, borderRadius: 5, backgroundColor: "#FF3366",
+  },
+  liveBannerText: { flex: 1, color: "#FF3366", fontSize: 14, fontFamily: "Inter_700Bold" },
   heroName: {
     color: "#fff", fontSize: 32, fontFamily: "Inter_700Bold",
     textShadowColor: "rgba(0,0,0,0.6)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 8,

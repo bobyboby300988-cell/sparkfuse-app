@@ -243,10 +243,14 @@ export default function GoLiveScreen() {
             javaScriptEnabled
             domStorageEnabled
             originWhitelist={["*"]}
-            mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
+            mediaCapturePermissionGrantType="grant"
             onPermissionRequest={(event) => {
               // Android: grant camera/mic access to the Daily.co web page
-              event.grant(event.resources);
+              event.nativeEvent.grant(event.nativeEvent.resources);
+            }}
+            onShouldStartLoadWithRequest={(request) => {
+              // Only allow navigation within Daily.co to prevent logout redirects
+              return request.url.includes("daily.co") || request.url.startsWith("about:");
             }}
           />
 

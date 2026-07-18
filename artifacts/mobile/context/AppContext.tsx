@@ -31,7 +31,7 @@ export interface Match {
   photoUri?: string | null;
 }
 
-export type AppMode = "dating" | "naughty" | "business" | "party" | "travel" | "social";
+export type AppMode = "dating" | "naughty" | "business" | "party" | "travel" | "social" | "live";
 
 interface AppContextType {
   isLoaded: boolean;

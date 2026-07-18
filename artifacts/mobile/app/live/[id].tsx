@@ -357,6 +357,13 @@ export default function LiveScreen() {
           javaScriptEnabled
           domStorageEnabled
           originWhitelist={["*"]}
+          mediaCapturePermissionGrantType="grant"
+          onPermissionRequest={(event) => {
+            event.nativeEvent.grant(event.nativeEvent.resources);
+          }}
+          onShouldStartLoadWithRequest={(request) => {
+            return request.url.includes("daily.co") || request.url.startsWith("about:");
+          }}
         />
       ) : (
         <Image source={mockStream.avatar} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
@@ -382,8 +389,15 @@ export default function LiveScreen() {
           <Ionicons name="ellipsis-horizontal" size={20} color="#fff" />
         </TouchableOpacity>
 
-        {/* Streamer info */}
-        <View style={styles.streamerInfo}>
+        {/* Streamer info — tap → host profile */}
+        <TouchableOpacity
+          style={styles.streamerInfo}
+          activeOpacity={0.82}
+          onPress={() => {
+            const hostId = realSession?.hostUserId;
+            if (hostId) router.push({ pathname: "/profile/[id]", params: { id: hostId } });
+          }}
+        >
           <Image source={stream.avatar} style={styles.streamerAvatar} />
           <View>
             <Text style={styles.streamerName}>
@@ -393,7 +407,7 @@ export default function LiveScreen() {
               <Text style={styles.categoryChipText}>{stream.category}</Text>
             </LinearGradient>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Viewer count */}
         <View style={styles.viewerBadge}>
@@ -456,23 +470,29 @@ export default function LiveScreen() {
         {/* Like */}
         <TouchableOpacity onPress={handleLike} style={styles.iconBtn} activeOpacity={0.8}>
           <Ionicons name={isLiked ? "heart" : "heart-outline"} size={26} color={isLiked ? "#FF3366" : "#fff"} />
+          <Text style={styles.iconBtnLabel}>Apreciez</Text>
         </TouchableOpacity>
 
-        {/* Gift */}
+        {/* ── GIFT — TikTok style ── */}
         <TouchableOpacity
-          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setGiftOpen(true); }}
-          style={styles.giftBtn}
-          activeOpacity={0.85}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); setGiftOpen(true); }}
+          style={styles.giftIconBtn}
+          activeOpacity={0.82}
         >
-          <LinearGradient colors={["#FF3366","#FF6B35"]} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.giftBtnGrad}>
-            <Text style={styles.giftBtnEmoji}>🎁</Text>
-            <Text style={styles.giftBtnText}>Gift</Text>
+          <LinearGradient
+            colors={["#FF3366", "#FF6B35"]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={styles.giftIconCircle}
+          >
+            <Text style={styles.giftIconEmoji}>🎁</Text>
           </LinearGradient>
+          <Text style={styles.iconBtnLabel}>Cadou</Text>
         </TouchableOpacity>
 
         {/* Share */}
         <TouchableOpacity onPress={() => spawnReaction("🚀")} style={styles.iconBtn} activeOpacity={0.8}>
           <Ionicons name="share-social" size={24} color="#fff" />
+          <Text style={styles.iconBtnLabel}>Trimite</Text>
         </TouchableOpacity>
       </View>
 
@@ -599,7 +619,16 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", color: "#fff" },
   sendBtn: { paddingLeft: 6 },
-  iconBtn: { padding: 4 },
+  iconBtn: { padding: 4, alignItems: "center", gap: 3 },
+  iconBtnLabel: { color: "rgba(255,255,255,0.75)", fontSize: 10, fontFamily: "Inter_500Medium" },
+  giftIconBtn: { alignItems: "center", gap: 3 },
+  giftIconCircle: {
+    width: 48, height: 48, borderRadius: 24,
+    alignItems: "center", justifyContent: "center",
+    shadowColor: "#FF3366", shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.55, shadowRadius: 8, elevation: 8,
+  },
+  giftIconEmoji: { fontSize: 24 },
   giftBtn: { borderRadius: 22, overflow: "hidden" },
   giftBtnGrad: {
     flexDirection: "row", alignItems: "center", gap: 5,

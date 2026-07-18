@@ -11,6 +11,7 @@ interface Mode {
 }
 
 const MODES: Mode[] = [
+  { key: "live",     label: "LIVE",     emoji: "🔴", color: "#FF3366" },
   { key: "dating",   label: "Dating",   emoji: "💕", color: "#FF3366" },
   { key: "naughty",  label: "Naughty",  emoji: "🔥", color: "#FF6B35" },
   { key: "business", label: "Business", emoji: "💼", color: "#0EA5E9" },

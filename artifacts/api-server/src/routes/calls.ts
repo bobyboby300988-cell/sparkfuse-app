@@ -38,7 +38,10 @@ router.post('/calls/room', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'roomName is required' });
   }
 
-  const safeName = `spark-${roomName.replace(/[^a-zA-Z0-9-]/g, '-').slice(0, 40)}`;
+  // Avoid double-prefixing: callee extracts the full room name (already "spark-xyz")
+  // from the roomUrl sent in the chat message, so don't prepend again.
+  const clean = roomName.replace(/[^a-zA-Z0-9-]/g, '-');
+  const safeName = clean.startsWith('spark-') ? clean.slice(0, 60) : `spark-${clean.slice(0, 54)}`;
 
   // Get or create the room
   let roomUrl: string;
@@ -54,6 +57,7 @@ router.post('/calls/room', requireAuth, async (req, res) => {
         properties: {
           enable_chat: false,
           enable_knocking: false,
+          enable_prejoin_ui: false,
           start_video_off: false,
           start_audio_off: false,
           // Room expires after 24 hours of inactivity

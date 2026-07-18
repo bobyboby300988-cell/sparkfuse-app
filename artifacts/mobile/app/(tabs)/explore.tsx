@@ -7,6 +7,7 @@ import { router } from "expo-router";
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   Alert,
+  Animated,
   Dimensions,
   Modal,
   Platform,
@@ -18,12 +19,14 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@clerk/expo";
 import { useApp } from "@/context/AppContext";
 import { ModeSelector } from "@/components/ModeSelector";
 import { useColors } from "@/hooks/useColors";
 import { useCreateSwipe } from "@workspace/api-client-react";
 import { getApiUrl, getPhotoUrl } from "@/lib/api";
 import { buildDemoMedia, type DemoItem } from "@/components/LockedMediaGrid";
+import { fetchActiveLiveSessions, type LiveSession } from "@/lib/liveApi";
 
 const { width: W } = Dimensions.get("window");
 const GALLERY_H = W * 1.15;
@@ -65,13 +68,17 @@ function useBrowse() {
   const [profiles, setProfiles] = useState<BrowseProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { getToken } = useAuth();
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
       const base = getApiUrl();
-      const res = await fetch(`${base}/api/browse`, { credentials: "include" });
+      const tok = await getToken();
+      const res = await fetch(`${base}/api/browse`, {
+        headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         setProfiles(data.profiles ?? []);
@@ -79,11 +86,24 @@ function useBrowse() {
     } catch { /* ignore */ }
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [getToken]);
 
   useEffect(() => { load(); }, [load]);
 
   return { profiles, loading, refreshing, refresh: () => load(true) };
+}
+
+function useLiveSessions() {
+  const [sessions, setSessions] = useState<LiveSession[]>([]);
+  const load = useCallback(async () => {
+    try { setSessions(await fetchActiveLiveSessions()); } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 20_000);
+    return () => clearInterval(t);
+  }, [load]);
+  return { sessions, reload: load };
 }
 
 /* ── Photo gallery (swipeable) ──────────────────────────────────────── */
@@ -542,10 +562,19 @@ export default function ExploreScreen() {
   const { appMode, setAppMode } = useApp();
   const [selected, setSelected] = useState<BrowseProfile | null>(null);
   const { profiles, loading, refreshing, refresh } = useBrowse();
+  const { sessions: liveSessions, reload: reloadLive } = useLiveSessions();
 
-  const accentColor = MODE_ACCENT[appMode] ?? colors.primary;
+  const isLiveMode = appMode === "live";
+  const accentColor = isLiveMode ? "#FF3366" : (MODE_ACCENT[appMode] ?? colors.primary);
   const topPadding = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPadding = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+
+  // Build set of live userIds for badge overlay on browse tiles
+  const liveUserIds = new Set(liveSessions.map((s) => s.hostUserId).filter(Boolean));
+
+  const headerSubtitle = isLiveMode
+    ? (liveSessions.length === 0 ? "Nimeni live acum" : `${liveSessions.length} live acum 🔴`)
+    : (loading ? "Se încarcă…" : `${profiles.length} persoane găsite`);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -557,15 +586,15 @@ export default function ExploreScreen() {
         <View style={styles.headerRow}>
           <View>
             <Text style={[styles.title, { color: colors.foreground }]}>
-              {MODE_LABEL[appMode] ?? "Explore"}
+              {isLiveMode ? "🔴 Live Acum" : (MODE_LABEL[appMode] ?? "Explore")}
             </Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              {loading ? "Loading people…" : `${profiles.length} people found`}
+              {headerSubtitle}
             </Text>
           </View>
           <TouchableOpacity
             style={[styles.refreshBtn, { backgroundColor: accentColor + "22", borderColor: accentColor + "55" }]}
-            onPress={refresh}
+            onPress={isLiveMode ? reloadLive : refresh}
             activeOpacity={0.8}
           >
             <Ionicons name="refresh" size={18} color={accentColor} />
@@ -575,89 +604,147 @@ export default function ExploreScreen() {
 
       <ModeSelector value={appMode} onChange={setAppMode} />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: GAP, paddingBottom: bottomPadding + 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={accentColor} />}
-      >
-        {!loading && profiles.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <LinearGradient
-              colors={[accentColor + "30", accentColor + "10"]}
-              style={styles.emptyCard}
-            >
-              <Text style={styles.emptyIcon}>🔍</Text>
-              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No profiles yet</Text>
-              <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>
-                Be the first! More people join every day.
-              </Text>
-              <TouchableOpacity
-                style={[styles.emptyBtn, { backgroundColor: accentColor }]}
-                onPress={refresh}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.emptyBtnText}>Refresh</Text>
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
-        ) : (
-          <View style={styles.grid}>
-            {profiles.map((item) => {
-              const photoUrl = getPhotoUrl(item.photoUrl);
-              return (
+      {/* ── LIVE MODE ── */}
+      {isLiveMode ? (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: GAP, paddingBottom: bottomPadding + 100 }}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={reloadLive} tintColor="#FF3366" />}
+        >
+          {liveSessions.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <LinearGradient colors={["#FF336630", "#FF336610"]} style={styles.emptyCard}>
+                <Text style={styles.emptyIcon}>🔴</Text>
+                <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Nimeni nu e live acum</Text>
+                <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>
+                  Fii primul care pornește un live stream!
+                </Text>
+                <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: "#FF3366" }]} onPress={reloadLive} activeOpacity={0.8}>
+                  <Text style={styles.emptyBtnText}>Reîncarcă</Text>
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+          ) : (
+            <View style={styles.grid}>
+              {liveSessions.map((session) => (
                 <TouchableOpacity
-                  key={item.userId}
-                  style={[styles.tile, { borderColor: accentColor + "33" }]}
+                  key={session.id}
+                  style={[styles.tile, { borderColor: "#FF336655" }]}
                   onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelected(item);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    router.push({ pathname: "/live/[id]", params: { id: session.id } });
                   }}
                   activeOpacity={0.88}
                 >
-                  {photoUrl ? (
-                    <Image source={{ uri: photoUrl }} style={styles.tileImg} contentFit="cover" />
-                  ) : (
-                    <LinearGradient
-                      colors={[accentColor, accentColor + "88"]}
-                      style={[styles.tileImg, { justifyContent: "center", alignItems: "center" }]}
-                    >
-                      <Text style={{ fontSize: 48 }}>👤</Text>
-                    </LinearGradient>
-                  )}
-
-                  {/* Online dot — only shown when server confirms user is active */}
-                  {item.isOnline && (
-                    <View style={[styles.onlineDot, { backgroundColor: "#22c55e", borderColor: colors.background }]} />
-                  )}
-
-                  {/* Info overlay */}
                   <LinearGradient
-                    colors={["transparent", "rgba(0,0,0,0.82)"]}
-                    style={styles.overlay}
+                    colors={["#1a0510", "#2d0a1a", "#0a0010"]}
+                    style={[styles.tileImg, { justifyContent: "center", alignItems: "center" }]}
                   >
-                    <Text style={styles.tileName} numberOfLines={1}>{item.name}, {item.age}</Text>
-                    {item.distanceKm != null && (
-                      <View style={styles.distRow}>
-                        <Ionicons name="location-outline" size={10} color="rgba(255,255,255,0.7)" />
-                        <Text style={styles.tileDistance}>
-                          {item.distanceKm < 1 ? "<1 km" : `${item.distanceKm} km`}
+                    <Text style={{ fontSize: 44 }}>🎥</Text>
+                  </LinearGradient>
+
+                  {/* Pulsing LIVE badge */}
+                  <View style={styles.liveBadge}>
+                    <View style={styles.liveDotBadge} />
+                    <Text style={styles.liveBadgeText}>LIVE</Text>
+                  </View>
+
+                  <LinearGradient colors={["transparent", "rgba(0,0,0,0.9)"]} style={styles.overlay}>
+                    <Text style={styles.tileName} numberOfLines={1}>{session.name}</Text>
+                    <Text style={styles.tileCategory} numberOfLines={1}>{session.category}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+      ) : (
+        /* ── BROWSE MODE ── */
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: GAP, paddingBottom: bottomPadding + 100 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={accentColor} />}
+        >
+          {!loading && profiles.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <LinearGradient colors={[accentColor + "30", accentColor + "10"]} style={styles.emptyCard}>
+                <Text style={styles.emptyIcon}>🔍</Text>
+                <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No profiles yet</Text>
+                <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>
+                  Be the first! More people join every day.
+                </Text>
+                <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: accentColor }]} onPress={refresh} activeOpacity={0.8}>
+                  <Text style={styles.emptyBtnText}>Refresh</Text>
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+          ) : (
+            <View style={styles.grid}>
+              {profiles.map((item) => {
+                const photoUrl = getPhotoUrl(item.photoUrl);
+                const isLive = liveUserIds.has(item.userId);
+                const liveSession = isLive ? liveSessions.find((s) => s.hostUserId === item.userId) : undefined;
+                return (
+                  <TouchableOpacity
+                    key={item.userId}
+                    style={[styles.tile, { borderColor: isLive ? "#FF336688" : accentColor + "33" }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      if (isLive && liveSession) {
+                        router.push({ pathname: "/live/[id]", params: { id: liveSession.id } });
+                      } else {
+                        setSelected(item);
+                      }
+                    }}
+                    activeOpacity={0.88}
+                  >
+                    {photoUrl ? (
+                      <Image source={{ uri: photoUrl }} style={styles.tileImg} contentFit="cover" />
+                    ) : (
+                      <LinearGradient
+                        colors={[accentColor, accentColor + "88"]}
+                        style={[styles.tileImg, { justifyContent: "center", alignItems: "center" }]}
+                      >
+                        <Text style={{ fontSize: 48 }}>👤</Text>
+                      </LinearGradient>
+                    )}
+
+                    {/* LIVE badge (overrides online dot) */}
+                    {isLive ? (
+                      <View style={styles.liveBadge}>
+                        <View style={styles.liveDotBadge} />
+                        <Text style={styles.liveBadgeText}>LIVE</Text>
+                      </View>
+                    ) : item.isOnline ? (
+                      <View style={[styles.onlineDot, { backgroundColor: "#22c55e", borderColor: colors.background }]} />
+                    ) : null}
+
+                    <LinearGradient colors={["transparent", "rgba(0,0,0,0.82)"]} style={styles.overlay}>
+                      <Text style={styles.tileName} numberOfLines={1}>{item.name}, {item.age}</Text>
+                      {item.distanceKm != null && (
+                        <View style={styles.distRow}>
+                          <Ionicons name="location-outline" size={10} color="rgba(255,255,255,0.7)" />
+                          <Text style={styles.tileDistance}>
+                            {item.distanceKm < 1 ? "<1 km" : `${item.distanceKm} km`}
+                          </Text>
+                        </View>
+                      )}
+                    </LinearGradient>
+
+                    {!isLive && (
+                      <View style={[styles.modeBadge, { backgroundColor: accentColor }]}>
+                        <Text style={styles.modeBadgeText}>
+                          {appMode === "naughty" ? "🔥" : appMode === "party" ? "🎉" : "💕"}
                         </Text>
                       </View>
                     )}
-                  </LinearGradient>
-
-                  {/* Mode badge */}
-                  <View style={[styles.modeBadge, { backgroundColor: accentColor }]}>
-                    <Text style={styles.modeBadgeText}>
-                      {appMode === "naughty" ? "🔥" : appMode === "party" ? "🎉" : "💕"}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-      </ScrollView>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
+      )}
 
       <ProfileModal profile={selected} visible={!!selected} onClose={() => setSelected(null)} />
     </View>
@@ -700,6 +787,15 @@ const styles = StyleSheet.create({
     justifyContent: "center", alignItems: "center",
   },
   modeBadgeText: { fontSize: 12 },
+  liveBadge: {
+    position: "absolute", top: 10, left: 10,
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "#FF0000CC", borderRadius: 10,
+    paddingHorizontal: 8, paddingVertical: 4,
+  },
+  liveDotBadge: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#fff" },
+  liveBadgeText: { color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  tileCategory: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
   emptyWrap: { flex: 1, paddingTop: 40, paddingHorizontal: 16 },
   emptyCard: { borderRadius: 24, padding: 40, alignItems: "center", gap: 12 },
   emptyIcon: { fontSize: 52 },
