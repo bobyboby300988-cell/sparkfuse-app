@@ -1,0 +1,17 @@
+node_modules
+.git
+.expo
+dist
+android
+ios
+attached_assets
+artifacts/sparkfuse-promo
+artifacts/mockup-sandbox
+artifacts/api-server
+lib/*/node_modules
+scripts/node_modules
+**/*.test.ts
+**/*.test.tsx
+**/__tests__
+*.log
+.local
