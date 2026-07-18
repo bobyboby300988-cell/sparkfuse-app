@@ -2,16 +2,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@clerk/expo";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/lib/api";
-
-type Prefs = { notifCalls: boolean; notifMessages: boolean; notifMatches: boolean };
 
 export default function NotificationSettingsScreen() {
   const { getToken } = useAuth();
   const insets = useSafeAreaInsets();
-  const [prefs, setPrefs] = useState<Prefs>({ notifCalls: true, notifMessages: true, notifMatches: true });
+  const [enabled, setEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -23,49 +21,29 @@ export default function NotificationSettingsScreen() {
           headers: { Authorization: `Bearer ${tok}` },
         });
         if (res.ok) {
-          const data = (await res.json()) as { prefs: Prefs };
-          setPrefs(data.prefs);
+          const data = (await res.json()) as { prefs: { notifCalls: boolean; notifMessages: boolean; notifMatches: boolean } };
+          // Enabled = at least one is on
+          setEnabled(data.prefs.notifCalls || data.prefs.notifMessages || data.prefs.notifMatches);
         }
       } catch {}
       setLoading(false);
     })();
   }, []);
 
-  const toggle = async (key: keyof Prefs) => {
-    const updated = { ...prefs, [key]: !prefs[key] };
-    setPrefs(updated);
+  const toggle = async () => {
+    const next = !enabled;
+    setEnabled(next);
     setSaving(true);
     try {
       const tok = await getToken();
       await fetch(`${getApiUrl()}/api/account/notifications`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
-        body: JSON.stringify({ [key]: updated[key] }),
+        body: JSON.stringify({ notifCalls: next, notifMessages: next, notifMatches: next }),
       });
     } catch {}
     setSaving(false);
   };
-
-  const items: { key: keyof Prefs; icon: string; title: string; desc: string }[] = [
-    {
-      key: "notifCalls",
-      icon: "call-outline",
-      title: "Apeluri",
-      desc: "Primești notificare când cineva te sună",
-    },
-    {
-      key: "notifMessages",
-      icon: "chatbubble-outline",
-      title: "Mesaje",
-      desc: "Primești notificare pentru mesaje noi",
-    },
-    {
-      key: "notifMatches",
-      icon: "heart-outline",
-      title: "Match-uri",
-      desc: "Primești notificare când ai un match nou",
-    },
-  ];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -77,33 +55,36 @@ export default function NotificationSettingsScreen() {
         {saving ? <ActivityIndicator size="small" color="#FF3366" /> : <View style={{ width: 24 }} />}
       </View>
 
-      <Text style={styles.hint}>
-        Aceste setări controlează ce notificări primești când nu ești în aplicație.
-        {"\n"}Dacă ai dezactivat notificările pentru SparkFuse din setările telefonului, nu vei primi nicio notificare indiferent de opțiunile de mai jos.
-      </Text>
-
       {loading ? (
-        <ActivityIndicator size="large" color="#FF3366" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color="#FF3366" style={{ marginTop: 60 }} />
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
-          {items.map((item) => (
-            <View key={item.key} style={styles.row}>
-              <View style={styles.rowIcon}>
-                <Ionicons name={item.icon as any} size={22} color="#FF3366" />
-              </View>
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>{item.title}</Text>
-                <Text style={styles.rowDesc}>{item.desc}</Text>
-              </View>
-              <Switch
-                value={prefs[item.key]}
-                onValueChange={() => toggle(item.key)}
-                trackColor={{ false: "#333", true: "#FF336680" }}
-                thumbColor={prefs[item.key] ? "#FF3366" : "#888"}
-              />
+        <View style={styles.body}>
+          <View style={[styles.card, { opacity: 1 }]}>
+            <View style={styles.cardIcon}>
+              <Ionicons name="notifications-outline" size={26} color="#FF3366" />
             </View>
-          ))}
-        </ScrollView>
+            <View style={styles.cardText}>
+              <Text style={styles.cardTitle}>Notificări active</Text>
+              <Text style={styles.cardDesc}>
+                Mesaje · Match-uri · Apeluri vocale · Video call-uri
+              </Text>
+            </View>
+            <Switch
+              value={enabled}
+              onValueChange={toggle}
+              trackColor={{ false: "#2a2a3a", true: "#FF336680" }}
+              thumbColor={enabled ? "#FF3366" : "#666"}
+            />
+          </View>
+
+          <Text style={styles.hint}>
+            {enabled
+              ? "Vei primi notificări pe telefon când nu ești în aplicație."
+              : "Nu vei primi nicio notificare când nu ești în aplicație."}
+            {"\n\n"}
+            Dacă ai dezactivat notificările pentru SparkFuse din setările telefonului, nu vei primi nimic indiferent de această setare.
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -121,32 +102,33 @@ const styles = StyleSheet.create({
     borderBottomColor: "#1a1a2e",
   },
   title: { color: "#fff", fontSize: 18, fontFamily: "Inter_600SemiBold" },
-  hint: {
-    color: "#888",
-    fontSize: 13,
-    lineHeight: 20,
-    marginHorizontal: 20,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  list: { paddingHorizontal: 20, paddingTop: 8, gap: 8 },
-  row: {
+  body: { padding: 20, gap: 16 },
+  card: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#12121f",
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     gap: 14,
+    borderWidth: 1,
+    borderColor: "#1e1e35",
   },
-  rowIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FF336615",
+  cardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FF336618",
     alignItems: "center",
     justifyContent: "center",
   },
-  rowText: { flex: 1 },
-  rowTitle: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  rowDesc: { color: "#888", fontSize: 12, marginTop: 2, fontFamily: "Inter_400Regular" },
+  cardText: { flex: 1, gap: 3 },
+  cardTitle: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  cardDesc: { color: "#888", fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  hint: {
+    color: "#666",
+    fontSize: 12,
+    lineHeight: 20,
+    fontFamily: "Inter_400Regular",
+    paddingHorizontal: 4,
+  },
 });
