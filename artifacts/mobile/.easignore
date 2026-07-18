@@ -1,0 +1,11 @@
+node_modules
+.expo
+dist
+android
+ios
+**/*.test.ts
+**/*.test.tsx
+**/__tests__
+.git
+.gitignore
+*.log
