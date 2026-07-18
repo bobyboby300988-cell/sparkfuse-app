@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "sparkfuse",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.sparkfuse.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#0D0B12"
@@ -47,31 +47,9 @@
       "expo-font",
       "expo-web-browser",
       [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/icon.png",
-          "color": "#FF3366",
-          "sounds": [],
-          "androidMode": "default",
-          "androidCollapsedTitle": "SparkFuse"
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "photosPermission": "SparkFuse needs access to your photos to set your profile picture and add gallery photos."
-        }
-      ],
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "packagingOptions": {
-              "pickFirst": [
-                "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
-              ]
-            }
-          }
         }
       ]
     ],
