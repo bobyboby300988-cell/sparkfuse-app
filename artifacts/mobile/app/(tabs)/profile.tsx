@@ -223,7 +223,7 @@ export default function ProfileScreen() {
       const urlRes = await fetch(`${getApiUrl()}/api/storage/uploads/request-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: "avatar.jpg" }),
+        body: JSON.stringify({ fileName: "avatar.jpg", contentType: "image/jpeg" }),
       });
       const { uploadUrl, objectPath } = await urlRes.json();
       const blob = await (await fetch(uri)).blob();
@@ -252,7 +252,10 @@ export default function ProfileScreen() {
       const urlRes = await fetch(`${getApiUrl()}/api/storage/uploads/request-url`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ filename: mediaType === "video" ? "gallery.mp4" : "gallery.jpg" }),
+        body: JSON.stringify({
+          fileName: mediaType === "video" ? "gallery.mp4" : "gallery.jpg",
+          contentType: mediaType === "video" ? "video/mp4" : "image/jpeg",
+        }),
       });
       if (!urlRes.ok) throw new Error("Could not get upload URL");
       const { uploadUrl, objectPath } = await urlRes.json();
