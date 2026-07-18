@@ -12,8 +12,10 @@ import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache as nativeTokenCache } from "@clerk/expo/token-cache";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as Notifications from "expo-notifications";
 import React, { useEffect, useRef, useState } from "react";
 import { View, ActivityIndicator, Platform, Text, ScrollView } from "react-native";
+import { getApiUrl } from "@/lib/api";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -57,6 +59,10 @@ function CrashScreen({ message }: { message: string }) {
   );
 }
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
+});
+
 function RootLayoutNav() {
   const { isSubscribed, isLoaded: appLoaded } = useApp();
   const { isSignedIn, isLoaded: authLoaded, getToken } = useAuth();
@@ -66,10 +72,87 @@ function RootLayoutNav() {
   });
   const segments = useSegments();
   const [timedOut, setTimedOut] = useState(false);
+  const notifListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
     setAuthTokenGetter(() => getToken());
   }, [getToken]);
+
+  // Register push token and handle incoming notifications
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const registerPush = async () => {
+      if (Platform.OS === "web") return;
+      try {
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (status !== "granted") return;
+        const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: "0245bd50-5c67-49ed-a709-8f7f358ea527" });
+        const tok = await getToken();
+        await fetch(`${getApiUrl()}/api/calls/push-token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+          body: JSON.stringify({ token: tokenData.data }),
+        });
+      } catch {}
+    };
+    registerPush();
+
+    // Handle notification tap (app in background/killed → open incoming call screen)
+    notifListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, string>;
+      if (data?.type === "incoming_call") {
+        router.push({
+          pathname: "/incoming-call",
+          params: {
+            callId: data.callId,
+            callerId: data.callerId,
+            callerName: data.callerName,
+            callerPhoto: data.callerPhoto ?? "",
+            isVoice: data.isVoice,
+          },
+        });
+      }
+    });
+
+    // Poll for incoming calls when app is in foreground (every 4s)
+    let polling = true;
+    const pollIncoming = async () => {
+      while (polling) {
+        try {
+          const tok = await getToken();
+          const res = await fetch(`${getApiUrl()}/api/calls/incoming`, {
+            headers: { Authorization: `Bearer ${tok}` },
+          });
+          if (res.ok) {
+            const { call } = (await res.json()) as { call: { id: string; callerId: string; callerName: string; callerPhoto: string; isVoice: boolean } | null };
+            if (call) {
+              const currentRoute = segments.join("/");
+              if (!currentRoute.includes("incoming-call") && !currentRoute.includes("call/")) {
+                router.push({
+                  pathname: "/incoming-call",
+                  params: {
+                    callId: call.id,
+                    callerId: call.callerId,
+                    callerName: call.callerName ?? "Unknown",
+                    callerPhoto: call.callerPhoto ?? "",
+                    isVoice: String(call.isVoice),
+                  },
+                });
+              }
+            }
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 4000));
+      }
+    };
+    pollIncoming();
+
+    return () => {
+      polling = false;
+      notifListener.current?.remove();
+    };
+  }, [isAuthenticated]);
 
   const hasProfile = !!profileData?.profile;
   // Only treat profile as "done loading" when we have a definitive answer (data or non-retryable error).
@@ -147,6 +230,9 @@ function RootLayoutNav() {
       <Stack.Screen name="paywall" options={{ headerShown: false }} />
       <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="call/[id]" options={{ headerShown: false, presentation: "fullScreenModal" }} />
+      <Stack.Screen name="incoming-call" options={{ headerShown: false, presentation: "fullScreenModal" }} />
+      <Stack.Screen name="notification-settings" options={{ headerShown: false }} />
+      <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
       <Stack.Screen name="coach/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="book/[id]" options={{ headerShown: false }} />
     </Stack>

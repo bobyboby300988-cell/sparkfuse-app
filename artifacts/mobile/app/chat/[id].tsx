@@ -471,23 +471,26 @@ export default function ChatScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Create a Daily.co room + token via our API, then navigate in-app to the call screen
+  // Initiate a call: creates room, notifies callee via push + chat message, then navigates caller to call screen
   const startDailyCall = async (isVideo: boolean) => {
     if (!id) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const roomId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     try {
       const tok = await getToken();
-      const res = await fetch(`${getApiUrl()}/api/calls/room`, {
+      const callerName = authData?.user?.name ?? "User";
+      const photoStr = typeof profile?.photo === "object" && "uri" in profile.photo
+        ? profile.photo.uri
+        : "";
+
+      // Use new /api/calls/initiate which creates room + sends push notification to callee
+      const res = await fetch(`${getApiUrl()}/api/calls/initiate`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${tok}`,
-        },
-        body: JSON.stringify({ roomName: roomId, isOwner: true, userName: authData?.user?.name ?? "User" }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ calleeId: id, isVoice: !isVideo, callerName, callerPhoto: photoStr }),
       });
-      const data = (await res.json()) as { roomUrl: string; token: string };
-      // Send the room URL (without token) so the other person can join with their own token
+      const data = (await res.json()) as { callId: string; roomUrl: string; token: string };
+
+      // Also send chat message so callee can join from chat if they miss the call screen
       try {
         await serverPostMessage({
           data: {
@@ -498,10 +501,7 @@ export default function ChatScreen() {
           },
         });
       } catch {}
-      // Navigate in-app — Daily.co works in WebView
-      const photoStr = typeof profile?.photo === "object" && "uri" in profile.photo
-        ? profile.photo.uri
-        : "";
+
       router.push({
         pathname: "/call/[id]",
         params: {
@@ -511,10 +511,10 @@ export default function ChatScreen() {
           token: data.token,
           name: profile?.name ?? "",
           photo: photoStr,
+          callId: data.callId,
         },
       });
     } catch {
-      // API unavailable — notify user
       Alert.alert("Call failed", "Could not start call. Please try again.");
     }
   };

@@ -843,9 +843,37 @@ export default function ProfileScreen() {
         )}
       </View>
 
-      {/* Language */}
+      {/* Notification Settings */}
       <TouchableOpacity
         style={[styles.languageRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+        onPress={() => router.push("/notification-settings" as any)}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="notifications-outline" size={22} color={colors.foreground} style={{ marginRight: 4 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>Notificări</Text>
+          <Text style={[styles.langValue, { color: colors.foreground }]}>Alege ce notificări primești</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+      </TouchableOpacity>
+
+      {/* Privacy Policy */}
+      <TouchableOpacity
+        style={[styles.languageRow, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]}
+        onPress={() => router.push("/privacy-policy" as any)}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="shield-checkmark-outline" size={22} color={colors.foreground} style={{ marginRight: 4 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>Politică de confidențialitate</Text>
+          <Text style={[styles.langValue, { color: colors.foreground }]}>Cum îți protejăm datele</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+      </TouchableOpacity>
+
+      {/* Language */}
+      <TouchableOpacity
+        style={[styles.languageRow, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]}
         onPress={() => setLanguageModalVisible(true)}
         activeOpacity={0.7}
       >

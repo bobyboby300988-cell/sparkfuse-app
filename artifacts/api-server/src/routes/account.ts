@@ -53,4 +53,27 @@ router.delete("/account", requireAuth, async (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// GET /api/account/notifications — get notification preferences
+router.get("/account/notifications", requireAuth, async (req: Request, res: Response) => {
+  const userId = req.dbUser!.id;
+  const [user] = await db.select({
+    notifCalls: usersTable.notifCalls,
+    notifMessages: usersTable.notifMessages,
+    notifMatches: usersTable.notifMatches,
+  }).from(usersTable).where(eq(usersTable.id, userId));
+  res.json({ prefs: user ?? { notifCalls: true, notifMessages: true, notifMatches: true } });
+});
+
+router.put("/account/notifications", requireAuth, async (req: Request, res: Response) => {
+  const userId = req.dbUser!.id;
+  const body = req.body as Record<string, unknown>;
+  const update: { notifCalls?: boolean; notifMessages?: boolean; notifMatches?: boolean } = {};
+  if (typeof body.notifCalls === "boolean") update.notifCalls = body.notifCalls;
+  if (typeof body.notifMessages === "boolean") update.notifMessages = body.notifMessages;
+  if (typeof body.notifMatches === "boolean") update.notifMatches = body.notifMatches;
+  if (Object.keys(update).length === 0) return res.status(400).json({ error: "Nothing to update" });
+  await db.update(usersTable).set(update).where(eq(usersTable.id, userId));
+  res.json({ ok: true });
+});
+
 export default router;

@@ -111,6 +111,21 @@ export const userPhotosTable = pgTable(
   ],
 );
 
+export const callsTable = pgTable("calls", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  callerId: varchar("caller_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  calleeId: varchar("callee_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  roomUrl: text("room_url").notNull(),
+  callerToken: text("caller_token").notNull(),
+  isVoice: boolean("is_voice").notNull().default(false),
+  callerName: varchar("caller_name"),
+  callerPhoto: text("caller_photo"),
+  status: varchar("status", { enum: ["pending", "accepted", "declined", "ended", "missed"] }).notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Call = typeof callsTable.$inferSelect;
+
 export type Profile = typeof profilesTable.$inferSelect;
 export type UpsertProfile = typeof profilesTable.$inferInsert;
 export type Swipe = typeof swipesTable.$inferSelect;
