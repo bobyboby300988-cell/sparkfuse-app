@@ -13,7 +13,7 @@ import { tokenCache as nativeTokenCache } from "@clerk/expo/token-cache";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef, useState } from "react";
-import { View, ActivityIndicator, Platform } from "react-native";
+import { View, ActivityIndicator, Platform, Text, ScrollView } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -35,6 +35,27 @@ const CLERK_PROXY_URL = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 // The native tokenCache (expo-secure-store) silently fails in a browser
 // and prevents Clerk from ever finishing initialisation.
 const tokenCache = Platform.OS === "web" ? undefined : nativeTokenCache;
+
+// Global crash reporter — catches unhandled JS errors before React renders
+let globalCrashMessage: string | null = null;
+if (typeof global !== "undefined" && (global as any).ErrorUtils) {
+  const originalHandler = (global as any).ErrorUtils.getGlobalHandler();
+  (global as any).ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+    globalCrashMessage = `${isFatal ? "FATAL: " : ""}${error?.message ?? String(error)}\n\n${error?.stack ?? ""}`;
+    originalHandler(error, isFatal);
+  });
+}
+
+function CrashScreen({ message }: { message: string }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: "#0A0A0F", justifyContent: "center", alignItems: "center", padding: 24 }}>
+      <Text style={{ color: "#FF3366", fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>SparkFuse — Eroare startup</Text>
+      <ScrollView style={{ maxHeight: 400 }}>
+        <Text style={{ color: "#fff", fontSize: 12, fontFamily: "monospace" }}>{message}</Text>
+      </ScrollView>
+    </View>
+  );
+}
 
 function RootLayoutNav() {
   const { isSubscribed, isLoaded: appLoaded } = useApp();
@@ -87,16 +108,10 @@ function RootLayoutNav() {
     } else if (isAuthenticated && hasProfile && isSubscribed && inPaywall) {
       router.replace("/");
     } else if (isAuthenticated && hasProfile && isSubscribed && (inSignIn || inWelcome)) {
-      // User is fully authenticated but ended up on sign-in/welcome (e.g. after a partial logout).
-      // Send them straight to the app.
       router.replace("/");
     }
   }, [isLoaded, isAuthenticated, hasProfile, isSubscribed, segments]);
 
-  // Don't unmount auth pages while Clerk is reinitialising mid-flow (e.g.
-  // after signUp.password() briefly sets isSignedIn=true before email
-  // verification). Those pages manage their own loading state, and unmounting
-  // them would wipe form state and make the page appear to "reload".
   const inAuthPage = segments[0] === "sign-up" || segments[0] === "sign-in";
 
   if (!isLoaded && !inAuthPage) {
@@ -124,6 +139,8 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [crashMessage, setCrashMessage] = useState<string | null>(globalCrashMessage);
+
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -145,12 +162,16 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
+  if (crashMessage) {
+    return <CrashScreen message={crashMessage} />;
+  }
+
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} proxyUrl={CLERK_PROXY_URL} tokenCache={tokenCache}>
-      <SafeAreaProvider>
-        <ErrorBoundary>
+    <ErrorBoundary>
+      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} proxyUrl={CLERK_PROXY_URL} tokenCache={tokenCache}>
+        <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
             <AppProvider>
               <GestureHandlerRootView style={{ flex: 1 }}>
@@ -160,8 +181,8 @@ export default function RootLayout() {
               </GestureHandlerRootView>
             </AppProvider>
           </QueryClientProvider>
-        </ErrorBoundary>
-      </SafeAreaProvider>
-    </ClerkProvider>
+        </SafeAreaProvider>
+      </ClerkProvider>
+    </ErrorBoundary>
   );
 }

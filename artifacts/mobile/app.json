@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.sparkfuse.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#0D0B12"
