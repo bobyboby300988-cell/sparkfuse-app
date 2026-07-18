@@ -1,11 +1,24 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
 import { router } from "expo-router";
-import React from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect } from "react";
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const PRIVACY_URL = "https://privacypolicyurl.com/spark/privacy-policy.html";
 
 export default function PrivacyPolicyScreen() {
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    WebBrowser.openBrowserAsync(PRIVACY_URL, {
+      toolbarColor: "#0A0A0F",
+      controlsColor: "#FF3366",
+      dismissButtonStyle: "close",
+    }).then(() => {
+      router.back();
+    });
+  }, []);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -16,14 +29,10 @@ export default function PrivacyPolicyScreen() {
         <Text style={styles.title}>Politică de confidențialitate</Text>
         <View style={{ width: 24 }} />
       </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* PLACEHOLDER — replace this block with actual privacy policy content */}
-        <Text style={styles.placeholder}>
-          Politica de confidențialitate va fi adăugată în curând.
-        </Text>
-        {/* END PLACEHOLDER */}
-      </ScrollView>
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#FF3366" />
+        <Text style={styles.hint}>Se deschide…</Text>
+      </View>
     </View>
   );
 }
@@ -40,9 +49,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "#1a1a2e",
   },
   title: { color: "#fff", fontSize: 17, fontFamily: "Inter_600SemiBold" },
-  content: { padding: 20, gap: 16 },
-  section: { gap: 8 },
-  heading: { color: "#FF3366", fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  body: { color: "#ccc", fontSize: 14, lineHeight: 22, fontFamily: "Inter_400Regular" },
-  placeholder: { color: "#888", fontSize: 14, lineHeight: 22, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 40 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  hint: { color: "#888", fontSize: 14, fontFamily: "Inter_400Regular" },
 });

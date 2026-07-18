@@ -94,6 +94,31 @@ export default function App() {
         }}>
           18+ Adults only · Requires Android
         </p>
+
+        <div style={{
+          marginTop: '24px',
+          paddingTop: '16px',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          width: '100%',
+          textAlign: 'center',
+        }}>
+          <a
+            href="https://privacypolicyurl.com/spark/privacy-policy.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: 'rgba(255,255,255,0.4)',
+              fontSize: '11px',
+              fontFamily: 'sans-serif',
+              textDecoration: 'none',
+              transition: 'color 0.2s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,51,102,0.8)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
+          >
+            Politică de confidențialitate
+          </a>
+        </div>
       </div>
     </div>
   );
