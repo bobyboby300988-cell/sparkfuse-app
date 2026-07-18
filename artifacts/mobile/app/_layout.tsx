@@ -12,7 +12,6 @@ import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache as nativeTokenCache } from "@clerk/expo/token-cache";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import * as Notifications from "expo-notifications";
 import React, { useEffect, useRef, useState } from "react";
 import { View, ActivityIndicator, Platform, Text, ScrollView } from "react-native";
 import { getApiUrl } from "@/lib/api";
@@ -59,9 +58,6 @@ function CrashScreen({ message }: { message: string }) {
   );
 }
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
-});
 
 function RootLayoutNav() {
   const { isSubscribed, isLoaded: appLoaded } = useApp();
@@ -72,50 +68,15 @@ function RootLayoutNav() {
   });
   const segments = useSegments();
   const [timedOut, setTimedOut] = useState(false);
-  const notifListener = useRef<Notifications.EventSubscription | null>(null);
-
   useEffect(() => {
     setAuthTokenGetter(() => getToken());
   }, [getToken]);
 
-  // Register push token and handle incoming notifications
+  // Poll for incoming calls when app is in foreground (every 4s)
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const registerPush = async () => {
-      if (Platform.OS === "web") return;
-      try {
-        const { status } = await Notifications.requestPermissionsAsync();
-        if (status !== "granted") return;
-        const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: "0245bd50-5c67-49ed-a709-8f7f358ea527" });
-        const tok = await getToken();
-        await fetch(`${getApiUrl()}/api/calls/push-token`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
-          body: JSON.stringify({ token: tokenData.data }),
-        });
-      } catch {}
-    };
-    registerPush();
-
-    // Handle notification tap (app in background/killed → open incoming call screen)
-    notifListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as Record<string, string>;
-      if (data?.type === "incoming_call") {
-        router.push({
-          pathname: "/incoming-call",
-          params: {
-            callId: data.callId,
-            callerId: data.callerId,
-            callerName: data.callerName,
-            callerPhoto: data.callerPhoto ?? "",
-            isVoice: data.isVoice,
-          },
-        });
-      }
-    });
-
-    // Poll for incoming calls when app is in foreground (every 4s)
+    
     let polling = true;
     const pollIncoming = async () => {
       while (polling) {
@@ -148,10 +109,7 @@ function RootLayoutNav() {
     };
     pollIncoming();
 
-    return () => {
-      polling = false;
-      notifListener.current?.remove();
-    };
+    return () => { polling = false; };
   }, [isAuthenticated]);
 
   const hasProfile = !!profileData?.profile;
