@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.sparkfuse.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#0D0B12"
@@ -39,7 +39,7 @@
       [
         "expo-router",
         {
-          "origin": "https://replit.com/"
+          "origin": "https://match-maker-2025ap.replit.app/"
         }
       ],
       "expo-font",
