@@ -51,3 +51,6 @@ EXPO_PUBLIC_DAILY_API_KEY = "8815fcebd27b822ff4be2e3c7b4ce019304b5d30634a27e72f4
 
 [nix]
 channel = "stable-25_05"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-ef8a82c9-fee9-433d-aaba-578da22e76d2"
