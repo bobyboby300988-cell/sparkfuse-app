@@ -346,6 +346,23 @@ export default function WelcomeScreen() {
           </Animated.View>
         )}
 
+        {/* Download button — visible only in web browser */}
+        {Platform.OS === "web" && (
+          <TouchableOpacity
+            style={styles.downloadBtn}
+            onPress={() => {
+              if (typeof window !== "undefined") {
+                window.location.href =
+                  "https://match-maker-2025ap.replit.app/api/download/apk";
+              }
+            }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="download-outline" size={20} color="#fff" />
+            <Text style={styles.downloadBtnText}>Download app</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Copyright */}
         <Text style={styles.copyright}>© 2026 SparkFuse · All Rights Reserved</Text>
       </ScrollView>
@@ -592,6 +609,23 @@ const styles = StyleSheet.create({
     paddingVertical: 17,
   },
   loginBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+
+  downloadBtn: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#FF3366",
+    borderRadius: 28,
+    paddingVertical: 17,
+    marginBottom: 12,
+  },
+  downloadBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+  },
 
   /* Copyright */
   copyright: {

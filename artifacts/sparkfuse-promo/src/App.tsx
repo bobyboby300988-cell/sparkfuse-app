@@ -2,20 +2,16 @@ import { useState } from 'react';
 import VideoWithControls from './components/video/VideoWithControls';
 
 const APK_URL =
-  'https://expo.dev/artifacts/eas/KSQs3pD__epV2qo3bgLCdVF_OOd9cmbfK1FU6iOS3s0.apk';
+  'https://expo.dev/artifacts/eas/pX-p7jQ6p_mRwCZw1yOValjacJvWSKXl4crJxTloqNQ.apk';
 
 export default function App() {
   const [downloading, setDownloading] = useState(false);
 
   const handleDownload = () => {
     setDownloading(true);
-    const a = document.createElement('a');
-    a.href = APK_URL;
-    a.download = 'SparkFuse.apk';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => setDownloading(false), 3000);
+    // Proxy through our API so the file saves as "SparkFuse App.apk"
+    window.location.href = 'https://match-maker-2025ap.replit.app/api/download/apk';
+    setTimeout(() => setDownloading(false), 4000);
   };
 
   return (
@@ -76,7 +72,7 @@ export default function App() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              Downloading…
+              Se descarcă…
             </>
           ) : (
             <>
@@ -85,7 +81,7 @@ export default function App() {
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              Download SparkFuse APK
+              Download app
             </>
           )}
         </button>

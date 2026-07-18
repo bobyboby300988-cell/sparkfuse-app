@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import downloadRouter from "./download";
 import stripeRouter from "./stripe";
 import stripeConnectRouter from "./stripeConnect";
 import paypalRouter from "./paypal";
@@ -18,6 +19,7 @@ import callsRouter from "./calls";
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(downloadRouter);
 router.use(stripeRouter);
 router.use(stripeConnectRouter);
 router.use(paypalRouter);

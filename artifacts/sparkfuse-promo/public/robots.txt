@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://match-maker-2025ap.replit.app/sparkfuse-promo/sitemap.xml
