@@ -40,25 +40,35 @@ jobs:
           EXPO_PUBLIC_CLERK_PROXY_URL: https://match-maker-2025ap.replit.app/api/__clerk
         run: pnpm exec expo prebuild --platform android --clean --no-install
 
-      - name: Fix duplicate META-INF packaging conflict
+      - name: Fix build.gradle for release
         working-directory: artifacts/mobile/android
         run: |
-          printf '\nandroid.packagingOptions {\n    resources {\n        excludes += ["META-INF/versions/9/OSGI-INF/MANIFEST.MF"]\n    }\n}\n' >> app/build.gradle
+          cat >> app/build.gradle << 'EOF'
 
-      - name: Build Android APK
+          android.packagingOptions {
+              resources {
+                  excludes += ["META-INF/versions/9/OSGI-INF/MANIFEST.MF"]
+              }
+          }
+          android.buildTypes.release.signingConfig = android.signingConfigs.debug
+          android.buildTypes.release.minifyEnabled = false
+          android.buildTypes.release.shrinkResources = false
+          EOF
+
+      - name: Build Android APK (release)
         working-directory: artifacts/mobile/android
         env:
           GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g"
           JAVA_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g"
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug \
+          ./gradlew assembleRelease \
             -PreactNativeArchitectures=arm64-v8a \
             --no-daemon \
             --stacktrace
 
       - name: Rename APK
-        run: cp artifacts/mobile/android/app/build/outputs/apk/debug/app-debug.apk SparkFuse.apk
+        run: cp artifacts/mobile/android/app/build/outputs/apk/release/app-release.apk SparkFuse.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
