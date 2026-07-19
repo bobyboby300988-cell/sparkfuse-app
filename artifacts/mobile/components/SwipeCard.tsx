@@ -1,16 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useRef } from "react";
+import React from "react";
 import {
-  Animated,
   Dimensions,
   Image,
   ImageSourcePropType,
-  PanResponder,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useColors } from "@/hooks/useColors";
 
 export interface SwipeProfile {
@@ -48,96 +55,73 @@ export function SwipeCard({
   distanceLabel,
 }: SwipeCardProps) {
   const colors = useColors();
-  const position = useRef(new Animated.ValueXY()).current;
 
-  const rotate = position.x.interpolate({
-    inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
-    outputRange: ["-12deg", "0deg", "12deg"],
-    extrapolate: "clamp",
-  });
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
 
-  const likeOpacity = position.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD * 0.6],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
+  const rotate = useDerivedValue(() =>
+    `${(translateX.value / (SCREEN_WIDTH / 2)) * 12}deg`
+  );
 
-  const nopeOpacity = position.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD * 0.6, 0],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
+  const likeOpacity = useDerivedValue(() =>
+    Math.min(translateX.value / (SWIPE_THRESHOLD * 0.6), 1)
+  );
+  const nopeOpacity = useDerivedValue(() =>
+    Math.min(-translateX.value / (SWIPE_THRESHOLD * 0.6), 1)
+  );
+  const superOpacity = useDerivedValue(() =>
+    Math.min(-translateY.value / (SWIPE_THRESHOLD * 0.6), 1)
+  );
 
-  const superLikeOpacity = position.y.interpolate({
-    inputRange: [-SWIPE_THRESHOLD * 0.6, 0],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => isTop,
-      onPanResponderMove: (_, gesture) => {
-        position.setValue({ x: gesture.dx, y: gesture.dy });
-      },
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx > SWIPE_THRESHOLD) {
-          Animated.timing(position, {
-            toValue: { x: SCREEN_WIDTH * 1.6, y: gesture.dy },
-            duration: 300,
-            useNativeDriver: true,
-          }).start(onSwipeRight);
-        } else if (gesture.dx < -SWIPE_THRESHOLD) {
-          Animated.timing(position, {
-            toValue: { x: -SCREEN_WIDTH * 1.6, y: gesture.dy },
-            duration: 300,
-            useNativeDriver: true,
-          }).start(onSwipeLeft);
-        } else if (gesture.dy < -SWIPE_THRESHOLD) {
-          Animated.timing(position, {
-            toValue: { x: gesture.dx, y: -SCREEN_HEIGHT },
-            duration: 300,
-            useNativeDriver: true,
-          }).start(onSwipeSuperLike);
-        } else {
-          Animated.spring(position, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: true,
-            friction: 5,
-            tension: 80,
-          }).start();
-        }
-      },
+  const panGesture = Gesture.Pan()
+    .enabled(isTop)
+    .onUpdate((event) => {
+      translateX.value = event.translationX;
+      translateY.value = event.translationY;
     })
-  ).current;
+    .onEnd((event) => {
+      if (event.translationX > SWIPE_THRESHOLD) {
+        translateX.value = withTiming(SCREEN_WIDTH * 1.6, { duration: 300 }, () => {
+          runOnJS(onSwipeRight)();
+        });
+      } else if (event.translationX < -SWIPE_THRESHOLD) {
+        translateX.value = withTiming(-SCREEN_WIDTH * 1.6, { duration: 300 }, () => {
+          runOnJS(onSwipeLeft)();
+        });
+      } else if (event.translationY < -SWIPE_THRESHOLD) {
+        translateY.value = withTiming(-SCREEN_HEIGHT, { duration: 300 }, () => {
+          runOnJS(onSwipeSuperLike)();
+        });
+      } else {
+        translateX.value = withSpring(0, { friction: 5, tension: 80 });
+        translateY.value = withSpring(0, { friction: 5, tension: 80 });
+      }
+    });
 
   const scale = 1 - cardIndex * 0.05;
-  const translateY = cardIndex * -14;
+  const stackTranslateY = cardIndex * -14;
 
-  const cardStyle = isTop
-    ? [
-        styles.card,
-        {
-          transform: [
-            { translateX: position.x },
-            { translateY: position.y },
-            { rotate },
-          ],
-        },
-      ]
-    : [
-        styles.card,
-        {
-          transform: [{ scale }, { translateY }],
-          zIndex: -1,
-        },
-      ];
+  const cardAnimStyle = useAnimatedStyle(() => {
+    if (!isTop) return {};
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+        { rotate: rotate.value },
+      ],
+    };
+  });
 
-  return (
-    <Animated.View
-      style={cardStyle}
-      {...(isTop ? panResponder.panHandlers : {})}
-    >
+  const stackStyle = !isTop
+    ? { transform: [{ scale }, { translateY: stackTranslateY }], zIndex: -1 }
+    : {};
+
+  const likeAnimStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, likeOpacity.value) }));
+  const nopeAnimStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, nopeOpacity.value) }));
+  const superAnimStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, superOpacity.value) }));
+
+  const card = (
+    <Animated.View style={[styles.card, stackStyle, cardAnimStyle]}>
       <Image source={profile.photo as ImageSourcePropType} style={styles.image} resizeMode="cover" />
 
       <LinearGradient
@@ -148,21 +132,13 @@ export function SwipeCard({
 
       {isTop && (
         <>
-          <Animated.View
-            style={[styles.overlayBadge, styles.likeBadge, { opacity: likeOpacity }]}
-          >
+          <Animated.View style={[styles.overlayBadge, styles.likeBadge, likeAnimStyle]}>
             <Text style={[styles.overlayText, { color: colors.like }]}>LIKE</Text>
           </Animated.View>
-
-          <Animated.View
-            style={[styles.overlayBadge, styles.nopeBadge, { opacity: nopeOpacity }]}
-          >
+          <Animated.View style={[styles.overlayBadge, styles.nopeBadge, nopeAnimStyle]}>
             <Text style={[styles.overlayText, { color: colors.nope }]}>NOPE</Text>
           </Animated.View>
-
-          <Animated.View
-            style={[styles.overlayBadge, styles.superBadge, { opacity: superLikeOpacity }]}
-          >
+          <Animated.View style={[styles.overlayBadge, styles.superBadge, superAnimStyle]}>
             <Text style={[styles.overlayText, { color: colors.superLike }]}>SUPER</Text>
           </Animated.View>
         </>
@@ -198,6 +174,10 @@ export function SwipeCard({
       </View>
     </Animated.View>
   );
+
+  if (!isTop) return card;
+
+  return <GestureDetector gesture={panGesture}>{card}</GestureDetector>;
 }
 
 const styles = StyleSheet.create({
