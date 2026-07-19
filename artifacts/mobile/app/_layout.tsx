@@ -40,10 +40,16 @@ const tokenCache = Platform.OS === "web" ? undefined : nativeTokenCache;
 // Global crash reporter — catches unhandled JS errors before React renders
 let globalCrashMessage: string | null = null;
 if (typeof global !== "undefined" && (global as any).ErrorUtils) {
-  const originalHandler = (global as any).ErrorUtils.getGlobalHandler();
   (global as any).ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
-    globalCrashMessage = `${isFatal ? "FATAL: " : ""}${error?.message ?? String(error)}\n\n${error?.stack ?? ""}`;
-    originalHandler(error, isFatal);
+    const msg = `${isFatal ? "FATAL: " : ""}${error?.message ?? String(error)}`;
+    globalCrashMessage = msg + "\n\n" + (error?.stack ?? "");
+    // Show native alert — visible even before React mounts, reveals exact error
+    try {
+      const { Alert } = require("react-native");
+      Alert.alert("SparkFuse — Eroare", msg.slice(0, 500), [{ text: "OK" }]);
+    } catch {}
+    // Hide splash so user sees the alert instead of being stuck
+    try { SplashScreen.hideAsync(); } catch {}
   });
 }
 
