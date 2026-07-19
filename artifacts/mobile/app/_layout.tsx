@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useGetMyProfile } from "@workspace/api-client-react";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { ClerkProvider, useAuth } from "@clerk/expo";
-import { tokenCache as nativeTokenCache } from "@clerk/expo/token-cache";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef, useState } from "react";
@@ -32,10 +32,19 @@ const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY as s
 // EXPO_PUBLIC_CLERK_PROXY_URL is empty in dev (Clerk hits FAPI directly)
 // and auto-populated at build time in prod. Do NOT gate on NODE_ENV.
 const CLERK_PROXY_URL = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
-// On web, Clerk manages tokens via cookies/localStorage internally.
-// The native tokenCache (expo-secure-store) silently fails in a browser
-// and prevents Clerk from ever finishing initialisation.
-const tokenCache = Platform.OS === "web" ? undefined : nativeTokenCache;
+// Custom AsyncStorage token cache — more reliable than expo-secure-store on Android.
+// On web, Clerk manages tokens internally via localStorage/cookies.
+const tokenCache = Platform.OS === "web" ? undefined : {
+  async getToken(key: string) {
+    try { return await AsyncStorage.getItem(key); } catch { return null; }
+  },
+  async saveToken(key: string, value: string) {
+    try { await AsyncStorage.setItem(key, value); } catch {}
+  },
+  async clearToken(key: string) {
+    try { await AsyncStorage.removeItem(key); } catch {}
+  },
+};
 
 // Global crash reporter — catches unhandled JS errors before React renders
 let globalCrashMessage: string | null = null;
