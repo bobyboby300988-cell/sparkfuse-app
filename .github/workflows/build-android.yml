@@ -40,9 +40,12 @@ jobs:
           EXPO_PUBLIC_CLERK_PROXY_URL: https://match-maker-2025ap.replit.app/api/__clerk
         run: pnpm exec expo prebuild --platform android --clean --no-install
 
-      - name: Fix META-INF packaging conflict
+      - name: Patch AndroidManifest and build.gradle
         working-directory: artifacts/mobile/android
         run: |
+          # Allow app to request more heap memory — prevents OOM crash on launch
+          sed -i 's/<application/<application android:largeHeap="true"/' app/src/main/AndroidManifest.xml
+          # Fix META-INF packaging conflict
           cat >> app/build.gradle << 'EOF'
 
           android.packagingOptions {
