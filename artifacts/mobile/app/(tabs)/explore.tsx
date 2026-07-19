@@ -70,12 +70,17 @@ function useBrowse() {
   const [refreshing, setRefreshing] = useState(false);
   const { getToken } = useAuth();
 
+  // Stocăm getToken într-un ref ca să nu schimbe referința la fiecare render
+  // și să nu declanșeze o buclă infinită useEffect → load → re-render → load
+  const getTokenRef = useRef(getToken);
+  useEffect(() => { getTokenRef.current = getToken; });
+
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
       const base = getApiUrl();
-      const tok = await getToken();
+      const tok = await getTokenRef.current();
       const res = await fetch(`${base}/api/browse`, {
         headers: tok ? { Authorization: `Bearer ${tok}` } : {},
       });
@@ -86,7 +91,7 @@ function useBrowse() {
     } catch { /* ignore */ }
     setLoading(false);
     setRefreshing(false);
-  }, [getToken]);
+  }, []); // deps goale — load are referință stabilă acum
 
   useEffect(() => { load(); }, [load]);
 
