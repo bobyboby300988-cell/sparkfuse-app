@@ -23,8 +23,8 @@
         "EXPO_PUBLIC_DAILY_API_KEY": "8815fcebd27b822ff4be2e3c7b4ce019304b5d30634a27e72f4a70c1a8253d40",
         "EXPO_PUBLIC_CLERK_PROXY_URL": "https://match-maker-2025ap.replit.app/api/__clerk",
         "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a",
-        "GRADLE_OPTS": "-Xmx4096m -XX:MaxMetaspaceSize=1024m",
-        "JAVA_OPTS": "-Xmx4096m -XX:MaxMetaspaceSize=1024m"
+        "GRADLE_OPTS": "-Xmx1536m -XX:MaxMetaspaceSize=384m",
+        "JAVA_OPTS": "-Xmx1536m -XX:MaxMetaspaceSize=384m"
       }
     },
     "production": {
