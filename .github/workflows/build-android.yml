@@ -57,6 +57,10 @@ jobs:
         env:
           GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g"
           JAVA_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g"
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZnJlZS1vY2Vsb3QtNzQuY2xlcmsuYWNjb3VudHMuZGV2JA
+          EXPO_PUBLIC_DOMAIN: match-maker-2025ap.replit.app
+          EXPO_PUBLIC_DAILY_API_KEY: 8815fcebd27b822ff4be2e3c7b4ce019304b5d30634a27e72f4a70c1a8253d40
+          EXPO_PUBLIC_CLERK_PROXY_URL: https://match-maker-2025ap.replit.app/api/__clerk
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug \
