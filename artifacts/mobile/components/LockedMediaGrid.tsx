@@ -134,10 +134,10 @@ function MediaTile({
             <View style={st.lockBadge}>
               <Ionicons name="lock-closed" size={16} color="#fff" />
               <Text style={st.lockPrice}>
-                {item.type === "video" ? "500 ST" : "20 ST"}
+                {item.type === "video" ? "500 ST" : "50 ST"}
               </Text>
               <Text style={st.lockEur}>
-                {item.type === "video" ? "= €5" : "= €0.20"}
+                {item.type === "video" ? "= €5" : "= €0.50"}
               </Text>
             </View>
             <Text style={st.lockTap}>Tap to unlock</Text>
