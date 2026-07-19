@@ -68,7 +68,6 @@ jobs:
           mkdir -p android/app/src/main/assets
           pnpm exec expo export:embed \
             --platform android \
-            --entry-file node_modules/expo-router/entry.js \
             --bundle-output android/app/src/main/assets/index.android.bundle \
             --assets-dest android/app/src/main/res/ \
             --dev false \
