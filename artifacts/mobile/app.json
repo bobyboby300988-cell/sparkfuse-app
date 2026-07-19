@@ -57,9 +57,7 @@
         {
           "android": {
             "extraGradleProperties": {
-              "org.gradle.jvmargs": "-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError",
-              "org.gradle.parallel": "false",
-              "org.gradle.daemon": "true"
+              "org.gradle.jvmargs": "-Xmx4096m -XX:MaxMetaspaceSize=512m"
             }
           }
         }
