@@ -18,14 +18,14 @@ import { useColors } from "@/hooks/useColors";
 const { width: W } = Dimensions.get("window");
 const TILE = (W - 48 - 8) / 3;
 
-const PHOTO_PRICE_ST = 20;
+const PHOTO_PRICE_ST = 50;
 const VIDEO_PRICE_ST = 500;
 
 function getPrice(lp: LockedPhoto) {
   return lp.type === "video" ? VIDEO_PRICE_ST : PHOTO_PRICE_ST;
 }
 function getPriceEur(lp: LockedPhoto) {
-  return lp.type === "video" ? "€5.00" : "€0.20";
+  return lp.type === "video" ? "€5.00" : "€0.50";
 }
 
 function UnlockModal({
