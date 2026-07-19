@@ -120,8 +120,8 @@ function PhotoGallery({
   const totalItems = 1 + demoItems.length;
 
   const handleUnlock = (item: DemoItem) => {
-    const price = item.type === "video" ? 500 : 20;
-    const priceEur = item.type === "video" ? "€5.00" : "€0.20";
+    const price = item.type === "video" ? 500 : 50;
+    const priceEur = item.type === "video" ? "€5.00" : "€0.50";
     const label = item.type === "video" ? "video" : "photo";
     if (coinBalance < price) {
       Alert.alert(
