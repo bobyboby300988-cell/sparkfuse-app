@@ -46,9 +46,7 @@ jobs:
       - name: Patch AndroidManifest and build.gradle
         working-directory: artifacts/mobile/android
         run: |
-          # Allow app to request more heap memory — prevents OOM crash on launch
           sed -i 's/<application/<application android:largeHeap="true"/' app/src/main/AndroidManifest.xml
-          # Fix META-INF packaging conflict
           cat >> app/build.gradle << 'EOF'
 
           android.packagingOptions {
@@ -58,20 +56,38 @@ jobs:
           }
           EOF
 
-      - name: Build Android APK (debug + bundled JS)
-        working-directory: artifacts/mobile/android
+      - name: Bundle JavaScript (embed in APK)
+        working-directory: artifacts/mobile
         env:
-          GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g"
-          JAVA_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g"
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZnJlZS1vY2Vsb3QtNzQuY2xlcmsuYWNjb3VudHMuZGV2JA
           EXPO_PUBLIC_DOMAIN: match-maker-2025ap.replit.app
           EXPO_PUBLIC_DAILY_API_KEY: 8815fcebd27b822ff4be2e3c7b4ce019304b5d30634a27e72f4a70c1a8253d40
           EXPO_PUBLIC_CLERK_PROXY_URL: https://match-maker-2025ap.replit.app/api/__clerk
+          NODE_ENV: production
+        run: |
+          mkdir -p android/app/src/main/assets
+          pnpm exec react-native bundle \
+            --platform android \
+            --dev false \
+            --entry-file node_modules/expo-router/entry.js \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res/ \
+            --reset-cache
+
+      - name: Verify bundle exists
+        run: |
+          ls -lh artifacts/mobile/android/app/src/main/assets/
+          echo "Bundle size: $(wc -c < artifacts/mobile/android/app/src/main/assets/index.android.bundle) bytes"
+
+      - name: Build Android APK
+        working-directory: artifacts/mobile/android
+        env:
+          GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g"
+          JAVA_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g"
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug \
             -PreactNativeArchitectures=arm64-v8a \
-            -PbundleInDebug=true \
             --no-daemon \
             --stacktrace
 
