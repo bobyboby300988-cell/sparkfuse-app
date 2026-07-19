@@ -54,13 +54,14 @@ export default function IncomingCallScreen() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
         body: JSON.stringify({ callId, accept: true, calleeName }),
       });
-      const data = (await res.json()) as { roomUrl: string; token: string; isVoice: boolean };
+      const data = (await res.json()) as { channelName: string; appId: string; token: string; isVoice: boolean };
       router.replace({
         pathname: "/call/[id]",
         params: {
           id: callerId,
           mode: data.isVoice ? "voice" : "video",
-          roomUrl: data.roomUrl,
+          channelName: data.channelName,
+          appId: data.appId,
           token: data.token,
           name: callerName,
           photo: callerPhoto ?? "",
@@ -90,7 +91,7 @@ export default function IncomingCallScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 30 }]}>
-      <Text style={styles.calling}>{isVoice === "true" ? "Apel vocal incoming" : "Apel video incoming"}</Text>
+      <Text style={styles.calling}>{isVoice === "true" ? "Incoming voice call" : "Incoming video call"}</Text>
 
       <Animated.View style={[styles.avatarWrap, { transform: [{ scale: pulseAnim }] }]}>
         {callerPhoto ? (
@@ -103,7 +104,7 @@ export default function IncomingCallScreen() {
       </Animated.View>
 
       <Text style={styles.name}>{callerName}</Text>
-      <Text style={styles.subtitle}>te sună…</Text>
+      <Text style={styles.subtitle}>is calling you…</Text>
 
       <Animated.View style={{ transform: [{ rotate: ringRotate }], marginBottom: 16 }}>
         <Ionicons name={isVoice === "true" ? "call" : "videocam"} size={36} color="#FF3366" />
@@ -112,12 +113,12 @@ export default function IncomingCallScreen() {
       <View style={styles.buttons}>
         <TouchableOpacity style={[styles.btn, styles.declineBtn]} onPress={handleDecline} disabled={busy}>
           <Ionicons name="call" size={32} color="#fff" style={{ transform: [{ rotate: "135deg" }] }} />
-          <Text style={styles.btnLabel}>Refuză</Text>
+          <Text style={styles.btnLabel}>Decline</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.btn, styles.acceptBtn]} onPress={handleAccept} disabled={busy}>
           <Ionicons name={isVoice === "true" ? "call" : "videocam"} size={32} color="#fff" />
-          <Text style={styles.btnLabel}>Răspunde</Text>
+          <Text style={styles.btnLabel}>Answer</Text>
         </TouchableOpacity>
       </View>
     </View>

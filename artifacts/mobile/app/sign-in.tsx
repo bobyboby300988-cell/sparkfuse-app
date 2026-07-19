@@ -4,6 +4,7 @@ import BrandLogo from "@/components/BrandLogo";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -23,6 +24,7 @@ export default function SignInScreen() {
   const insets = useSafeAreaInsets();
   const { signIn, fetchStatus } = useSignIn();
   const { signOut } = useAuth();
+  const { t } = useTranslation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,18 +53,18 @@ export default function SignInScreen() {
   const parseError = (err: any): string => {
     const code: string = err?.errors?.[0]?.code ?? err?.code ?? (err as any)?.code ?? "";
     return code === "form_password_incorrect"
-      ? "Parolă incorectă. Încearcă din nou."
+      ? t("signIn.errorWrongPassword")
       : code === "form_identifier_not_found"
-      ? "Nu există cont cu acest email."
+      ? t("signIn.errorEmailNotFound")
       : code === "form_param_format_invalid"
-      ? "Introdu un email valid."
-      : err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? err?.message ?? "Autentificare eșuată.";
+      ? t("signIn.errorInvalidEmail")
+      : err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? err?.message ?? t("signIn.errorLoginFailed");
   };
 
   const handleSubmit = async () => {
     if (!signIn) return;
     if (!email.trim() || !password) {
-      setErrorMsg("Introdu email-ul și parola.");
+      setErrorMsg(t("signIn.errorEnterCredentials"));
       return;
     }
     setErrorMsg("");
@@ -106,7 +108,7 @@ export default function SignInScreen() {
         return;
       }
 
-      setErrorMsg("Autentificare incompletă. Încearcă din nou.");
+      setErrorMsg(t("signIn.errorIncomplete"));
     } catch (err: any) {
       if (isSessionError(err)) {
         try { await signOut(); } catch (_) {}
@@ -122,7 +124,7 @@ export default function SignInScreen() {
             setErrorMsg(parseError(retryErr));
           }
         } catch (retryErr2: any) {
-          setErrorMsg(retryErr2?.message ?? "Autentificare eșuată.");
+          setErrorMsg(retryErr2?.message ?? t("signIn.errorLoginFailed"));
         }
       } else {
         setErrorMsg(parseError(err));
@@ -155,10 +157,10 @@ export default function SignInScreen() {
         const code: string = (verifyError as any)?.code ?? "";
         setErrorMsg(
           code === "form_code_incorrect"
-            ? "Cod incorect. Încearcă din nou."
+            ? t("signIn.errorInvalidCode")
             : code === "verification_expired"
-            ? "Codul a expirat. Apasă Retrimite."
-            : (verifyError as any)?.longMessage ?? (verifyError as any)?.message ?? "Cod invalid."
+            ? t("signIn.errorCodeExpired")
+            : (verifyError as any)?.longMessage ?? (verifyError as any)?.message ?? t("signIn.errorInvalidCode")
         );
         return;
       }
@@ -167,10 +169,10 @@ export default function SignInScreen() {
         await signIn.finalize();
         router.replace("/");
       } else {
-        setErrorMsg("Verificare incompletă. Încearcă din nou.");
+        setErrorMsg(t("signIn.errorVerifyIncomplete"));
       }
     } catch (err: any) {
-      setErrorMsg(err?.errors?.[0]?.longMessage ?? err?.message ?? "Eroare la verificare.");
+      setErrorMsg(err?.errors?.[0]?.longMessage ?? err?.message ?? t("signIn.errorVerification"));
     } finally {
       setLoading(false);
     }
@@ -188,7 +190,7 @@ export default function SignInScreen() {
       }
       setErrorMsg("Cod nou trimis pe email.");
     } catch (err: any) {
-      setErrorMsg("Nu s-a putut retrimite codul.");
+      setErrorMsg("Could not resend the code.");
     } finally {
       setLoading(false);
     }

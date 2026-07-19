@@ -10,6 +10,7 @@ import { useGetMyProfile } from "@workspace/api-client-react";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef, useState } from "react";
@@ -32,16 +33,35 @@ const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY as s
 // EXPO_PUBLIC_CLERK_PROXY_URL is empty in dev (Clerk hits FAPI directly)
 // and auto-populated at build time in prod. Do NOT gate on NODE_ENV.
 const CLERK_PROXY_URL = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
-// Custom AsyncStorage token cache — more reliable than expo-secure-store on Android.
-// On web, Clerk manages tokens internally via localStorage/cookies.
+
+// Session guard key — written to AsyncStorage when user is authenticated,
+// cleared only on explicit sign-out. Used to distinguish "Clerk still loading"
+// from "user genuinely not signed in" on cold start.
+const SESSION_GUARD_KEY = "@spark/session_guard";
+
+// Token cache backed by expo-secure-store (Android Keystore / iOS Keychain).
+// SecureStore survives OS storage management that can clear AsyncStorage,
+// making it more reliable for persisting Clerk sessions across app restarts.
+// On web Clerk manages tokens internally via localStorage/cookies.
 const tokenCache = Platform.OS === "web" ? undefined : {
   async getToken(key: string) {
-    try { return await AsyncStorage.getItem(key); } catch { return null; }
+    try {
+      const val = await SecureStore.getItemAsync(key);
+      return val ?? null;
+    } catch {
+      // Fallback to AsyncStorage if SecureStore unavailable (emulator/old device)
+      try { return await AsyncStorage.getItem(key); } catch { return null; }
+    }
   },
   async saveToken(key: string, value: string) {
-    try { await AsyncStorage.setItem(key, value); } catch {}
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch {
+      try { await AsyncStorage.setItem(key, value); } catch {}
+    }
   },
   async clearToken(key: string) {
+    try { await SecureStore.deleteItemAsync(key); } catch {}
     try { await AsyncStorage.removeItem(key); } catch {}
   },
 };
@@ -55,7 +75,7 @@ if (typeof global !== "undefined" && (global as any).ErrorUtils) {
     // Show native alert — visible even before React mounts, reveals exact error
     try {
       const { Alert } = require("react-native");
-      Alert.alert("SparkFuse — Eroare", msg.slice(0, 500), [{ text: "OK" }]);
+      Alert.alert("SparkFuse — Error", msg.slice(0, 500), [{ text: "OK" }]);
     } catch {}
     // Hide splash so user sees the alert instead of being stuck
     try { SplashScreen.hideAsync(); } catch {}
@@ -65,7 +85,7 @@ if (typeof global !== "undefined" && (global as any).ErrorUtils) {
 function CrashScreen({ message }: { message: string }) {
   return (
     <View style={{ flex: 1, backgroundColor: "#0A0A0F", justifyContent: "center", alignItems: "center", padding: 24 }}>
-      <Text style={{ color: "#FF3366", fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>SparkFuse — Eroare startup</Text>
+      <Text style={{ color: "#FF3366", fontSize: 18, fontWeight: "bold", marginBottom: 16 }}>SparkFuse — Startup Error</Text>
       <ScrollView style={{ maxHeight: 400 }}>
         <Text style={{ color: "#fff", fontSize: 12, fontFamily: "monospace" }}>{message}</Text>
       </ScrollView>
@@ -83,6 +103,28 @@ function RootLayoutNav() {
   });
   const segments = useSegments();
   const [timedOut, setTimedOut] = useState(false);
+
+  // Session guard: tracks whether the user had an active session.
+  // Set to true when Clerk confirms isSignedIn=true.
+  // Cleared only when the user explicitly presses Log Out.
+  // Used to decide: redirect to /sign-in (session expired) vs /welcome (new user).
+  const [sessionGuard, setSessionGuard] = useState(false);
+  const [sessionGuardLoaded, setSessionGuardLoaded] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(SESSION_GUARD_KEY)
+      .then((val) => setSessionGuard(val === "true"))
+      .catch(() => setSessionGuard(false))
+      .finally(() => setSessionGuardLoaded(true));
+  }, []);
+
+  // Persist session guard whenever Clerk confirms the user is signed in.
+  useEffect(() => {
+    if (!authLoaded || !isSignedIn) return;
+    setSessionGuard(true);
+    AsyncStorage.setItem(SESSION_GUARD_KEY, "true").catch(() => {});
+  }, [authLoaded, isSignedIn]);
+
   useEffect(() => {
     setAuthTokenGetter(() => getToken());
   }, [getToken]);
@@ -131,7 +173,7 @@ function RootLayoutNav() {
   // Only treat profile as "done loading" when we have a definitive answer (data or non-retryable error).
   // Never count a network error as "no profile" — that would falsely log the user out.
   const profileDone = !profileLoading;
-  const isLoaded = (authLoaded || timedOut) && appLoaded && (!isAuthenticated || profileDone);
+  const isLoaded = (authLoaded || timedOut) && appLoaded && sessionGuardLoaded && (!isAuthenticated || profileDone);
 
   // Safety net: if Clerk takes too long (slow network / proxy issue) show a
   // retry screen instead of falsely redirecting to /welcome and logging the
@@ -155,15 +197,16 @@ function RootLayoutNav() {
     const inSignIn = segments[0] === "sign-in";
     const inSignUp = segments[0] === "sign-up";
 
-    // Only redirect to /welcome when Clerk definitively says the user is NOT
-    // signed in. A timeout alone is NOT a definitive answer — the user may
-    // simply have a slow connection. Redirect also if someone tries to reach
-    // /sign-up without having completed payment first (isSubscribed check).
+    // Only redirect when Clerk definitively says the user is NOT signed in.
+    // If the user had a previous session (sessionGuard=true), redirect to
+    // /sign-in directly so they don't see the marketing welcome screen again.
+    // If no session ever existed or user explicitly signed out (sessionGuard=false),
+    // redirect to /welcome (full onboarding flow).
     if (!isAuthenticated && !inOnboarding && !inWelcome && !inSignIn) {
       // Allow /sign-up ONLY if the user has already paid (isSubscribed from
       // AsyncStorage is set right before opening the Stripe/PayPal browser).
       if (!inSignUp || !isSubscribed) {
-        router.replace("/welcome");
+        router.replace(sessionGuard ? "/sign-in" : "/welcome");
       }
     } else if (isAuthenticated && !hasProfile && !profileError && !profileLoading && !inOnboarding && !inWelcome && !inSignIn && !inSignUp) {
       // Signed in but genuinely has no profile yet → send to onboarding
@@ -181,7 +224,7 @@ function RootLayoutNav() {
     } else if (isAuthenticated && hasProfile && isSubscribed && (inSignIn || inWelcome)) {
       router.replace("/");
     }
-  }, [isLoaded, isAuthenticated, hasProfile, isSubscribed, segments]);
+  }, [isLoaded, isAuthenticated, hasProfile, isSubscribed, sessionGuard, segments]);
 
   const inAuthPage = segments[0] === "sign-up" || segments[0] === "sign-in";
 

@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import { router } from "expo-router";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
@@ -19,13 +20,8 @@ import { useAuth } from "@clerk/expo";
 import { buildPayPalCheckoutUrl } from "@/config/payments";
 import { getApiUrl } from "@/lib/api";
 
-const PERKS = [
-  { icon: "heart", label: "Swipe-uri și match-uri nelimitate" },
-  { icon: "chatbubbles", label: "Chat cu toate match-urile tale" },
-  { icon: "videocam", label: "Video call-uri gratuite" },
-  { icon: "star", label: "Rezervă coaching în dating" },
-  { icon: "shield-checkmark", label: "Fără reclame, niciodată" },
-];
+const PERK_ICONS = ["heart", "chatbubbles", "videocam", "star", "shield-checkmark"] as const;
+const PERK_KEYS = ["swipes", "chat", "videoCalls", "coaches", "noAds"] as const;
 
 function getAppOrigin(): string {
   if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -38,6 +34,7 @@ export default function PaywallScreen() {
   const insets = useSafeAreaInsets();
   const { setSubscribed } = useApp();
   const { getToken } = useAuth();
+  const { t } = useTranslation();
   const [loadingStripe, setLoadingStripe] = useState(false);
   const [loadingPayPal, setLoadingPayPal] = useState(false);
   const [loadingRestore, setLoadingRestore] = useState(false);
@@ -88,7 +85,7 @@ export default function PaywallScreen() {
       router.replace("/onboarding");
     } catch (err: any) {
       setLoadingStripe(false);
-      Alert.alert("Eroare", err.message ?? "Ceva nu a funcționat. Încearcă din nou.");
+      Alert.alert("Error", err.message ?? "Something went wrong. Please try again.");
     }
   };
 
@@ -113,7 +110,7 @@ export default function PaywallScreen() {
       router.replace("/onboarding");
     } catch (err: any) {
       setLoadingPayPal(false);
-      Alert.alert("Eroare", err.message ?? "Ceva nu a funcționat. Încearcă din nou.");
+      Alert.alert("Error", err.message ?? "Something went wrong. Please try again.");
     }
   };
 
@@ -134,17 +131,14 @@ export default function PaywallScreen() {
       if (res.ok && (data as any).restored) {
         await setSubscribed();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("✅ Abonament restaurat!", "Contul tău a fost activat.", [
-          { text: "Continuă", onPress: () => router.replace("/onboarding") },
+        Alert.alert("✅ " + t("paywall.restoredTitle"), t("paywall.restoredDesc"), [
+          { text: t("paywall.continue"), onPress: () => router.replace("/onboarding") },
         ]);
       } else {
-        Alert.alert(
-          "Nu am găsit abonament activ",
-          "Nu există un abonament plătit asociat contului tău. Dacă ai plătit recent, contactează suportul.",
-        );
+        Alert.alert(t("paywall.notFoundTitle"), t("paywall.notFoundDesc"));
       }
     } catch {
-      Alert.alert("Eroare", "Nu s-a putut verifica. Încearcă din nou.");
+      Alert.alert(t("paywall.error"), t("paywall.errorVerify"));
     } finally {
       setLoadingRestore(false);
     }
@@ -164,27 +158,25 @@ export default function PaywallScreen() {
             <Text style={styles.logoEmoji}>✦</Text>
           </View>
           <Text style={styles.appName}>SparkFuse</Text>
-          <Text style={styles.tagline}>Găsește-ți persoana.</Text>
-          <Text style={styles.subtitle}>
-            Acces complet la toate funcțiile — mai puțin decât o cafea pe lună.
-          </Text>
+          <Text style={styles.tagline}>{t("paywall.hero")}</Text>
+          <Text style={styles.subtitle}>{t("paywall.subtitle")}</Text>
         </View>
 
         <View style={styles.priceBadge}>
           <Text style={styles.priceAmount}>€2</Text>
           <View>
-            <Text style={styles.pricePer}>pe lună</Text>
-            <Text style={styles.priceCancel}>Anulează oricând</Text>
+            <Text style={styles.pricePer}>{t("paywall.perMonth")}</Text>
+            <Text style={styles.priceCancel}>{t("paywall.cancelAnytime")}</Text>
           </View>
         </View>
 
         <View style={styles.perks}>
-          {PERKS.map((p) => (
-            <View key={p.label} style={styles.perkRow}>
+          {PERK_KEYS.map((key, i) => (
+            <View key={key} style={styles.perkRow}>
               <View style={styles.perkIcon}>
-                <Ionicons name={p.icon as any} size={18} color="#FF3366" />
+                <Ionicons name={PERK_ICONS[i] as any} size={18} color="#FF3366" />
               </View>
-              <Text style={styles.perkLabel}>{p.label}</Text>
+              <Text style={styles.perkLabel}>{t(`paywall.perks.${key}`)}</Text>
             </View>
           ))}
         </View>
@@ -244,15 +236,13 @@ export default function PaywallScreen() {
           ) : (
             <>
               <Ionicons name="refresh-circle-outline" size={20} color="#FF3366" />
-              <Text style={styles.btnRestoreText}>Restaurează abonamentul</Text>
+              <Text style={styles.btnRestoreText}>{t("paywall.restoreBtn")}</Text>
             </>
           )}
         </TouchableOpacity>
 
-        <Text style={styles.finePrint}>
-          €2 facturat lunar. Anulează oricând.{"\n"}Prin abonare ești de acord cu Termenii Serviciului.
-        </Text>
-        <Text style={styles.copyright}>© 2026 SparkFuse · Toate drepturile rezervate</Text>
+        <Text style={styles.finePrint}>{t("paywall.finePrint")}</Text>
+        <Text style={styles.copyright}>© 2026 SparkFuse</Text>
       </ScrollView>
     </View>
   );

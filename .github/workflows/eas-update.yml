@@ -1,0 +1,53 @@
+name: EAS Update (OTA)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'artifacts/mobile/**'
+      - 'lib/**'
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Update message'
+        required: false
+        default: 'Update'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install EAS CLI
+        run: pnpm add -g eas-cli
+
+      - name: Publish OTA update
+        working-directory: artifacts/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZnJlZS1vY2Vsb3QtNzQuY2xlcmsuYWNjb3VudHMuZGV2JA
+          EXPO_PUBLIC_DOMAIN: match-maker-2025ap.replit.app
+          EXPO_PUBLIC_CLERK_PROXY_URL: https://match-maker-2025ap.replit.app/api/__clerk
+        run: |
+          eas update \
+            --channel production \
+            --message "${{ github.event.inputs.message || github.event.head_commit.message || 'Update' }}" \
+            --non-interactive

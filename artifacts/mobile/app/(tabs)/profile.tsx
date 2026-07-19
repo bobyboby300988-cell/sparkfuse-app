@@ -51,6 +51,22 @@ export default function ProfileScreen() {
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [currentLang, setCurrentLang] = useState<SupportedLanguage>(i18n.language as SupportedLanguage || "en");
+  const [usageStats, setUsageStats] = useState({ minutesVoice: 0, minutesVideo: 0, minutesLive: 0 });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const tok = await getToken();
+        const res = await fetch(`${getApiUrl()}/api/usage/stats`, {
+          headers: { Authorization: `Bearer ${tok}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUsageStats(data);
+        }
+      } catch {}
+    })();
+  }, []);
 
   const handleLanguageChange = async (lang: SupportedLanguage) => {
     await saveLanguage(lang);
@@ -150,6 +166,9 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     if (loggingOut) return;
     setLoggingOut(true);
+    try {
+      await AsyncStorage.removeItem("@spark/session_guard");
+    } catch (_) {}
     try {
       await signOut();
     } catch (_) {}
@@ -272,7 +291,7 @@ export default function ProfileScreen() {
 
       addMyPhoto(uri, exclusive, mediaType);
     } catch {
-      Alert.alert("Upload eșuat", "Nu s-a putut salva poza. Încearcă din nou.");
+      Alert.alert("Upload failed", "Could not save photo. Please try again.");
     }
   };
 
@@ -399,6 +418,30 @@ export default function ProfileScreen() {
             </View>
           </>
         ) : null}
+      </View>
+
+      {/* Statistici minute */}
+      <View style={[styles.minuteStatsCard, { backgroundColor: colors.card }]}>
+        <Text style={[styles.minuteStatsTitle, { color: colors.foreground }]}>{t("profile.activity")}</Text>
+        <View style={styles.minuteStatsRow}>
+          <View style={styles.minuteStatItem}>
+            <Ionicons name="mic-outline" size={18} color={colors.primary} />
+            <Text style={[styles.minuteStatNum, { color: colors.foreground }]}>{usageStats.minutesVoice}</Text>
+            <Text style={[styles.minuteStatLabel, { color: colors.mutedForeground }]}>{t("profile.minVoice")}</Text>
+          </View>
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.minuteStatItem}>
+            <Ionicons name="videocam-outline" size={18} color={colors.primary} />
+            <Text style={[styles.minuteStatNum, { color: colors.foreground }]}>{usageStats.minutesVideo}</Text>
+            <Text style={[styles.minuteStatLabel, { color: colors.mutedForeground }]}>{t("profile.minVideo")}</Text>
+          </View>
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.minuteStatItem}>
+            <Ionicons name="radio-outline" size={18} color={colors.primary} />
+            <Text style={[styles.minuteStatNum, { color: colors.foreground }]}>{usageStats.minutesLive}</Text>
+            <Text style={[styles.minuteStatLabel, { color: colors.mutedForeground }]}>{t("profile.minLive")}</Text>
+          </View>
+        </View>
       </View>
 
       {/* Bio */}
@@ -716,10 +759,11 @@ export default function ProfileScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               const paid = await buyTokensWithStripe(amount, priceEur);
               if (paid) {
-                addCoins(amount);
+                const credited = Math.floor(amount * 0.88);
+                addCoins(credited);
                 setCustomTokenAmount("");
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert("🔥 Tokens added!", `${amount} ST credited to your wallet.`);
+                Alert.alert("🔥 Tokens adăugați!", `${credited} ST creditați în portofel (după comision 12%).`);
               }
             } catch (e: any) {
               Alert.alert("Purchase failed", e?.message ?? "Please try again.");
@@ -841,8 +885,8 @@ export default function ProfileScreen() {
       >
         <Ionicons name="notifications-outline" size={22} color={colors.foreground} style={{ marginRight: 4 }} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>Notificări</Text>
-          <Text style={[styles.langValue, { color: colors.foreground }]}>Alege ce notificări primești</Text>
+          <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>{t("profile.notifications")}</Text>
+          <Text style={[styles.langValue, { color: colors.foreground }]}>{t("profile.notificationsDesc")}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
       </TouchableOpacity>
@@ -855,8 +899,8 @@ export default function ProfileScreen() {
       >
         <Ionicons name="shield-checkmark-outline" size={22} color={colors.foreground} style={{ marginRight: 4 }} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>Politică de confidențialitate</Text>
-          <Text style={[styles.langValue, { color: colors.foreground }]}>Cum îți protejăm datele</Text>
+          <Text style={[styles.langLabel, { color: colors.mutedForeground }]}>{t("profile.privacy")}</Text>
+          <Text style={[styles.langValue, { color: colors.foreground }]}>{t("profile.privacyDesc")}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
       </TouchableOpacity>
@@ -1119,22 +1163,56 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     marginHorizontal: 20,
-    borderRadius: 16,
-    marginBottom: 16,
-    paddingVertical: 20,
+    borderRadius: 14,
+    marginBottom: 10,
+    paddingVertical: 11,
+  },
+  minuteStatsCard: {
+    marginHorizontal: 20,
+    borderRadius: 14,
+    marginBottom: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  minuteStatsTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 8,
+    opacity: 0.5,
+  },
+  minuteStatsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  minuteStatItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+  },
+  minuteStatNum: {
+    fontSize: 17,
+    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+  },
+  minuteStatLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
   },
   statItem: {
     flex: 1,
     alignItems: "center",
-    gap: 4,
+    gap: 2,
   },
   statNum: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: "800",
     fontFamily: "Inter_700Bold",
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "Inter_400Regular",
   },
   statDivider: {
@@ -1143,10 +1221,10 @@ const styles = StyleSheet.create({
   },
   section: {
     marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 16,
-    padding: 20,
-    gap: 12,
+    marginBottom: 10,
+    borderRadius: 14,
+    padding: 14,
+    gap: 8,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -1154,7 +1232,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
   },

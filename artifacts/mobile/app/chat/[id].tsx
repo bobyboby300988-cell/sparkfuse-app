@@ -177,32 +177,31 @@ function CallBubble({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setJoining(true);
     try {
-      // Extract Daily room name from URL: https://xxx.daily.co/spark-abc → spark-abc
-      const roomName = roomUrl.replace(/\?.*$/, "").split("/").pop() ?? "";
+      // roomUrl stores the Agora channelName
       const tok = await getToken();
-      const res = await fetch(`${getApiUrl()}/api/calls/room`, {
+      const res = await fetch(`${getApiUrl()}/api/calls/token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${tok}`,
         },
-        body: JSON.stringify({ roomName, isOwner: false, userName: targetName }),
+        body: JSON.stringify({ channelName: roomUrl }),
       });
-      const data = (await res.json()) as { roomUrl: string; token: string };
+      const data = (await res.json()) as { token: string; appId: string; channelName: string };
       router.push({
         pathname: "/call/[id]",
         params: {
           id: targetId,
           mode: isVoice ? "voice" : "video",
-          roomUrl: data.roomUrl,
+          channelName: data.channelName,
+          appId: data.appId,
           token: data.token,
           name: targetName,
           photo: targetPhoto,
         },
       });
     } catch {
-      // Fallback: open in browser if something goes wrong
-      Linking.openURL(roomUrl);
+      Alert.alert("Error", "Could not join the call.");
     } finally {
       setJoining(false);
     }
@@ -347,6 +346,7 @@ export default function ChatScreen() {
 
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translating, setTranslating] = useState<Record<string, boolean>>({});
+  const [deletedMsgIds, setDeletedMsgIds] = useState<Set<string>>(new Set());
 
   const handleTranslate = useCallback(async (msgId: string, text: string) => {
     setTranslating((prev) => ({ ...prev, [msgId]: true }));
@@ -422,7 +422,7 @@ export default function ChatScreen() {
 
   const serverMessages = useMemo(() => {
     if (!conversationData?.messages || !myUserId) return [];
-    return conversationData.messages.map((msg: { id: string; senderId: string; receiverId: string; text?: string | null; mediaUrl?: string | null; mediaType?: string | null; createdAt: string }) => ({
+    return conversationData.messages.filter((msg: { id: string }) => !deletedMsgIds.has(msg.id)).map((msg: { id: string; senderId: string; receiverId: string; text?: string | null; mediaUrl?: string | null; mediaType?: string | null; createdAt: string }) => ({
       id: msg.id,
       text: msg.text ?? "",
       mediaUri: msg.mediaUrl ?? undefined,
@@ -472,12 +472,12 @@ export default function ChatScreen() {
   };
 
   // Initiate a call: creates room, notifies callee via push + chat message, then navigates caller to call screen
-  const startDailyCall = async (isVideo: boolean) => {
+  const startCall = async (isVideo: boolean) => {
     if (!id) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const tok = await getToken();
-      const callerName = authData?.user?.name ?? "User";
+      const callerName = [authData?.user?.firstName, authData?.user?.lastName].filter(Boolean).join(" ") || "User";
       const photoStr = typeof profile?.photo === "object" && "uri" in profile.photo
         ? profile.photo.uri
         : "";
@@ -488,16 +488,17 @@ export default function ChatScreen() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
         body: JSON.stringify({ calleeId: id, isVoice: !isVideo, callerName, callerPhoto: photoStr }),
       });
-      const data = (await res.json()) as { callId: string; roomUrl: string; token: string };
+      const data = (await res.json()) as { callId: string; channelName: string; appId: string; token: string };
 
-      // Also send chat message so callee can join from chat if they miss the call screen
+      // Send chat message so callee can join from chat if they miss the call screen
+      // mediaUrl stores channelName for the "Answer" button
       try {
         await serverPostMessage({
           data: {
             receiverId: id,
             text: isVideo ? "📹 Video call" : "📞 Voice call",
             mediaType: isVideo ? "call_video" : "call_voice",
-            mediaUrl: data.roomUrl,
+            mediaUrl: data.channelName,
           },
         });
       } catch {}
@@ -507,7 +508,8 @@ export default function ChatScreen() {
         params: {
           id,
           mode: isVideo ? "video" : "voice",
-          roomUrl: data.roomUrl,
+          channelName: data.channelName,
+          appId: data.appId,
           token: data.token,
           name: profile?.name ?? "",
           photo: photoStr,
@@ -519,8 +521,8 @@ export default function ChatScreen() {
     }
   };
 
-  const handleVideoCall = () => startDailyCall(true);
-  const handleVoiceCall = () => startDailyCall(false);
+  const handleVideoCall = () => startCall(true);
+  const handleVoiceCall = () => startCall(false);
 
   const doBlock = async () => {
     if (!id) return;
@@ -570,15 +572,26 @@ export default function ChatScreen() {
     if (!id || !profile) return;
     Alert.alert(
       "Delete chat?",
-      "All messages will be cleared. The match stays so you can message again.",
+      "All messages will be permanently deleted from the server. The match stays so you can message again.",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
+            const allIds = (conversationData?.messages ?? []).map((m: { id: string }) => m.id);
+            setDeletedMsgIds((prev) => { const s = new Set(prev); allIds.forEach((mid: string) => s.add(mid)); return s; });
             clearMessages(id);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            try {
+              const tok = await getToken();
+              await fetch(`${getApiUrl()}/api/messages/${id}`, {
+                method: "DELETE",
+                headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+              });
+            } catch {
+              // best-effort — local state already cleared
+            }
           },
         },
       ]
@@ -691,7 +704,7 @@ export default function ChatScreen() {
     }
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
-        { options: ["Anulează", "Galerie foto", "Galerie video", "Cameră foto", "Cameră video"], cancelButtonIndex: 0 },
+        { options: [t("mediaPicker.cancel"), t("mediaPicker.photoLibrary"), t("mediaPicker.videoLibrary"), t("mediaPicker.takePhoto"), t("mediaPicker.takeVideo")], cancelButtonIndex: 0 },
         (idx) => {
           if (idx === 1) pickMedia("image");
           if (idx === 2) pickMedia("video");
@@ -700,12 +713,12 @@ export default function ChatScreen() {
         }
       );
     } else {
-      Alert.alert("Trimite media", undefined, [
-        { text: "Galerie foto", onPress: () => pickMedia("image") },
-        { text: "Galerie video", onPress: () => pickMedia("video") },
-        { text: "Cameră foto", onPress: () => launchCamera("image") },
-        { text: "Cameră video", onPress: () => launchCamera("video") },
-        { text: "Anulează", style: "cancel" },
+      Alert.alert(t("chat.photo"), undefined, [
+        { text: t("mediaPicker.photoLibrary"), onPress: () => pickMedia("image") },
+        { text: t("mediaPicker.videoLibrary"), onPress: () => pickMedia("video") },
+        { text: t("mediaPicker.takePhoto"), onPress: () => launchCamera("image") },
+        { text: t("mediaPicker.takeVideo"), onPress: () => launchCamera("video") },
+        { text: t("mediaPicker.cancel"), style: "cancel" },
       ]);
     }
   };
@@ -713,7 +726,7 @@ export default function ChatScreen() {
   const launchCamera = async (type: "image" | "video") => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert("Permisiune necesară", "Permite accesul la cameră pentru a trimite media.");
+      Alert.alert("Permission required", "Please allow camera access to send media.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -779,21 +792,32 @@ export default function ChatScreen() {
   const handleMessageLongPress = useCallback((item: { id: string; fromMe: boolean; text?: string }) => {
     if (!id) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const options: Array<{ text: string; style?: "cancel" | "destructive"; onPress?: () => void }> = [
-      { text: "Anulează", style: "cancel" },
-    ];
-    if (item.fromMe) {
-      options.push({
-        text: "Șterge mesajul",
-        style: "destructive",
-        onPress: () => {
-          deleteMessage(id, item.id);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert(
+      t("chat.message"),
+      undefined,
+      [
+        { text: t("mediaPicker.cancel"), style: "cancel" },
+        {
+          text: t("chat.deleteMessage"),
+          style: "destructive",
+          onPress: async () => {
+            setDeletedMsgIds((prev) => { const s = new Set(prev); s.add(item.id); return s; });
+            deleteMessage(id, item.id);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            try {
+              const tok = await getToken();
+              await fetch(`${getApiUrl()}/api/messages/single/${item.id}`, {
+                method: "DELETE",
+                headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+              });
+            } catch {
+              // local already deleted — best-effort
+            }
+          },
         },
-      });
-    }
-    Alert.alert("Mesaj", undefined, options);
-  }, [id, deleteMessage]);
+      ]
+    );
+  }, [id, deleteMessage, getToken]);
 
   const bottomInset = insets.bottom + (Platform.OS === "web" ? 34 : 0);
   const showMic = inputText.trim().length === 0;
@@ -955,11 +979,7 @@ export default function ChatScreen() {
                       <TouchableOpacity
                         activeOpacity={0.85}
                         onPress={() => {
-                          if (Platform.OS === "web") {
-                            Linking.openURL(item.mediaUri!);
-                          } else {
-                            setFullscreenVideo(item.mediaUri!);
-                          }
+                          setFullscreenVideo(item.mediaUri!);
                         }}
                       >
                         <View style={[styles.mediaImage, { backgroundColor: "#1a1a2e", alignItems: "center", justifyContent: "center" }]}>

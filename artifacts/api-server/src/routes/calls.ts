@@ -4,69 +4,9 @@ import { db } from '@workspace/db';
 import { usersTable, callsTable } from '@workspace/db';
 import { requireAuth } from '../middlewares/requireAuth';
 import { logger } from '../lib/logger';
+import { buildAgoraToken, isAgoraConfigured } from '../lib/agoraToken';
 
 const router: IRouter = Router();
-
-const DAILY_API_KEY = process.env.DAILY_API_KEY;
-const DAILY_BASE = 'https://api.daily.co/v1';
-
-async function dailyFetch(path: string, init?: RequestInit) {
-  return fetch(`${DAILY_BASE}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${DAILY_API_KEY}`,
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-  });
-}
-
-async function getOrCreateDailyRoom(roomId: string): Promise<string> {
-  const clean = roomId.replace(/[^a-zA-Z0-9-]/g, '-');
-  const safeName = clean.startsWith('spark-') ? clean.slice(0, 60) : `spark-${clean.slice(0, 54)}`;
-  const getRes = await dailyFetch(`/rooms/${safeName}`);
-  if (getRes.ok) {
-    const room = (await getRes.json()) as { url: string };
-    return room.url;
-  }
-  const createRes = await dailyFetch('/rooms', {
-    method: 'POST',
-    body: JSON.stringify({
-      name: safeName,
-      properties: {
-        enable_chat: false,
-        enable_knocking: false,
-        enable_prejoin_ui: false,
-        start_video_off: false,
-        start_audio_off: false,
-        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
-      },
-    }),
-  });
-  if (!createRes.ok) throw new Error('Could not create Daily room');
-  const room = (await createRes.json()) as { url: string };
-  return room.url;
-}
-
-async function createDailyToken(roomUrl: string, isOwner: boolean, userName: string, videoOff = false): Promise<string> {
-  const roomName = roomUrl.replace(/\?.*$/, '').split('/').pop() ?? '';
-  const tokenRes = await dailyFetch('/meeting-tokens', {
-    method: 'POST',
-    body: JSON.stringify({
-      properties: {
-        room_name: roomName,
-        is_owner: isOwner,
-        user_name: userName,
-        start_video_off: videoOff,
-        start_audio_off: false,
-        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 6,
-      },
-    }),
-  });
-  if (!tokenRes.ok) throw new Error('Could not create Daily token');
-  const { token } = (await tokenRes.json()) as { token: string };
-  return token;
-}
 
 async function sendPush(pushToken: string, title: string, body: string, data: Record<string, string>) {
   try {
@@ -89,41 +29,46 @@ router.post('/calls/push-token', requireAuth, async (req, res) => {
   return res.json({ ok: true });
 });
 
-// POST /api/calls/initiate — caller starts a call
+// POST /api/calls/initiate — caller starts a call; creates Agora channel + notifies callee
 router.post('/calls/initiate', requireAuth, async (req, res) => {
-  if (!DAILY_API_KEY) return res.status(503).json({ error: 'Calls not configured' });
+  if (!isAgoraConfigured()) return res.status(503).json({ error: 'Calls not configured' });
   const callerId = (req as any).userId as string;
   const { calleeId, isVoice = false, callerName = 'User', callerPhoto = '' } = req.body as {
     calleeId?: string; isVoice?: boolean; callerName?: string; callerPhoto?: string;
   };
   if (!calleeId) return res.status(400).json({ error: 'calleeId required' });
 
-  const roomId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  let roomUrl: string;
+  const channelName = `call-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   let callerToken: string;
+  let appId: string;
   try {
-    roomUrl = await getOrCreateDailyRoom(roomId);
-    callerToken = await createDailyToken(roomUrl, true, callerName, isVoice);
+    const result = buildAgoraToken(channelName, 0, 'publisher');
+    callerToken = result.token;
+    appId = result.appId;
   } catch (err) {
-    logger.error({ err }, 'Failed to create Daily room');
-    return res.status(500).json({ error: 'Could not create call room' });
+    logger.error({ err }, 'Failed to build Agora token');
+    return res.status(500).json({ error: 'Could not create call' });
   }
 
   const [call] = await db.insert(callsTable).values({
-    callerId, calleeId, roomUrl, callerToken, isVoice, callerName, callerPhoto, status: 'pending',
+    callerId, calleeId,
+    roomUrl: channelName,
+    callerToken,
+    isVoice, callerName, callerPhoto, status: 'pending',
   }).returning();
 
-  const [callee] = await db.select({ pushToken: usersTable.pushToken, notifCalls: usersTable.notifCalls }).from(usersTable).where(eq(usersTable.id, calleeId));
+  const [callee] = await db.select({ pushToken: usersTable.pushToken, notifCalls: usersTable.notifCalls })
+    .from(usersTable).where(eq(usersTable.id, calleeId));
   if (callee?.pushToken && callee.notifCalls !== false) {
     await sendPush(
       callee.pushToken,
-      isVoice ? '📞 Apel vocal' : '📹 Apel video',
-      `${callerName} te sună`,
-      { type: 'incoming_call', callId: call.id, callerId, callerName, callerPhoto, roomUrl, isVoice: String(isVoice) },
+      isVoice ? '📞 Voice Call' : '📹 Video Call',
+      `${callerName} is calling you`,
+      { type: 'incoming_call', callId: call.id, callerId, callerName, callerPhoto, channelName, isVoice: String(isVoice) },
     );
   }
 
-  return res.json({ callId: call.id, roomUrl, token: callerToken });
+  return res.json({ callId: call.id, channelName, appId, token: callerToken });
 });
 
 // GET /api/calls/incoming — callee polls for pending calls
@@ -135,7 +80,7 @@ router.get('/calls/incoming', requireAuth, async (req, res) => {
     callerId: callsTable.callerId,
     callerName: callsTable.callerName,
     callerPhoto: callsTable.callerPhoto,
-    roomUrl: callsTable.roomUrl,
+    channelName: callsTable.roomUrl,
     isVoice: callsTable.isVoice,
     status: callsTable.status,
   })
@@ -147,12 +92,13 @@ router.get('/calls/incoming', requireAuth, async (req, res) => {
 
 // POST /api/calls/respond — callee accepts or declines
 router.post('/calls/respond', requireAuth, async (req, res) => {
-  if (!DAILY_API_KEY) return res.status(503).json({ error: 'Calls not configured' });
+  if (!isAgoraConfigured()) return res.status(503).json({ error: 'Calls not configured' });
   const userId = (req as any).userId as string;
-  const { callId, accept, calleeName = 'User' } = req.body as { callId?: string; accept?: boolean; calleeName?: string };
+  const { callId, accept } = req.body as { callId?: string; accept?: boolean };
   if (!callId) return res.status(400).json({ error: 'callId required' });
 
-  const [call] = await db.select().from(callsTable).where(and(eq(callsTable.id, callId), eq(callsTable.calleeId, userId)));
+  const [call] = await db.select().from(callsTable)
+    .where(and(eq(callsTable.id, callId), eq(callsTable.calleeId, userId)));
   if (!call) return res.status(404).json({ error: 'Call not found' });
 
   if (!accept) {
@@ -161,13 +107,16 @@ router.post('/calls/respond', requireAuth, async (req, res) => {
   }
 
   let calleeToken: string;
+  let appId: string;
   try {
-    calleeToken = await createDailyToken(call.roomUrl, false, calleeName);
+    const result = buildAgoraToken(call.roomUrl, 0, 'publisher');
+    calleeToken = result.token;
+    appId = result.appId;
   } catch {
     return res.status(500).json({ error: 'Could not create call token' });
   }
   await db.update(callsTable).set({ status: 'accepted' }).where(eq(callsTable.id, callId));
-  return res.json({ roomUrl: call.roomUrl, token: calleeToken, isVoice: call.isVoice });
+  return res.json({ channelName: call.roomUrl, appId, token: calleeToken, isVoice: call.isVoice });
 });
 
 // POST /api/calls/end
@@ -180,20 +129,16 @@ router.post('/calls/end', requireAuth, async (req, res) => {
   return res.json({ ok: true });
 });
 
-// POST /api/calls/room — legacy backward compat
-router.post('/calls/room', requireAuth, async (req, res) => {
-  if (!DAILY_API_KEY) return res.status(503).json({ error: 'Video calls not configured' });
-  const { roomName, isOwner = true, userName = 'User', videoOff = false } = req.body as {
-    roomName?: string; isOwner?: boolean; userName?: string; videoOff?: boolean;
-  };
-  if (!roomName || typeof roomName !== 'string') return res.status(400).json({ error: 'roomName is required' });
+// POST /api/calls/token — join an existing channel by channelName (for chat "Answer" button)
+router.post('/calls/token', requireAuth, async (req, res) => {
+  if (!isAgoraConfigured()) return res.status(503).json({ error: 'Calls not configured' });
+  const { channelName } = req.body as { channelName?: string };
+  if (!channelName) return res.status(400).json({ error: 'channelName required' });
   try {
-    const roomUrl = await getOrCreateDailyRoom(roomName);
-    const token = await createDailyToken(roomUrl, isOwner, userName, videoOff);
-    return res.json({ roomUrl, token });
+    const { token, appId } = buildAgoraToken(channelName, 0, 'publisher');
+    return res.json({ token, appId, channelName });
   } catch (err) {
-    logger.error({ err }, 'Failed to create Daily room');
-    return res.status(500).json({ error: 'Could not create call room' });
+    return res.status(500).json({ error: 'Could not create token' });
   }
 });
 
