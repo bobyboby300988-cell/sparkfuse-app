@@ -57,7 +57,8 @@
         {
           "android": {
             "extraGradleProperties": {
-              "org.gradle.jvmargs": "-Xmx2048m -XX:MaxMetaspaceSize=512m",
+              "org.gradle.jvmargs": "-Xmx1536m -XX:MaxMetaspaceSize=384m",
+              "org.gradle.parallel": "false",
               "kotlin.daemon.jvm.options": "-Xmx1024m -XX:MaxMetaspaceSize=256m"
             }
           }
