@@ -36,7 +36,6 @@ import i18n, { SUPPORTED_LANGUAGES, saveLanguage, type SupportedLanguage } from 
 import { LANGUAGE_FLAGS, LANGUAGE_NATIVE_NAMES, type LanguageCode } from "@/i18n/locales/_languages";
 import { buyTokensWithStripe } from "@/config/payments";
 
-const PRICE_OPTIONS = [1, 2, 3, 5, 10];
 
 const ST_MIN = 50; // Stripe minimum is €0.50
 
@@ -808,33 +807,23 @@ export default function ProfileScreen() {
               {t("profile.creatorModeActive")}
             </Text>
 
-            <Text style={[styles.prefText, { color: colors.foreground, marginTop: 12, marginBottom: 8 }]}>
-              {t("profile.pricePerUnlock")}
-            </Text>
-            <View style={styles.priceRow}>
-              {PRICE_OPTIONS.map((p) => (
-                <TouchableOpacity
-                  key={p}
-                  style={[
-                    styles.priceChip,
-                    {
-                      backgroundColor: creatorPrice === p ? "#FF3366" : colors.background,
-                      borderColor: creatorPrice === p ? "#FF3366" : colors.border,
-                    },
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setCreatorPrice(p);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.priceChipText, { color: creatorPrice === p ? "#fff" : colors.foreground }]}>
-                    €{p}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={[styles.priceInfoBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <View style={styles.priceInfoRow}>
+                <Text style={styles.priceInfoEmoji}>🖼️</Text>
+                <Text style={[styles.priceInfoLabel, { color: colors.foreground }]}>Foto exclusiv</Text>
+                <View style={[styles.priceInfoBadge, { backgroundColor: "#FF336622" }]}>
+                  <Text style={[styles.priceInfoBadgeText, { color: "#FF3366" }]}>50 ST</Text>
+                </View>
+              </View>
+              <View style={[styles.priceInfoDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.priceInfoRow}>
+                <Text style={styles.priceInfoEmoji}>🎬</Text>
+                <Text style={[styles.priceInfoLabel, { color: colors.foreground }]}>Video exclusiv</Text>
+                <View style={[styles.priceInfoBadge, { backgroundColor: "#FF336622" }]}>
+                  <Text style={[styles.priceInfoBadgeText, { color: "#FF3366" }]}>500 ST</Text>
+                </View>
+              </View>
             </View>
-
           </>
         ) : (
           <Text style={[styles.creatorHint, { color: colors.mutedForeground }]}>
@@ -1230,20 +1219,39 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 4,
   },
-  priceRow: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  priceChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+  priceInfoBox: {
     borderWidth: 1,
+    borderRadius: 14,
+    marginTop: 12,
+    overflow: "hidden",
   },
-  priceChipText: {
+  priceInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  priceInfoEmoji: {
+    fontSize: 20,
+  },
+  priceInfoLabel: {
+    flex: 1,
     fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_500Medium",
+  },
+  priceInfoBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  priceInfoBadgeText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+  },
+  priceInfoDivider: {
+    height: 1,
+    marginHorizontal: 14,
   },
   earningsRow: {
     flexDirection: "row",
