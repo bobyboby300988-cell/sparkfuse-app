@@ -327,7 +327,7 @@ export default function ChatScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { matches, addMatch, sendMessage, sendMedia, sendVoice, removeMatch, clearMessages } = useApp();
+  const { matches, addMatch, sendMessage, sendMedia, sendVoice, removeMatch, clearMessages, deleteMessage } = useApp();
   const { mutateAsync: blockUser } = useCreateBlock();
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -776,6 +776,25 @@ export default function ChatScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   }, [recording]);
 
+  const handleMessageLongPress = useCallback((item: { id: string; fromMe: boolean; text?: string }) => {
+    if (!id) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const options: Array<{ text: string; style?: "cancel" | "destructive"; onPress?: () => void }> = [
+      { text: "Anulează", style: "cancel" },
+    ];
+    if (item.fromMe) {
+      options.push({
+        text: "Șterge mesajul",
+        style: "destructive",
+        onPress: () => {
+          deleteMessage(id, item.id);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        },
+      });
+    }
+    Alert.alert("Mesaj", undefined, options);
+  }, [id, deleteMessage]);
+
   const bottomInset = insets.bottom + (Platform.OS === "web" ? 34 : 0);
   const showMic = inputText.trim().length === 0;
 
@@ -896,11 +915,13 @@ export default function ChatScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
-              <View
+              <Pressable
                 style={[
                   styles.bubbleWrap,
                   item.fromMe ? styles.bubbleWrapMe : styles.bubbleWrapThem,
                 ]}
+                onLongPress={() => handleMessageLongPress(item)}
+                delayLongPress={400}
               >
                 {(item.mediaType === "call_video" || item.mediaType === "call_voice") ? (
                   <CallBubble
@@ -1020,7 +1041,7 @@ export default function ChatScreen() {
                 <Text style={[styles.timeText, { color: colors.mutedForeground }]}>
                   {formatTime(item.timestamp)}
                 </Text>
-              </View>
+              </Pressable>
             )}
           />
         )}
