@@ -217,9 +217,15 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontError]);
+
+  // Fallback: hide splash after 4s regardless of font load state
+  useEffect(() => {
+    const t = setTimeout(() => SplashScreen.hideAsync().catch(() => {}), 4000);
+    return () => clearTimeout(t);
+  }, []);
 
   if (crashMessage) {
     return <CrashScreen message={crashMessage} />;
