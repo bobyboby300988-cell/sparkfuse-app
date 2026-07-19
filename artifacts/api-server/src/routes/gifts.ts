@@ -5,9 +5,8 @@ import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-// 1 ST = €0.01. Receiver is credited 100% of the gift's euro value.
-// The platform's 20% revenue share is deducted at withdrawal time, not here.
-const ST_TO_EUR = 0.01;
+// Cadourile primite se creditează ca STCoin în coinBalance — NU ca euro.
+// Conversia în euro e manuală, la retragere, la cererea utilizatorului.
 
 router.post("/gifts/send", requireAuth, async (req: Request, res: Response) => {
   const senderId = req.dbUser!.id;
@@ -23,12 +22,11 @@ router.post("/gifts/send", requireAuth, async (req: Request, res: Response) => {
     return;
   }
 
-  const amountEur = parseFloat((tokens * ST_TO_EUR).toFixed(4));
-
   await Promise.all([
+    // Destinatarul primește STCoin în coinBalance (pot fi refolosiți sau retrași manual)
     db
       .update(usersTable)
-      .set({ earnings: sql`COALESCE(earnings, 0) + ${amountEur}` })
+      .set({ coinBalance: sql`COALESCE(coin_balance, 0) + ${tokens}` })
       .where(eq(usersTable.id, receiverId)),
 
     db.insert(messagesTable).values({
@@ -42,6 +40,7 @@ router.post("/gifts/send", requireAuth, async (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// GET /gifts/earnings — sold euro acumulat din conversii manuale
 router.get("/gifts/earnings", requireAuth, async (req: Request, res: Response) => {
   const user = await db
     .select({ earnings: usersTable.earnings })
