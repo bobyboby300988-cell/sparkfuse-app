@@ -40,6 +40,11 @@ jobs:
           EXPO_PUBLIC_CLERK_PROXY_URL: https://match-maker-2025ap.replit.app/api/__clerk
         run: pnpm exec expo prebuild --platform android --clean --no-install
 
+      - name: Fix duplicate META-INF packaging conflict
+        working-directory: artifacts/mobile/android
+        run: |
+          printf '\nandroid.packagingOptions {\n    resources {\n        excludes += ["META-INF/versions/9/OSGI-INF/MANIFEST.MF"]\n    }\n}\n' >> app/build.gradle
+
       - name: Build Android APK
         working-directory: artifacts/mobile/android
         env:
