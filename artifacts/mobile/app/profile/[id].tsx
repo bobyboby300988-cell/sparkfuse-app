@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { ResizeMode, Video } from "expo-av";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -73,6 +74,125 @@ function LightboxModal({ uri, visible, onClose }: { uri: string; visible: boolea
   );
 }
 
+function VideoPlayerModal({ uri, visible, onClose }: { uri: string; visible: boolean; onClose: () => void }) {
+  const videoRef = useRef<Video>(null);
+  const [status, setStatus] = useState<any>({});
+  const [sliderValue, setSliderValue] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
+
+  const isPlaying = status?.isPlaying ?? false;
+  const duration = status?.durationMillis ?? 0;
+  const position = status?.positionMillis ?? 0;
+
+  useEffect(() => {
+    if (!visible) {
+      videoRef.current?.pauseAsync().catch(() => {});
+    }
+  }, [visible]);
+
+  const togglePlay = () => {
+    if (isPlaying) {
+      videoRef.current?.pauseAsync();
+    } else {
+      videoRef.current?.playAsync();
+    }
+  };
+
+  const seek = (ms: number) => {
+    const next = Math.max(0, Math.min(duration, position + ms));
+    videoRef.current?.setPositionAsync(next);
+  };
+
+  const formatTime = (ms: number) => {
+    const total = Math.floor(ms / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const progress = duration > 0 ? position / duration : 0;
+
+  return (
+    <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+      <View style={vp.container}>
+        <Video
+          ref={videoRef}
+          source={{ uri }}
+          style={vp.video}
+          resizeMode={ResizeMode.CONTAIN}
+          shouldPlay
+          useNativeControls={false}
+          onPlaybackStatusUpdate={(s) => {
+            setStatus(s);
+            if (!isSeeking && (s as any).positionMillis != null && (s as any).durationMillis) {
+              setSliderValue((s as any).positionMillis / (s as any).durationMillis);
+            }
+          }}
+        />
+
+        {/* Back button */}
+        <TouchableOpacity style={vp.back} onPress={onClose} activeOpacity={0.85}>
+          <Ionicons name="chevron-back" size={28} color="#fff" />
+        </TouchableOpacity>
+
+        {/* Controls overlay */}
+        <View style={vp.controls}>
+          {/* Progress bar */}
+          <View style={vp.progressRow}>
+            <Text style={vp.timeText}>{formatTime(position)}</Text>
+            <View
+              style={vp.progressTrack}
+              onStartShouldSetResponder={() => true}
+              onResponderGrant={(e) => {
+                setIsSeeking(true);
+                const x = e.nativeEvent.locationX;
+                const w = W - 80;
+                const ratio = Math.max(0, Math.min(1, x / w));
+                setSliderValue(ratio);
+                videoRef.current?.setPositionAsync(ratio * duration);
+              }}
+              onResponderMove={(e) => {
+                const x = e.nativeEvent.locationX;
+                const w = W - 80;
+                const ratio = Math.max(0, Math.min(1, x / w));
+                setSliderValue(ratio);
+              }}
+              onResponderRelease={(e) => {
+                const x = e.nativeEvent.locationX;
+                const w = W - 80;
+                const ratio = Math.max(0, Math.min(1, x / w));
+                videoRef.current?.setPositionAsync(ratio * duration);
+                setIsSeeking(false);
+              }}
+            >
+              <View style={[vp.progressFill, { width: `${sliderValue * 100}%` }]} />
+              <View style={[vp.progressThumb, { left: `${sliderValue * 100}%` }]} />
+            </View>
+            <Text style={vp.timeText}>{formatTime(duration)}</Text>
+          </View>
+
+          {/* Buttons row */}
+          <View style={vp.btnRow}>
+            <TouchableOpacity onPress={() => seek(-10000)} style={vp.seekBtn} activeOpacity={0.7}>
+              <Ionicons name="play-back" size={28} color="#fff" />
+              <Text style={vp.seekLabel}>10s</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={togglePlay} style={vp.playBtn} activeOpacity={0.85}>
+              <Ionicons name={isPlaying ? "pause" : "play"} size={36} color="#fff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => seek(10000)} style={vp.seekBtn} activeOpacity={0.7}>
+              <Ionicons name="play-forward" size={28} color="#fff" />
+              <Text style={vp.seekLabel}>10s</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function ProfileViewScreen() {
   const { id, name: nameParam, photo: photoParam } = useLocalSearchParams<{
     id: string;
@@ -89,6 +209,7 @@ export default function ProfileViewScreen() {
   const [photos, setPhotos] = useState<ServerPhoto[]>([]);
   const [liked, setLiked] = useState(false);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
+  const [videoUri, setVideoUri] = useState<string | null>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [isLive, setIsLive] = useState(false);
   const [liveSessionId, setLiveSessionId] = useState<string | null>(null);
@@ -217,6 +338,8 @@ export default function ProfileViewScreen() {
                         { text: "Anulează", style: "cancel" },
                         { text: `Deblochează · ${price} CT`, onPress: () => { addCoins(-price); unlockPhoto(item.id); } },
                       ]);
+                    } else if (item.isVideo && item.source?.uri) {
+                      setVideoUri(item.source.uri);
                     } else if (!item.isVideo && item.source?.uri) {
                       setLightboxUri(item.source.uri);
                     }
@@ -439,6 +562,7 @@ export default function ProfileViewScreen() {
       </View>
 
       <LightboxModal uri={lightboxUri ?? ""} visible={!!lightboxUri} onClose={() => setLightboxUri(null)} />
+      <VideoPlayerModal uri={videoUri ?? ""} visible={!!videoUri} onClose={() => setVideoUri(null)} />
     </View>
   );
 }
@@ -563,5 +687,72 @@ const lb = StyleSheet.create({
     position: "absolute", top: 52, right: 20,
     backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 20,
     width: 40, height: 40, alignItems: "center", justifyContent: "center",
+  },
+});
+
+const { height: SCREEN_H } = Dimensions.get("window");
+
+const vp = StyleSheet.create({
+  container: {
+    flex: 1, backgroundColor: "#000",
+    justifyContent: "center", alignItems: "center",
+  },
+  video: {
+    width: W,
+    height: SCREEN_H,
+  },
+  back: {
+    position: "absolute", top: 52, left: 16,
+    backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 22,
+    width: 44, height: 44, alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.2)",
+  },
+  controls: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    paddingHorizontal: 20, paddingBottom: 44, paddingTop: 20,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    gap: 12,
+  },
+  progressRow: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+  },
+  timeText: {
+    color: "#fff", fontSize: 12, fontFamily: "Inter_500Medium",
+    minWidth: 36, textAlign: "center",
+  },
+  progressTrack: {
+    flex: 1, height: 36,
+    justifyContent: "center",
+  },
+  progressFill: {
+    height: 4, borderRadius: 2,
+    backgroundColor: "#FF3366",
+  },
+  progressThumb: {
+    position: "absolute",
+    width: 16, height: 16, borderRadius: 8,
+    backgroundColor: "#FF3366",
+    marginLeft: -8,
+    top: "50%",
+    marginTop: -8,
+  },
+  btnRow: {
+    flexDirection: "row", alignItems: "center",
+    justifyContent: "center", gap: 40,
+  },
+  seekBtn: {
+    alignItems: "center", gap: 2,
+  },
+  seekLabel: {
+    color: "rgba(255,255,255,0.7)", fontSize: 11,
+    fontFamily: "Inter_500Medium",
+  },
+  playBtn: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: "#FF3366",
+    alignItems: "center", justifyContent: "center",
+    shadowColor: "#FF3366", shadowOpacity: 0.5,
+    shadowOffset: { width: 0, height: 4 }, shadowRadius: 12,
+    elevation: 8,
   },
 });
