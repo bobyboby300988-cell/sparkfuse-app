@@ -67,5 +67,36 @@ router.post('/coins/spend', requireAuth, async (req, res) => {
   }
 });
 
+// POST /coins/convert — conversie manuală STCoin → euro (adaugă la earnings, scade din coinBalance)
+// 1 ST = €0.01. Comisionul platformei de 20% se aplică la retragere, nu aici.
+router.post('/coins/convert', requireAuth, async (req, res) => {
+  const user = req.dbUser!;
+  const { amount } = req.body as { amount: number };
+  if (typeof amount !== 'number' || amount <= 0) {
+    res.status(400).json({ error: 'amount must be a positive number' });
+    return;
+  }
+  const currentBalance = user.coinBalance ?? 0;
+  if (currentBalance < amount) {
+    res.status(400).json({ error: 'Insufficient coin balance' });
+    return;
+  }
+  const eurAmount = parseFloat((amount * 0.01).toFixed(4));
+  try {
+    const [updated] = await db
+      .update(usersTable)
+      .set({
+        coinBalance: sql`GREATEST(0, ${usersTable.coinBalance} - ${amount})`,
+        earnings: sql`COALESCE(earnings, 0) + ${eurAmount}`,
+      })
+      .where(eq(usersTable.id, user.id))
+      .returning({ coinBalance: usersTable.coinBalance, earnings: usersTable.earnings });
+    logger.info({ userId: user.id, stCoins: amount, eurAmount, newCoinBalance: updated?.coinBalance }, 'STCoin converted to earnings');
+    res.json({ coinBalance: updated?.coinBalance ?? 0, earnings: updated?.earnings ?? 0, eurAmount });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to convert coins');
+    res.status(500).json({ error: 'Failed to convert coins' });
+  }
+});
 
 export default router;
