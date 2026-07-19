@@ -31,6 +31,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Build workspace libs
+        run: pnpm run typecheck:libs
+
       - name: Expo Prebuild (generate android folder)
         working-directory: artifacts/mobile
         env:
