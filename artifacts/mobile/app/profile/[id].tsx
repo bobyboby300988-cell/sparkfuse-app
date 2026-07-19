@@ -289,7 +289,7 @@ export default function ProfileViewScreen() {
         const uri = getPhotoUrl(p.objectPath) ?? p.objectPath;
         items.push({
           id: p.id, source: { uri }, isLocked: true, isVideo: p.mediaType === "video",
-          price: p.mediaType === "video" ? "500 ST · €5.00" : "20 ST · €0.20",
+          price: p.mediaType === "video" ? "500 ST · €5.00" : "50 ST · €0.50",
         });
       });
     }
@@ -327,8 +327,8 @@ export default function ProfileViewScreen() {
                   style={{ width: W, height: CAROUSEL_H }}
                   onPress={() => {
                     if (locked) {
-                      const price = item.isVideo ? 500 : 20;
-                      const priceEur = item.isVideo ? "€5.00" : "€0.20";
+                      const price = item.isVideo ? 500 : 50;
+                      const priceEur = item.isVideo ? "€5.00" : "€0.50";
                       const label = item.isVideo ? "video" : "foto";
                       if (coinBalance < price) {
                         Alert.alert("Jetoane insuficiente 🔥", `Ai nevoie de ${price} CT (${priceEur}) pentru a debloca acest ${label}.\n\nAi ${coinBalance} CT.`, [{ text: "OK" }]);
