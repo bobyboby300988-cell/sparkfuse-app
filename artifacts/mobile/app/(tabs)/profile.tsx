@@ -11,6 +11,7 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -849,7 +850,7 @@ export default function ProfileScreen() {
       {/* Privacy Policy */}
       <TouchableOpacity
         style={[styles.languageRow, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]}
-        onPress={() => router.push("/privacy-policy" as any)}
+        onPress={() => Linking.openURL("https://match-maker-2025ap.replit.app/sparkfuse-promo/privacy.html")}
         activeOpacity={0.7}
       >
         <Ionicons name="shield-checkmark-outline" size={22} color={colors.foreground} style={{ marginRight: 4 }} />
