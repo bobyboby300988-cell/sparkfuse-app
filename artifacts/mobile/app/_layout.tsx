@@ -6,13 +6,14 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useGetMyProfile } from "@workspace/api-client-react";
+import { useGetMyProfile, useGetCurrentAuthUser } from "@workspace/api-client-react";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as Updates from "expo-updates";
 import React, { useEffect, useRef, useState } from "react";
 import { View, ActivityIndicator, Platform, Text, ScrollView } from "react-native";
 import { getApiUrl } from "@/lib/api";
@@ -101,6 +102,13 @@ function RootLayoutNav() {
   const { data: profileData, isLoading: profileLoading, isError: profileError } = useGetMyProfile({
     query: { enabled: isAuthenticated, queryKey: ["myProfile"], retry: 3 },
   });
+  // Server-confirmed subscription status — prevents paywall redirect before server responds
+  const { data: authUserData, isLoading: authUserLoading } = useGetCurrentAuthUser({
+    query: { enabled: isAuthenticated, queryKey: ["currentAuthUser"] },
+  });
+  const serverSubscribed = authUserData?.user?.isSubscribed ?? isSubscribed;
+  // Only treat subscription as "not subscribed" once server has answered (avoids post-reinstall paywall flash)
+  const subscriptionChecked = !authUserLoading || !isAuthenticated;
   const segments = useSegments();
   const [timedOut, setTimedOut] = useState(false);
 
@@ -190,6 +198,10 @@ function RootLayoutNav() {
 
   useEffect(() => {
     if (!isLoaded) return;
+    // Do NOT redirect while Clerk is still loading auth state.
+    // isSignedIn===undefined means "Clerk is refreshing" (e.g. app returning from background).
+    // Treating undefined as false would send an authenticated user to sign-in by mistake.
+    if (!authLoaded) return;
 
     const inOnboarding = segments[0] === "onboarding";
     const inPaywall = segments[0] === "paywall";
@@ -197,19 +209,33 @@ function RootLayoutNav() {
     const inSignIn = segments[0] === "sign-in";
     const inSignUp = segments[0] === "sign-up";
 
-    // Only redirect when Clerk definitively says the user is NOT signed in.
-    // If the user had a previous session (sessionGuard=true), redirect to
-    // /sign-in directly so they don't see the marketing welcome screen again.
-    // If no session ever existed or user explicitly signed out (sessionGuard=false),
-    // redirect to /welcome (full onboarding flow).
-    if (!isAuthenticated && !inOnboarding && !inWelcome && !inSignIn) {
-      // Allow /sign-up ONLY if the user has already paid (isSubscribed from
-      // AsyncStorage is set right before opening the Stripe/PayPal browser).
-      if (!inSignUp || !isSubscribed) {
-        router.replace(sessionGuard ? "/sign-in" : "/welcome");
+    const inForgotPassword = segments[0] === "forgot-password";
+
+    // Use strict false — undefined means Clerk is still loading, not "logged out"
+    if (isSignedIn === false) {
+      if (isSubscribed && !inSignUp) {
+        // User paid but has no Clerk account yet → create account
+        // This handles the case where Stripe browser closes and isSubscribed becomes
+        // true before the router.replace("/sign-up") in paywall.tsx fires.
+        router.replace("/sign-up");
+      } else if (!isSubscribed && !sessionGuard && !inWelcome && !inSignIn && !inSignUp && !inPaywall && !inOnboarding && !inForgotPassword) {
+        // Brand-new user (never had a session) → welcome screen
+        router.replace("/welcome");
       }
-    } else if (isAuthenticated && !hasProfile && !profileError && !profileLoading && !inOnboarding && !inWelcome && !inSignIn && !inSignUp) {
-      // Signed in but genuinely has no profile yet → send to onboarding
+      // sessionGuard === true means user previously authenticated.
+      // Do NOT auto-redirect — only a manual Sign Out press clears sessionGuard.
+      // This prevents accidental logout caused by Clerk token refresh delays.
+    } else if (isAuthenticated && !hasProfile && !profileError && !profileLoading && !inOnboarding && !inWelcome && !inSignIn && !inSignUp && !inPaywall) {
+      // New user: must pay BEFORE creating a profile.
+      // Wait for server to confirm subscription status to avoid false paywall flash.
+      if (subscriptionChecked && !serverSubscribed) {
+        router.replace("/paywall");
+      } else if (subscriptionChecked && serverSubscribed) {
+        router.replace("/onboarding");
+      }
+      // subscriptionChecked=false → server still loading, wait before deciding
+    } else if (isAuthenticated && !hasProfile && isSubscribed && inPaywall) {
+      // User paid but has no profile yet → create profile
       router.replace("/onboarding");
     } else if (isAuthenticated && hasProfile && inOnboarding) {
       if (!isSubscribed) {
@@ -217,14 +243,14 @@ function RootLayoutNav() {
       } else {
         router.replace("/");
       }
-    } else if (isAuthenticated && hasProfile && !isSubscribed && !inPaywall) {
+    } else if (isAuthenticated && hasProfile && !serverSubscribed && subscriptionChecked && !inPaywall) {
       router.replace("/paywall");
     } else if (isAuthenticated && hasProfile && isSubscribed && inPaywall) {
       router.replace("/");
     } else if (isAuthenticated && hasProfile && isSubscribed && (inSignIn || inWelcome)) {
       router.replace("/");
     }
-  }, [isLoaded, isAuthenticated, hasProfile, isSubscribed, sessionGuard, segments]);
+  }, [isLoaded, authLoaded, isSignedIn, isAuthenticated, hasProfile, isSubscribed, serverSubscribed, subscriptionChecked, sessionGuard, segments]);
 
   const inAuthPage = segments[0] === "sign-up" || segments[0] === "sign-in";
 
@@ -242,6 +268,7 @@ function RootLayoutNav() {
       <Stack.Screen name="welcome" options={{ headerShown: false, animation: "fade" }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
       <Stack.Screen name="sign-up" options={{ headerShown: false }} />
+      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="paywall" options={{ headerShown: false }} />
       <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
@@ -249,6 +276,9 @@ function RootLayoutNav() {
       <Stack.Screen name="incoming-call" options={{ headerShown: false, presentation: "fullScreenModal" }} />
       <Stack.Screen name="notification-settings" options={{ headerShown: false }} />
       <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
+      <Stack.Screen name="profile/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="live/go-live" options={{ headerShown: false }} />
+      <Stack.Screen name="live/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="coach/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="book/[id]" options={{ headerShown: false }} />
     </Stack>
@@ -257,6 +287,20 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   const [crashMessage, setCrashMessage] = useState<string | null>(globalCrashMessage);
+
+  // Auto-apply OTA updates immediately on launch (production only)
+  useEffect(() => {
+    if (__DEV__) return;
+    (async () => {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch (_) {}
+    })();
+  }, []);
 
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
