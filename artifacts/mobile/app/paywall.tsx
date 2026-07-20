@@ -111,11 +111,10 @@ export default function PaywallScreen() {
       setLoadingPayPal(false);
 
       if (Platform.OS === "web" && typeof window !== "undefined") {
+        // On web: redirect the full page to PayPal (same as Stripe), not a popup.
+        // PayPal will send the user back to returnUrl (/sign-up?paid=1).
         try { localStorage.setItem(PAID_PENDING_KEY, "true"); } catch {}
-        await WebBrowser.openBrowserAsync(paypalUrl, {
-          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-          showTitle: false,
-        });
+        window.location.href = paypalUrl;
         return;
       }
 
