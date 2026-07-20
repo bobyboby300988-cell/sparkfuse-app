@@ -14,6 +14,8 @@ import * as SecureStore from "expo-secure-store";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
 import React, { useEffect, useRef, useState } from "react";
 import { View, ActivityIndicator, Platform, Text, ScrollView } from "react-native";
 import { getApiUrl } from "@/lib/api";
@@ -24,6 +26,28 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
 import "@/lib/api";
 import i18n, { getSavedLanguage } from "@/i18n";
+
+async function registerPushToken(getToken: () => Promise<string | null>) {
+  if (Platform.OS === "web") return;
+  if (!Device.isDevice) return;
+  try {
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    let finalStatus = existing;
+    if (existing !== "granted") {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== "granted") return;
+    const pushToken = (await Notifications.getExpoPushTokenAsync()).data;
+    const tok = await getToken();
+    if (!tok || !pushToken) return;
+    await fetch(`${getApiUrl()}/api/calls/push-token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+      body: JSON.stringify({ token: pushToken }),
+    });
+  } catch {}
+}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -137,6 +161,12 @@ function RootLayoutNav() {
     setAuthTokenGetter(() => getToken());
   }, [getToken]);
 
+  // Register push notification token whenever user signs in
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    registerPushToken(getToken);
+  }, [isAuthenticated]);
+
   // Poll for incoming calls when app is in foreground (every 4s)
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -169,7 +199,7 @@ function RootLayoutNav() {
             }
           }
         } catch {}
-        await new Promise((r) => setTimeout(r, 4000));
+        await new Promise((r) => setTimeout(r, 2000));
       }
     };
     pollIncoming();
