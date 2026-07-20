@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -182,7 +182,7 @@ export default function WelcomeScreen() {
       if (isAuthenticated) {
         router.replace("/onboarding");
       } else {
-        router.replace("/sign-up");
+        router.replace("/sign-up?paid=1" as Href);
       }
     } catch (err: any) {
       setLoadingStripe(false);
@@ -210,7 +210,7 @@ export default function WelcomeScreen() {
       if (isAuthenticated) {
         router.replace("/onboarding");
       } else {
-        router.replace("/sign-up");
+        router.replace("/sign-up?paid=1" as Href);
       }
     } catch (err: any) {
       setLoadingPayPal(false);
@@ -218,6 +218,7 @@ export default function WelcomeScreen() {
     }
   };
 
+  const [showPaywall, setShowPaywall] = useState(false);
   const anyLoading = loadingStripe || loadingPayPal;
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 16);
@@ -257,109 +258,140 @@ export default function WelcomeScreen() {
           </View>
         </View>
 
-        {/* ── Payment card ── */}
+        {/* ── Main CTA card ── */}
         <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardTY }] }]}>
 
-          {/* Price badge */}
-          <View style={styles.priceBadge}>
-            <View style={styles.priceLeft}>
-              <Text style={styles.priceAmount}>€2</Text>
-              <View>
-                <Text style={styles.pricePer}>/ month</Text>
-                <Text style={styles.priceNote}>Cancel anytime</Text>
+          {/* ── PRIMARY: Login button ── */}
+          {!isAuthenticated && (
+            <>
+              <TouchableOpacity
+                style={styles.loginBtn}
+                onPress={async () => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  await login();
+                }}
+                activeOpacity={0.88}
+                disabled={authLoading}
+              >
+                <LinearGradient
+                  colors={["#FF3366", "#FF6B35"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.loginBtnInner}
+                >
+                  <Ionicons name="log-in-outline" size={20} color="#fff" />
+                  <Text style={styles.loginBtnText}>{t("welcome.logIn")}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <Text style={styles.loginHint}>Ai deja cont? Loghează-te mai sus.</Text>
+
+              {/* Divider */}
+              <View style={styles.divRow}>
+                <View style={styles.divLine} />
+                <Text style={styles.divLabel}>sau</Text>
+                <View style={styles.divLine} />
               </View>
-            </View>
-            <View style={styles.noRestrTag}>
-              <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
-              <Text style={styles.noRestrText}>No restrictions</Text>
-            </View>
-          </View>
+            </>
+          )}
 
-          {/* Benefits list */}
-          <View style={styles.benefits}>
-            {BENEFITS.map((b) => (
-              <View key={b.label} style={styles.benefitRow}>
-                <View style={styles.benefitIcon}>
-                  <Ionicons name={b.icon as any} size={16} color="#FF3366" />
-                </View>
-                <Text style={styles.benefitLabel}>{b.label}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Stripe button */}
-          <TouchableOpacity
-            style={[styles.stripeBtn, anyLoading && { opacity: 0.6 }]}
-            onPress={handleStripe}
-            disabled={anyLoading}
-            activeOpacity={0.88}
-          >
-            <LinearGradient
-              colors={["#FF3366", "#FF6B35"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.stripeBtnInner}
-            >
-              {loadingStripe ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="card-outline" size={18} color="#fff" />
-                  <Text style={styles.stripeBtnText}>Pay €2 / month with Card</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={styles.divRow}>
-            <View style={styles.divLine} />
-            <Text style={styles.divLabel}>or</Text>
-            <View style={styles.divLine} />
-          </View>
-
-          {/* PayPal button */}
-          <TouchableOpacity
-            style={[styles.paypalBtn, anyLoading && { opacity: 0.6 }]}
-            onPress={handlePayPal}
-            disabled={anyLoading}
-            activeOpacity={0.88}
-          >
-            {loadingPayPal ? (
-              <ActivityIndicator color="#003087" />
-            ) : (
-              <Text style={styles.paypalBtnText}>
-                <Text style={{ color: "#003087" }}>Pay</Text>
-                <Text style={{ color: "#009CDE" }}>Pal</Text>
-                <Text style={{ color: "#003087", fontSize: 14, fontFamily: "Inter_500Medium" }}>  · €2 / month</Text>
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          <Text style={styles.finePrint}>
-            €2 billed monthly · All features included · No restrictions{"\n"}Cancel anytime · By joining you agree to our Terms
-          </Text>
-        </Animated.View>
-
-        {/* ── Already have an account? Big login card ── */}
-        {!isAuthenticated && (
-          <Animated.View style={[styles.loginCard, { opacity: cardOpacity, transform: [{ translateY: cardTY }] }]}>
-            <Text style={styles.loginCardTitle}>{t("welcome.alreadySubscribed")}</Text>
-            <Text style={styles.loginCardSubtitle}>{t("welcome.loginDescription")}</Text>
+          {/* ── SECONDARY: Create account (paywall) ── */}
+          {!showPaywall ? (
             <TouchableOpacity
-              style={styles.loginBtn}
-              onPress={async () => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                await login();
+              style={styles.createBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowPaywall(true);
               }}
               activeOpacity={0.88}
-              disabled={authLoading}
             >
-              <Ionicons name="log-in-outline" size={20} color="#fff" />
-              <Text style={styles.loginBtnText}>{t("welcome.logIn")}</Text>
+              <Ionicons name="person-add-outline" size={18} color="rgba(255,255,255,0.8)" />
+              <Text style={styles.createBtnText}>Crează cont nou — €2 / lună</Text>
             </TouchableOpacity>
-          </Animated.View>
-        )}
+          ) : (
+            <>
+              {/* Price badge */}
+              <View style={styles.priceBadge}>
+                <View style={styles.priceLeft}>
+                  <Text style={styles.priceAmount}>€2</Text>
+                  <View>
+                    <Text style={styles.pricePer}>/ month</Text>
+                    <Text style={styles.priceNote}>Cancel anytime</Text>
+                  </View>
+                </View>
+                <View style={styles.noRestrTag}>
+                  <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
+                  <Text style={styles.noRestrText}>No restrictions</Text>
+                </View>
+              </View>
+
+              {/* Benefits list */}
+              <View style={styles.benefits}>
+                {BENEFITS.map((b) => (
+                  <View key={b.label} style={styles.benefitRow}>
+                    <View style={styles.benefitIcon}>
+                      <Ionicons name={b.icon as any} size={16} color="#FF3366" />
+                    </View>
+                    <Text style={styles.benefitLabel}>{b.label}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Stripe button */}
+              <TouchableOpacity
+                style={[styles.stripeBtn, anyLoading && { opacity: 0.6 }]}
+                onPress={handleStripe}
+                disabled={anyLoading}
+                activeOpacity={0.88}
+              >
+                <LinearGradient
+                  colors={["#FF3366", "#FF6B35"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.stripeBtnInner}
+                >
+                  {loadingStripe ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="card-outline" size={18} color="#fff" />
+                      <Text style={styles.stripeBtnText}>Plătește €2 / lună cu Card</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* Divider */}
+              <View style={styles.divRow}>
+                <View style={styles.divLine} />
+                <Text style={styles.divLabel}>or</Text>
+                <View style={styles.divLine} />
+              </View>
+
+              {/* PayPal button */}
+              <TouchableOpacity
+                style={[styles.paypalBtn, anyLoading && { opacity: 0.6 }]}
+                onPress={handlePayPal}
+                disabled={anyLoading}
+                activeOpacity={0.88}
+              >
+                {loadingPayPal ? (
+                  <ActivityIndicator color="#003087" />
+                ) : (
+                  <Text style={styles.paypalBtnText}>
+                    <Text style={{ color: "#003087" }}>Pay</Text>
+                    <Text style={{ color: "#009CDE" }}>Pal</Text>
+                    <Text style={{ color: "#003087", fontSize: 14, fontFamily: "Inter_500Medium" }}>  · €2 / month</Text>
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <Text style={styles.finePrint}>
+                €2 billed monthly · All features included · No restrictions{"\n"}Cancel anytime · By joining you agree to our Terms
+              </Text>
+            </>
+          )}
+        </Animated.View>
 
         {/* Download button — visible only in web browser */}
         {Platform.OS === "web" && (
@@ -733,17 +765,38 @@ const styles = StyleSheet.create({
   },
   loginBtn: {
     width: "100%",
+    borderRadius: 28,
+    overflow: "hidden",
+  },
+  loginBtnInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.35)",
-    borderRadius: 28,
     paddingVertical: 17,
+    borderRadius: 28,
   },
-  loginBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+  loginBtnText: { color: "#fff", fontSize: 17, fontFamily: "Inter_700Bold" },
+  loginHint: {
+    textAlign: "center",
+    color: "rgba(255,255,255,0.4)",
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    marginTop: -4,
+  },
+  createBtn: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    borderRadius: 28,
+    paddingVertical: 15,
+  },
+  createBtnText: { color: "rgba(255,255,255,0.75)", fontSize: 15, fontFamily: "Inter_600SemiBold" },
 
   downloadBtn: {
     width: "100%",
