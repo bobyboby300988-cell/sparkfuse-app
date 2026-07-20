@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -19,6 +20,8 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@clerk/expo";
 import { buildPayPalCheckoutUrl } from "@/config/payments";
 import { getApiUrl } from "@/lib/api";
+
+const PAID_PENDING_KEY = "@spark/paid_pending";
 
 const PERK_ICONS = ["heart", "chatbubbles", "videocam", "star", "shield-checkmark"] as const;
 const PERK_KEYS = ["swipes", "chat", "videoCalls", "coaches", "noAds"] as const;
@@ -47,9 +50,10 @@ export default function PaywallScreen() {
       const origin = getAppOrigin();
       const base = getApiUrl();
 
-      // On web, Stripe will redirect the whole page; use URL params to recover.
+      // Success URL goes to /sign-up so new users can register immediately after paying.
+      // Existing users landing on /sign-up will be redirected to / by the layout.
       const successUrl = Platform.OS === "web"
-        ? `${origin}/?stripe_sub=success`
+        ? `${origin}/sign-up?paid=1`
         : `${origin}/success`;
       const cancelUrl = Platform.OS === "web"
         ? `${origin}/?stripe_sub=cancel`
@@ -68,21 +72,25 @@ export default function PaywallScreen() {
         throw new Error((err as any).error ?? "Could not start checkout");
       }
       const { url } = (await res.json()) as { url: string };
-      setLoadingStripe(false);
 
       if (Platform.OS === "web" && typeof window !== "undefined") {
-        // Navigate the whole page — Stripe will redirect back with ?stripe_sub=success
+        // Store pending flag before leaving the page so it survives the Stripe redirect
+        try { localStorage.setItem(PAID_PENDING_KEY, "true"); } catch {}
+        setLoadingStripe(false);
         window.location.href = url;
         return;
       }
 
+      setLoadingStripe(false);
       await WebBrowser.openBrowserAsync(url, {
         presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
         showTitle: false,
       });
+      // Mark payment as pending locally so AppContext can sync with server after sign-up
+      await AsyncStorage.setItem(PAID_PENDING_KEY, "true");
       await setSubscribed();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace("/onboarding");
+      router.replace("/sign-up");
     } catch (err: any) {
       setLoadingStripe(false);
       Alert.alert("Error", err.message ?? "Something went wrong. Please try again.");
@@ -97,17 +105,29 @@ export default function PaywallScreen() {
       const paypalUrl = buildPayPalCheckoutUrl({
         amountEur: 2,
         itemName: "SparkFuse Premium — 1 lună",
-        returnUrl: Platform.OS === "web" ? `${origin}/?stripe_sub=success` : `${origin}/success`,
-        cancelUrl: Platform.OS === "web" ? `${origin}/?stripe_sub=cancel` : `${origin}/cancel`,
+        returnUrl: Platform.OS === "web" ? `${origin}/sign-up?paid=1` : `${origin}/success`,
+        cancelUrl: Platform.OS === "web" ? `${origin}/?paypal=cancel` : `${origin}/cancel`,
       });
       setLoadingPayPal(false);
+
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        try { localStorage.setItem(PAID_PENDING_KEY, "true"); } catch {}
+        await WebBrowser.openBrowserAsync(paypalUrl, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+          showTitle: false,
+        });
+        return;
+      }
+
       await WebBrowser.openBrowserAsync(paypalUrl, {
         presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
         showTitle: false,
       });
+      // Mark payment as pending locally — AppContext syncs after sign-up
+      await AsyncStorage.setItem(PAID_PENDING_KEY, "true");
       await setSubscribed();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace("/onboarding");
+      router.replace("/sign-up");
     } catch (err: any) {
       setLoadingPayPal(false);
       Alert.alert("Error", err.message ?? "Something went wrong. Please try again.");

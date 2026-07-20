@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSignUp } from "@clerk/expo/legacy";
 import BrandLogo from "@/components/BrandLogo";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, type Href } from "expo-router";
+import { router, useLocalSearchParams, type Href } from "expo-router";
 import React, { useState, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
@@ -20,6 +20,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function SignUpScreen() {
   const insets = useSafeAreaInsets();
   const { signUp, isLoaded, setActive } = useSignUp();
+  const params = useLocalSearchParams<{ paid?: string }>();
+  const justPaid = params.paid === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -235,8 +237,17 @@ export default function SignUpScreen() {
               <BrandLogo size={44} />
             </View>
             <Text style={styles.title}>Create your account</Text>
-            <Text style={styles.subtitle}>Join SparkFuse and start connecting</Text>
+            <Text style={styles.subtitle}>
+              {justPaid ? "Payment successful! Now create your account to access SparkFuse." : "Join SparkFuse and start connecting"}
+            </Text>
           </View>
+
+          {justPaid && (
+            <View style={styles.paidBanner}>
+              <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
+              <Text style={styles.paidBannerText}>€2 plătit cu succes — contul tău va fi activat automat.</Text>
+            </View>
+          )}
 
           <View style={styles.form}>
             <View style={styles.inputGroup}>
@@ -417,4 +428,16 @@ const styles = StyleSheet.create({
   footer: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
   footerText: { fontSize: 14, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.4)" },
   footerLink: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#FF3366" },
+  paidBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(34,197,94,0.12)",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "rgba(34,197,94,0.3)",
+  },
+  paidBannerText: { color: "#22C55E", fontSize: 13, fontFamily: "Inter_500Medium", flex: 1 },
 });

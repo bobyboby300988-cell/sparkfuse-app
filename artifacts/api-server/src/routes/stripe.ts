@@ -233,19 +233,19 @@ router.post('/stripe/withdraw', async (req, res) => {
       return;
     }
 
-    // Platform retains 20% of gross earnings at withdrawal; receiver keeps 80%.
-    const PLATFORM_FEE_RATE = 0.20;
+    // Platform retains 28% of gross earnings at withdrawal; receiver keeps 72%.
+    const PLATFORM_FEE_RATE = 0.28;
     const fee = parseFloat((amount * PLATFORM_FEE_RATE).toFixed(2));
     const netAmount = parseFloat((amount - fee).toFixed(2));
 
-    // Move the user's 80% share out of the platform's Stripe balance into
+    // Move the user's 72% share out of the platform's Stripe balance into
     // their connected account. Stripe will then auto-payout to their bank
     // account on their normal payout schedule.
     const transfer = await stripe.transfers.create({
       amount: Math.round(netAmount * 100),
       currency: 'eur',
       destination: connectedAccountId,
-      description: `SparkFuse withdrawal — gross €${amount.toFixed(2)}, platform fee 20% €${fee.toFixed(2)}`,
+      description: `SparkFuse withdrawal — gross €${amount.toFixed(2)}, platform fee 28% €${fee.toFixed(2)}`,
     });
 
     logger.info({ grossAmount: amount, fee, netAmount, connectedAccountId, transferId: transfer.id }, 'Withdrawal transferred');
@@ -299,15 +299,17 @@ router.post('/stripe/webhook', async (req, res) => {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        // One-time token purchase
+        // One-time token purchase — platform retains 12% commission on deposits
         if (session.mode === 'payment' && session.metadata?.type === 'token_purchase') {
           const tokens = parseInt(session.metadata.tokens ?? '0', 10);
           const userId = session.metadata.userId;
           if (tokens > 0 && userId) {
+            const DEPOSIT_FEE_RATE = 0.12;
+            const credited = Math.floor(tokens * (1 - DEPOSIT_FEE_RATE));
             await db.update(usersTable).set({
-              coinBalance: sql`${usersTable.coinBalance} + ${tokens}`,
+              coinBalance: sql`${usersTable.coinBalance} + ${credited}`,
             }).where(eq(usersTable.id, userId));
-            logger.info({ userId, tokens }, 'Coins credited via Stripe webhook');
+            logger.info({ userId, tokensNominal: tokens, credited, depositFee: `${DEPOSIT_FEE_RATE * 100}%` }, 'Coins credited via Stripe webhook (after 12% deposit fee)');
           }
           break;
         }
@@ -451,6 +453,30 @@ router.post('/subscription/restore', requireAuth, async (req, res) => {
   } catch (err: any) {
     logger.error({ err }, 'Failed to restore subscription');
     res.status(500).json({ error: err.message ?? 'Restore failed' });
+  }
+});
+
+// Mark a user as having paid (PayPal or unmatched Stripe). No Stripe ID is
+// required — this is the fallback for PayPal subscriptions where there is no
+// webhook. Called automatically by the mobile app after registration when the
+// Stripe restore endpoint returns restored:false.
+router.post('/subscription/mark-paid', requireAuth, async (req, res) => {
+  const user = req.dbUser!;
+  if (user.isSubscribed) {
+    res.json({ ok: true, alreadyActive: true });
+    return;
+  }
+  try {
+    await db.update(usersTable).set({
+      isSubscribed: true,
+      subscribedAt: new Date(),
+      subscriptionStatus: 'active',
+    }).where(eq(usersTable.id, user.id));
+    logger.info({ userId: user.id }, 'Subscription marked as paid (PayPal/manual)');
+    res.json({ ok: true });
+  } catch (err: any) {
+    logger.error({ err }, 'Failed to mark subscription as paid');
+    res.status(500).json({ error: err.message ?? 'Failed' });
   }
 });
 

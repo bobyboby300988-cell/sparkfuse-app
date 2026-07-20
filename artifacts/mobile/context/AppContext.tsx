@@ -50,6 +50,7 @@ interface AppContextType {
   sendVoice: (profileId: string, uri: string, duration: number) => void;
   removeMatch: (profileId: string) => void;
   clearMessages: (profileId: string) => void;
+  deleteMessage: (profileId: string, messageId: string) => void;
   resetLocalState: () => Promise<void>;
   unlockedPhotos: string[];
   unlockPhoto: (photoId: string) => void;
@@ -75,6 +76,7 @@ const AppContext = createContext<AppContextType | null>(null);
 const KEYS = {
   MATCHES: "@spark/matches",
   SUBSCRIBED: "@spark/subscribed",
+  PAID_PENDING: "@spark/paid_pending",
   UNLOCKED_PHOTOS: "@spark/unlocked_photos",
   CREATOR_MODE: "@spark/creator_mode",
   CREATOR_PRICE: "@spark/creator_price",
@@ -111,14 +113,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Server is the definitive source of truth for subscription status when the
   // user is signed in. If the server says the subscription lapsed (failed
   // payment or cancellation), clear local storage and block access immediately.
+  // Exception: if there's a pending payment (paid_pending), keep local state
+  // true — syncServerData will reconcile with the server.
   useEffect(() => {
     if (!authUserData?.user) return;
     const serverSubscribed = authUserData.user.isSubscribed;
-    setIsSubscribedState(serverSubscribed);
     if (serverSubscribed) {
+      setIsSubscribedState(true);
       AsyncStorage.setItem(KEYS.SUBSCRIBED, "true");
     } else {
-      AsyncStorage.removeItem(KEYS.SUBSCRIBED);
+      AsyncStorage.getItem(KEYS.PAID_PENDING).then((pending) => {
+        if (pending !== "true") {
+          setIsSubscribedState(false);
+          AsyncStorage.removeItem(KEYS.SUBSCRIBED);
+        }
+        // If pending=true, keep isSubscribed=true locally;
+        // syncServerData (triggered on user.id) will call mark-paid on the server.
+      }).catch(() => {
+        setIsSubscribedState(false);
+        AsyncStorage.removeItem(KEYS.SUBSCRIBED);
+      });
     }
   }, [authUserData?.user?.isSubscribed]);
 
@@ -139,6 +153,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ]);
         if (matchesRaw) setMatches(JSON.parse(matchesRaw));
         if (subscribedRaw === "true") setIsSubscribedState(true);
+        // On web: pick up paid_pending from localStorage (set before Stripe/PayPal redirect)
+        // so the layout allows /sign-up immediately after payment redirects back.
+        if (Platform.OS === "web" && subscribedRaw !== "true") {
+          try {
+            const webPending = typeof localStorage !== "undefined" ? localStorage.getItem(KEYS.PAID_PENDING) : null;
+            if (webPending === "true") {
+              setIsSubscribedState(true);
+              await AsyncStorage.setItem(KEYS.SUBSCRIBED, "true");
+              await AsyncStorage.setItem(KEYS.PAID_PENDING, "true");
+              // Keep in localStorage too — syncServerData will clear it after server sync
+            }
+          } catch {}
+        }
         if (unlockedRaw) setUnlockedPhotos(JSON.parse(unlockedRaw));
         if (myPhotosRaw) setMyPhotos(JSON.parse(myPhotosRaw));
         if (creatorModeRaw === "true") setCreatorModeState(true);
@@ -182,7 +209,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Check for pending subscription success redirect
+        // Check for pending subscription success redirect (web Stripe legacy param)
         if (Platform.OS === "web" && typeof window !== "undefined") {
           const params = new URLSearchParams(window.location.search);
           if (params.get("stripe_sub") === "success") {
@@ -198,6 +225,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   setIsSubscribedState(true);
                   await AsyncStorage.setItem(KEYS.SUBSCRIBED, "true");
                 }
+              }
+            } catch {}
+          }
+          // Also pick up the localStorage paid_pending flag set before Stripe/PayPal redirect
+          try {
+            const webPending = localStorage.getItem(KEYS.PAID_PENDING);
+            if (webPending === "true") {
+              await AsyncStorage.setItem(KEYS.PAID_PENDING, "true");
+              localStorage.removeItem(KEYS.PAID_PENDING);
+            }
+          } catch {}
+        }
+
+        // Auto-sync: if user just paid (Stripe or PayPal) and registered,
+        // link the subscription on the server before the layout blocks access.
+        const pendingPaid = await AsyncStorage.getItem(KEYS.PAID_PENDING);
+        if (pendingPaid === "true") {
+          let synced = false;
+          // First try Stripe restore by email
+          try {
+            const restoreRes = await fetch(`${base}/api/subscription/restore`, {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+            });
+            if (restoreRes.ok) {
+              const data = await restoreRes.json();
+              if (data.restored) {
+                synced = true;
+                setIsSubscribedState(true);
+                await AsyncStorage.setItem(KEYS.SUBSCRIBED, "true");
+                await AsyncStorage.removeItem(KEYS.PAID_PENDING);
+              }
+            }
+          } catch {}
+          // Fallback: mark as paid on server (PayPal or unmatched Stripe)
+          if (!synced) {
+            try {
+              const markRes = await fetch(`${base}/api/subscription/mark-paid`, {
+                method: "POST",
+                headers: { ...headers, "Content-Type": "application/json" },
+              });
+              if (markRes.ok) {
+                setIsSubscribedState(true);
+                await AsyncStorage.setItem(KEYS.SUBSCRIBED, "true");
+                await AsyncStorage.removeItem(KEYS.PAID_PENDING);
               }
             } catch {}
           }
@@ -467,6 +539,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const deleteMessage = (profileId: string, messageId: string) => {
+    setMatches((prev) => {
+      const updated = prev.map((m) =>
+        m.profileId === profileId
+          ? { ...m, messages: (m.messages ?? []).filter((msg) => msg.id !== messageId) }
+          : m
+      );
+      AsyncStorage.setItem(KEYS.MATCHES, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const resetLocalState = async () => {
     await AsyncStorage.multiRemove([
       KEYS.MATCHES,
@@ -500,6 +584,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sendVoice,
         removeMatch,
         clearMessages,
+        deleteMessage,
         resetLocalState,
         unlockedPhotos,
         unlockPhoto,
