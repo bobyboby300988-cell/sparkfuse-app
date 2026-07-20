@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useSignUp } from "@clerk/expo/legacy";
+import { useAuth } from "@clerk/expo";
 import BrandLogo from "@/components/BrandLogo";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import React, { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -20,8 +22,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function SignUpScreen() {
   const insets = useSafeAreaInsets();
   const { signUp, isLoaded, setActive } = useSignUp();
+  const { getToken } = useAuth();
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ paid?: string }>();
   const justPaid = params.paid === "1";
+
+  // Guard: sign-up is only accessible after payment (Stripe/PayPal redirect
+  // passes ?paid=1). Anyone landing here directly gets sent to the welcome page.
+  useEffect(() => {
+    if (!justPaid) {
+      router.replace("/welcome" as Href);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,6 +46,7 @@ export default function SignUpScreen() {
   const [code, setCode] = useState("");
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
+  const [accountExistsEmail, setAccountExistsEmail] = useState("");
 
   // Safety-net timeout: in production Clerk initialises through the API proxy
   // which may take a few seconds on a cold start. 20s gives it plenty of time;
@@ -75,14 +89,17 @@ export default function SignUpScreen() {
     } catch (err: any) {
       const clerkError = err?.errors?.[0];
       const errCode: string = clerkError?.code ?? "";
+      if (errCode === "form_identifier_exists") {
+        setAccountExistsEmail(email.trim().toLowerCase());
+      }
       const msg =
         errCode === "form_identifier_exists"
-          ? "An account with this email already exists. Try signing in."
+          ? t("signUp.errorAccountExists")
           : errCode === "form_password_pwned"
-          ? "This password is too common. Please choose a stronger one."
+          ? t("signUp.errorPasswordWeak")
           : errCode === "form_param_format_invalid"
-          ? "Please enter a valid email address."
-          : clerkError?.longMessage ?? clerkError?.message ?? err?.message ?? "Sign up failed. Please try again.";
+          ? t("signUp.errorInvalidEmail")
+          : clerkError?.longMessage ?? clerkError?.message ?? err?.message ?? t("signUp.errorFailed");
       setErrorMsg(msg);
     } finally {
       setLoading(false);
@@ -104,6 +121,20 @@ export default function SignUpScreen() {
       const result = await signUp.attemptEmailAddressVerification({ code: code.trim() });
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
+        // Mark subscription active on the server now that the Clerk session exists.
+        // Non-fatal: _layout.tsx also falls back to local isSubscribed cache.
+        try {
+          const token = await getToken();
+          if (token) {
+            const apiBase = process.env.EXPO_PUBLIC_DOMAIN
+              ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+              : "";
+            await fetch(`${apiBase}/api/auth/subscription/activate`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+          }
+        } catch (_) { /* non-fatal */ }
         router.replace("/onboarding" as Href);
       } else {
         setVerifyError("Verification incomplete. Please try again.");
@@ -302,6 +333,27 @@ export default function SignUpScreen() {
               </View>
             )}
 
+            {!!accountExistsEmail && (
+              <View style={styles.existsActions}>
+                <TouchableOpacity
+                  style={styles.existsBtn}
+                  onPress={() => router.replace("/sign-in" as Href)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="log-in-outline" size={16} color="#fff" />
+                  <Text style={styles.existsBtnText}>{t("signUp.signInBtn")}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.existsBtn, { backgroundColor: "rgba(255,255,255,0.08)" }]}
+                  onPress={() => router.push("/forgot-password" as Href)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="key-outline" size={16} color="#FF3366" />
+                  <Text style={[styles.existsBtnText, { color: "#FF3366" }]}>{t("signUp.resetPasswordBtn")}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <TouchableOpacity
               style={[styles.submitBtn, (loading || !canSubmit) && { opacity: 0.6 }]}
               onPress={handleSubmit}
@@ -329,12 +381,6 @@ export default function SignUpScreen() {
             </Text>
           </View>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => router.replace("/sign-in" as Href)} activeOpacity={0.7}>
-              <Text style={styles.footerLink}>Sign in</Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -425,6 +471,12 @@ const styles = StyleSheet.create({
   resendBtn: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
   resendText: { fontSize: 14, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.4)" },
   resendLink: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#FF3366" },
+  existsActions: { flexDirection: "row", gap: 10 },
+  existsBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 6, backgroundColor: "#FF3366", paddingVertical: 12, borderRadius: 20,
+  },
+  existsBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold" },
   footer: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
   footerText: { fontSize: 14, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.4)" },
   footerLink: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#FF3366" },
