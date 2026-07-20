@@ -5,7 +5,7 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { useGetMyProfile, useGetCurrentAuthUser } from "@workspace/api-client-react";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { ClerkProvider, useAuth } from "@clerk/expo";
@@ -14,8 +14,6 @@ import * as SecureStore from "expo-secure-store";
 import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
 import React, { useEffect, useRef, useState } from "react";
 import { View, ActivityIndicator, Platform, Text, ScrollView } from "react-native";
 import { getApiUrl } from "@/lib/api";
@@ -29,8 +27,13 @@ import i18n, { getSavedLanguage } from "@/i18n";
 
 async function registerPushToken(getToken: () => Promise<string | null>) {
   if (Platform.OS === "web") return;
-  if (!Device.isDevice) return;
   try {
+    // Dynamic require — safe on APKs that don't have expo-notifications native module yet
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Device = require("expo-device");
+    if (!Device?.isDevice) return;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Notifications = require("expo-notifications");
     const { status: existing } = await Notifications.getPermissionsAsync();
     let finalStatus = existing;
     if (existing !== "granted") {
@@ -46,7 +49,9 @@ async function registerPushToken(getToken: () => Promise<string | null>) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
       body: JSON.stringify({ token: pushToken }),
     });
-  } catch {}
+  } catch {
+    // Silently ignore if native module not available in current APK build
+  }
 }
 
 SplashScreen.preventAutoHideAsync();
@@ -54,10 +59,10 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY as string;
-// In production, Clerk must route through the API proxy (/api/__clerk).
-// EXPO_PUBLIC_CLERK_PROXY_URL is empty in dev (Clerk hits FAPI directly)
-// and auto-populated at build time in prod. Do NOT gate on NODE_ENV.
-const CLERK_PROXY_URL = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
+// Bypass the /api/__clerk proxy — it was forwarding to the wrong Clerk FAPI
+// URL (frontend-api.clerk.dev instead of the instance-specific FAPI).
+// Clerk SDK derives the correct FAPI URL from the publishable key itself.
+const CLERK_PROXY_URL = undefined;
 
 // Session guard key — written to AsyncStorage when user is authenticated,
 // cleared only on explicit sign-out. Used to distinguish "Clerk still loading"
@@ -123,6 +128,7 @@ function RootLayoutNav() {
   const { isSubscribed, isLoaded: appLoaded } = useApp();
   const { isSignedIn, isLoaded: authLoaded, getToken } = useAuth();
   const isAuthenticated = !!isSignedIn;
+  const queryClient = useQueryClient();
   const { data: profileData, isLoading: profileLoading, isError: profileError } = useGetMyProfile({
     query: { enabled: isAuthenticated, queryKey: ["myProfile"], retry: 3 },
   });
@@ -135,6 +141,42 @@ function RootLayoutNav() {
   const subscriptionChecked = !authUserLoading || !isAuthenticated;
   const segments = useSegments();
   const [timedOut, setTimedOut] = useState(false);
+
+  // Auto-restore subscription from Stripe when server says not subscribed.
+  // This handles the case where the Stripe webhook fired before the user had
+  // a DB record (payment-first flow) or the user reinstalled (AsyncStorage cleared).
+  const restoreAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated || authUserLoading || serverSubscribed || restoreAttemptedRef.current) return;
+    restoreAttemptedRef.current = true;
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const base = getApiUrl();
+        // 1. Try Stripe lookup by email
+        const res = await fetch(`${base}/api/stripe/subscription/restore`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.restored) {
+          queryClient.invalidateQueries({ queryKey: ["currentAuthUser"] });
+          return;
+        }
+        // 2. Fallback: if local cache says paid (e.g. PayPal or pre-reinstall),
+        //    mark as paid on server so the user doesn't have to repay.
+        if (isSubscribed) {
+          await fetch(`${base}/api/stripe/subscription/mark-paid`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          queryClient.invalidateQueries({ queryKey: ["currentAuthUser"] });
+        }
+      } catch (_) {}
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, authUserLoading, serverSubscribed]);
 
   // Session guard: tracks whether the user had an active session.
   // Set to true when Clerk confirms isSignedIn=true.
@@ -243,24 +285,21 @@ function RootLayoutNav() {
 
     // Use strict false — undefined means Clerk is still loading, not "logged out"
     if (isSignedIn === false) {
-      if (isSubscribed && !inSignUp) {
-        // User paid but has no Clerk account yet → create account
-        // This handles the case where Stripe browser closes and isSubscribed becomes
-        // true before the router.replace("/sign-up") in paywall.tsx fires.
-        router.replace("/sign-up");
-      } else if (!isSubscribed && !sessionGuard && !inWelcome && !inSignIn && !inSignUp && !inPaywall && !inOnboarding && !inForgotPassword) {
-        // Brand-new user (never had a session) → welcome screen
-        router.replace("/welcome");
+      // All unauthenticated users → sign-in page.
+      // Sign-up is only reachable via the post-payment redirect (/sign-up?paid=1)
+      // from welcome.tsx; _layout.tsx must never redirect there directly.
+      if (!inSignIn && !inSignUp && !inWelcome && !inForgotPassword && !inPaywall && !inOnboarding) {
+        router.replace("/sign-in");
       }
-      // sessionGuard === true means user previously authenticated.
-      // Do NOT auto-redirect — only a manual Sign Out press clears sessionGuard.
-      // This prevents accidental logout caused by Clerk token refresh delays.
     } else if (isAuthenticated && !hasProfile && !profileError && !profileLoading && !inOnboarding && !inWelcome && !inSignIn && !inSignUp && !inPaywall) {
       // New user: must pay BEFORE creating a profile.
-      // Wait for server to confirm subscription status to avoid false paywall flash.
-      if (subscriptionChecked && !serverSubscribed) {
+      // For no-profile users trust local isSubscribed too — the server may not have
+      // synced yet (sign-up.tsx calls subscription/activate after setActive, but
+      // _layout re-renders simultaneously). Using || avoids the paywall flash.
+      const effectiveSubscribed = serverSubscribed || isSubscribed;
+      if (subscriptionChecked && !effectiveSubscribed) {
         router.replace("/paywall");
-      } else if (subscriptionChecked && serverSubscribed) {
+      } else if (subscriptionChecked && effectiveSubscribed) {
         router.replace("/onboarding");
       }
       // subscriptionChecked=false → server still loading, wait before deciding
@@ -317,18 +356,21 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   const [crashMessage, setCrashMessage] = useState<string | null>(globalCrashMessage);
+  // OTA gate: block ALL user interaction until update check completes
+  const [otaReady, setOtaReady] = useState<boolean>(__DEV__);
 
-  // Auto-apply OTA updates immediately on launch (production only)
   useEffect(() => {
     if (__DEV__) return;
     (async () => {
       try {
-        const update = await Updates.checkForUpdateAsync();
-        if (update.isAvailable) {
+        const result = await Updates.checkForUpdateAsync();
+        if (result.isAvailable) {
           await Updates.fetchUpdateAsync();
           await Updates.reloadAsync();
+          return; // reloadAsync restarts — never reaches setOtaReady
         }
       } catch (_) {}
+      setOtaReady(true);
     })();
   }, []);
 
@@ -361,6 +403,16 @@ export default function RootLayout() {
 
   if (crashMessage) {
     return <CrashScreen message={crashMessage} />;
+  }
+
+  // Block UI until OTA check finishes — prevents user from hitting old code before update applies
+  if (!otaReady) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#0D0D1A", alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color="#FF3366" />
+        <Text style={{ color: "rgba(255,255,255,0.5)", marginTop: 16, fontSize: 13 }}>Se actualizează aplicația...</Text>
+      </View>
+    );
   }
 
   if (!fontsLoaded && !fontError) return null;
