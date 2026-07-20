@@ -1,31 +1,38 @@
-import { API_BASE } from "@/config/payments";
+import { getApiUrl } from "@/lib/api";
+const API_BASE = `${getApiUrl()}/api`;
 
 export interface LiveSession {
   id: string;
   name: string;
   category: string;
-  roomUrl: string;
-  roomName: string;
+  channelName: string;
   hostUserId?: string;
   startedAt: number;
   lastHeartbeat: number;
 }
 
-export async function startLiveSession(opts: {
+export async function createBroadcast(opts: {
   name: string;
   category: string;
-  roomUrl: string;
-  roomName: string;
   hostUserId?: string;
-}): Promise<string> {
-  const res = await fetch(`${API_BASE}/live/start`, {
+  hostName?: string;
+}): Promise<{ sessionId: string; channelName: string; appId: string; token: string }> {
+  const res = await fetch(`${API_BASE}/live/create-broadcast`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(opts),
   });
-  if (!res.ok) throw new Error("Could not start live session");
-  const data = (await res.json()) as { id: string };
-  return data.id;
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? "Could not start live broadcast");
+  }
+  return res.json() as Promise<{ sessionId: string; channelName: string; appId: string; token: string }>;
+}
+
+export async function fetchViewerToken(sessionId: string): Promise<{ token: string; channelName: string; appId: string }> {
+  const res = await fetch(`${API_BASE}/live/${sessionId}/viewer-token`, { method: "POST" });
+  if (!res.ok) throw new Error("Could not get viewer token");
+  return res.json() as Promise<{ token: string; channelName: string; appId: string }>;
 }
 
 export async function heartbeatLiveSession(id: string): Promise<void> {

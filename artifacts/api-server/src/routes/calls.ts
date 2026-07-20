@@ -22,7 +22,7 @@ async function sendPush(pushToken: string, title: string, body: string, data: Re
 
 // POST /api/calls/push-token
 router.post('/calls/push-token', requireAuth, async (req, res) => {
-  const userId = (req as any).userId as string;
+  const userId = req.dbUser!.id;
   const { token } = req.body as { token?: string };
   if (!token) return res.status(400).json({ error: 'token required' });
   await db.update(usersTable).set({ pushToken: token }).where(eq(usersTable.id, userId));
@@ -32,7 +32,7 @@ router.post('/calls/push-token', requireAuth, async (req, res) => {
 // POST /api/calls/initiate — caller starts a call; creates Agora channel + notifies callee
 router.post('/calls/initiate', requireAuth, async (req, res) => {
   if (!isAgoraConfigured()) return res.status(503).json({ error: 'Calls not configured' });
-  const callerId = (req as any).userId as string;
+  const callerId = req.dbUser!.id;
   const { calleeId, isVoice = false, callerName = 'User', callerPhoto = '' } = req.body as {
     calleeId?: string; isVoice?: boolean; callerName?: string; callerPhoto?: string;
   };
@@ -73,7 +73,7 @@ router.post('/calls/initiate', requireAuth, async (req, res) => {
 
 // GET /api/calls/incoming — callee polls for pending calls
 router.get('/calls/incoming', requireAuth, async (req, res) => {
-  const userId = (req as any).userId as string;
+  const userId = req.dbUser!.id;
   const since = new Date(Date.now() - 60_000);
   const rows = await db.select({
     id: callsTable.id,
@@ -93,7 +93,7 @@ router.get('/calls/incoming', requireAuth, async (req, res) => {
 // POST /api/calls/respond — callee accepts or declines
 router.post('/calls/respond', requireAuth, async (req, res) => {
   if (!isAgoraConfigured()) return res.status(503).json({ error: 'Calls not configured' });
-  const userId = (req as any).userId as string;
+  const userId = req.dbUser!.id;
   const { callId, accept } = req.body as { callId?: string; accept?: boolean };
   if (!callId) return res.status(400).json({ error: 'callId required' });
 
@@ -121,12 +121,25 @@ router.post('/calls/respond', requireAuth, async (req, res) => {
 
 // POST /api/calls/end
 router.post('/calls/end', requireAuth, async (req, res) => {
-  const userId = (req as any).userId as string;
+  const userId = req.dbUser!.id;
   const { callId } = req.body as { callId?: string };
   if (!callId) return res.status(400).json({ error: 'callId required' });
   await db.update(callsTable).set({ status: 'ended' })
     .where(and(eq(callsTable.id, callId), or(eq(callsTable.callerId, userId), eq(callsTable.calleeId, userId))));
   return res.json({ ok: true });
+});
+
+// POST /api/calls/demo-channel — generate Agora token for demo profiles (no DB insert needed)
+router.post('/calls/demo-channel', requireAuth, async (req, res) => {
+  if (!isAgoraConfigured()) return res.status(503).json({ error: 'Calls not configured' });
+  const channelName = `demo-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  try {
+    const { token, appId } = buildAgoraToken(channelName, 0, 'publisher');
+    return res.json({ callId: 'demo', channelName, appId, token });
+  } catch (err) {
+    logger.error({ err }, 'Failed to build demo Agora token');
+    return res.status(500).json({ error: 'Could not create call' });
+  }
 });
 
 // POST /api/calls/token — join an existing channel by channelName (for chat "Answer" button)

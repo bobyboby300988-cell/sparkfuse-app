@@ -163,43 +163,46 @@ export default function GoLiveScreen() {
 
       // ── Web path ─────────────────────────────────────────────────────────
       if (Platform.OS === "web" && AgoraRTC) {
-        try {
-          const client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
-          await client.setClientRole("host");
-          await client.join(data.appId, data.channelName, data.token, 0);
-          const [micTrack, camTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-          webClientRef.current = client;
-          webCamRef.current = camTrack;
-          webMicRef.current = micTrack;
-          await client.publish([micTrack, camTrack]);
-        } catch {
-          // continue without video if camera blocked
-        }
+        const client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+        await client.setClientRole("host");
+        await client.join(data.appId, data.channelName, data.token, 0);
+        const [micTrack, camTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+        webClientRef.current = client;
+        webCamRef.current = camTrack;
+        webMicRef.current = micTrack;
+        await client.publish([micTrack, camTrack]);
       }
 
       // ── Native path ───────────────────────────────────────────────────────
       if (AgoraModule && Platform.OS !== "web") {
-        try {
-          if (engineRef.current) { try { engineRef.current.release(); } catch {} }
-          const eng = AgoraModule.createAgoraRtcEngine();
-          eng.initialize({
-            appId: data.appId,
-            channelProfile: AgoraModule.ChannelProfileType.ChannelProfileLiveBroadcasting,
-          });
-          eng.enableVideo();
-          eng.setClientRole(AgoraModule.ClientRoleType.ClientRoleBroadcaster);
-          eng.joinChannel(data.token, data.channelName, 0, {
-            clientRoleType: AgoraModule.ClientRoleType.ClientRoleBroadcaster,
-          });
-          engineRef.current = eng;
-        } catch {}
+        if (engineRef.current) { try { engineRef.current.release(); } catch {} }
+        const eng = AgoraModule.createAgoraRtcEngine();
+        eng.initialize({
+          appId: data.appId,
+          channelProfile: AgoraModule.ChannelProfileType.ChannelProfileLiveBroadcasting,
+        });
+        eng.enableVideo();
+        eng.enableAudio();
+        eng.startPreview();
+        eng.setClientRole(AgoraModule.ClientRoleType.ClientRoleBroadcaster);
+        eng.registerEventHandler({
+          onJoinChannelSuccess: (_connection: any) => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+          onError: (errCode: number, msg: string) => {
+            console.error("[Agora Live] error", errCode, msg);
+          },
+        });
+        eng.joinChannel(data.token, data.channelName, 0, {
+          clientRoleType: AgoraModule.ClientRoleType.ClientRoleBroadcaster,
+        });
+        engineRef.current = eng;
       }
 
       setSessionId(data.sessionId);
       setViewers(1);
       setPhase("live");
       await setIsLive(true);
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
       setPhase("error");
       setErrorMsg(err.message ?? "Could not start the live stream.");
