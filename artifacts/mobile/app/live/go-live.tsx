@@ -22,6 +22,7 @@ import { useGetMyProfile } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import { createBroadcast, endLiveSession, heartbeatLiveSession } from "@/lib/liveApi";
 import { getApiUrl } from "@/lib/api";
+import { acquireAgoraEngine, releaseAgoraEngine } from "@/lib/agoraEngine";
 
 const AgoraModule = (() => { try { return require("react-native-agora"); } catch { return null; } })();
 const AgoraRTC = (() => {
@@ -70,6 +71,7 @@ export default function GoLiveScreen() {
 
   // Native Agora ref
   const engineRef = useRef<any>(null);
+  const [nativeEngineReady, setNativeEngineReady] = useState(false);
   // Web Agora refs
   const webClientRef = useRef<any>(null);
   const webCamRef = useRef<any>(null);
@@ -78,6 +80,55 @@ export default function GoLiveScreen() {
 
   const listRef = useRef<FlatList>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Initialize native camera preview on mount — but ONLY after permissions are granted.
+  // Calling startPreview() without camera permission causes a native crash on Android
+  // which restarts the app and shows the login screen.
+  useEffect(() => {
+    if (Platform.OS === "web" || !AgoraModule) return;
+    let eng: any = null;
+    let cancelled = false;
+
+    (async () => {
+      // Request permissions BEFORE touching the Agora engine
+      if (Platform.OS === "android") {
+        try {
+          const result = await PermissionsAndroid.requestMultiple([
+            PermissionsAndroid.PERMISSIONS.CAMERA,
+            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          ]);
+          const cameraOk = result[PermissionsAndroid.PERMISSIONS.CAMERA] === PermissionsAndroid.RESULTS.GRANTED;
+          const micOk = result[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
+          if (!cameraOk || !micOk || cancelled) return;
+        } catch {
+          return; // can't start without permissions
+        }
+      }
+
+      try {
+        eng = acquireAgoraEngine(
+          AgoraModule,
+          "dcd1e21acb194356b619f31085989009",
+          AgoraModule.ChannelProfileType.ChannelProfileLiveBroadcasting,
+        );
+        eng.enableVideo();
+        eng.enableAudio();
+        eng.setClientRole(AgoraModule.ClientRoleType.ClientRoleBroadcaster);
+        eng.startPreview();
+        engineRef.current = eng;
+        if (!cancelled) setNativeEngineReady(true);
+      } catch (e) {
+        console.warn("[Agora GoLive] preview init failed:", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      try { eng?.stopPreview(); } catch {}
+      releaseAgoraEngine();
+      engineRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (phase !== "connecting") return;
@@ -91,9 +142,41 @@ export default function GoLiveScreen() {
     return () => pulse.stop();
   }, [phase]);
 
-  // Play web camera into container when phase becomes live
+  // Web: start local camera preview immediately on mount (before going live)
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    let stream: MediaStream | null = null;
+    let videoEl: HTMLVideoElement | null = null;
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        const container = webCameraContainerRef.current as any;
+        if (!container) return;
+        // React Native Web: ref.current is the DOM node
+        const domNode: HTMLElement = container._nativeTag ? container : container;
+        videoEl = document.createElement("video");
+        videoEl.srcObject = stream;
+        videoEl.autoplay = true;
+        videoEl.muted = true;
+        videoEl.playsInline = true;
+        videoEl.style.cssText = "width:100%;height:100%;object-fit:cover;";
+        domNode.appendChild?.(videoEl);
+      } catch {}
+    })();
+    return () => {
+      try { stream?.getTracks().forEach((t) => t.stop()); videoEl?.remove(); } catch {}
+    };
+  }, []);
+
+  // Play Agora web camera track into container when phase becomes live (Agora takes over)
   useEffect(() => {
     if (Platform.OS === "web" && phase === "live" && webCamRef.current && webCameraContainerRef.current) {
+      // Clear local preview first, then Agora plays into the container
+      const container = webCameraContainerRef.current as any;
+      try {
+        const videos = container.querySelectorAll?.("video") ?? [];
+        videos.forEach((v: HTMLVideoElement) => v.remove());
+      } catch {}
       try { webCamRef.current.play(webCameraContainerRef.current); } catch {}
     }
   }, [phase]);
@@ -145,12 +228,12 @@ export default function GoLiveScreen() {
       }
     }
 
-    // On web, request browser permissions proactively
+    // On web, check permissions (preview stream already requested on mount)
     if (Platform.OS === "web") {
       try {
         await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       } catch {
-        Alert.alert("Permissions required", "Please allow camera and microphone access in your browser to go live.");
+        Alert.alert("Permisiuni necesare", "Permite accesul la cameră și microfon în browser.");
         return;
       }
     }
@@ -175,16 +258,19 @@ export default function GoLiveScreen() {
 
       // ── Native path ───────────────────────────────────────────────────────
       if (AgoraModule && Platform.OS !== "web") {
-        if (engineRef.current) { try { engineRef.current.release(); } catch {} }
-        const eng = AgoraModule.createAgoraRtcEngine();
-        eng.initialize({
-          appId: data.appId,
-          channelProfile: AgoraModule.ChannelProfileType.ChannelProfileLiveBroadcasting,
-        });
-        eng.enableVideo();
-        eng.enableAudio();
-        eng.startPreview();
-        eng.setClientRole(AgoraModule.ClientRoleType.ClientRoleBroadcaster);
+        // Reuse engine initialized at mount (already has camera preview running)
+        let eng = engineRef.current;
+        if (!eng) {
+          eng = acquireAgoraEngine(
+            AgoraModule,
+            data.appId,
+            AgoraModule.ChannelProfileType.ChannelProfileLiveBroadcasting,
+          );
+          eng.enableVideo();
+          eng.enableAudio();
+          eng.setClientRole(AgoraModule.ClientRoleType.ClientRoleBroadcaster);
+          engineRef.current = eng;
+        }
         eng.registerEventHandler({
           onJoinChannelSuccess: (_connection: any) => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -196,7 +282,6 @@ export default function GoLiveScreen() {
         eng.joinChannel(data.token, data.channelName, 0, {
           clientRoleType: AgoraModule.ClientRoleType.ClientRoleBroadcaster,
         });
-        engineRef.current = eng;
       }
 
       setSessionId(data.sessionId);
@@ -219,7 +304,8 @@ export default function GoLiveScreen() {
         await webClientRef.current?.leave();
       } catch {}
     } else {
-      try { engineRef.current?.leaveChannel(); engineRef.current?.release(); engineRef.current = null; } catch {}
+      releaseAgoraEngine();
+      engineRef.current = null;
     }
     if (sessionId) await endLiveSession(sessionId);
     // Log minute statistics (informational, no billing)
@@ -277,25 +363,25 @@ export default function GoLiveScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       {/* ── Camera feed background ── */}
-      {/* Web: always-mounted div for Agora camera preview */}
+      {/* Web: always-mounted div for Agora camera preview (setup + live) */}
       {Platform.OS === "web" && (
         <View
           ref={webCameraContainerRef}
           style={[StyleSheet.absoluteFill, {
             backgroundColor: "#08080F",
-            display: phase === "live" ? "flex" : "none",
+            display: phase === "setup" || phase === "live" ? "flex" : "none",
           }]}
         />
       )}
-      {/* Native: Agora RtcSurfaceView */}
-      {Platform.OS !== "web" && AgoraModule && phase === "live" && engineRef.current ? (
+      {/* Native: Agora RtcSurfaceView — visible in setup (preview) and live */}
+      {Platform.OS !== "web" && AgoraModule && nativeEngineReady && engineRef.current ? (
         <AgoraModule.RtcSurfaceView
           canvas={{ uid: 0, sourceType: AgoraModule.VideoSourceType.VideoSourceCamera }}
           style={StyleSheet.absoluteFill}
         />
       ) : null}
-      {/* Dark background for setup phase */}
-      {phase !== "live" && (
+      {/* Dark background only when engine not ready */}
+      {!(Platform.OS !== "web" && AgoraModule && nativeEngineReady) && Platform.OS !== "web" && (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: "#08080F" }]} />
       )}
 
