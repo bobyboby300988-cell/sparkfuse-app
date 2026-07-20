@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useGetMatches } from "@workspace/api-client-react";
 import { getApiUrl, getPhotoUrl } from "@/lib/api";
+import { acquireAgoraEngine, releaseAgoraEngine } from "@/lib/agoraEngine";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { useAuth } from "@clerk/expo";
 
@@ -63,6 +64,7 @@ export default function CallScreen() {
   const [duration, setDuration] = useState(0);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [statusMsg, setStatusMsg] = useState("Se inițializează...");
 
   // Native Agora ref
   const engineRef = useRef<any>(null);
@@ -160,13 +162,14 @@ export default function CallScreen() {
 
     // ── Native path ───────────────────────────────────────────────────────
     if (!AgoraModule) {
-      console.warn("[Call] react-native-agora not available on this platform");
+      setStatusMsg("❌ Agora SDK indisponibil pe această platformă");
       return;
     }
 
     let eng: any = null;
     (async () => {
       try {
+        setStatusMsg("Se verifică permisiunile...");
         // Request mic (and camera for video) before Agora init on Android
         if (Platform.OS === "android") {
           const perms = isVoice
@@ -174,18 +177,27 @@ export default function CallScreen() {
             : [PermissionsAndroid.PERMISSIONS.RECORD_AUDIO, PermissionsAndroid.PERMISSIONS.CAMERA];
           const result = await PermissionsAndroid.requestMultiple(perms);
           const micOk = result[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
+          const camOk = isVoice || result[PermissionsAndroid.PERMISSIONS.CAMERA] === PermissionsAndroid.RESULTS.GRANTED;
           if (!micOk) {
-            Alert.alert("Permission required", "Microphone access is required for calls.");
+            setStatusMsg("❌ Permisiune microfon refuzată — mergi la Setări > Aplicații > SparkFuse > Permisiuni");
+            Alert.alert("Permisiune necesară", "Accesul la microfon este necesar. Activează-l din Setări > Aplicații > SparkFuse > Permisiuni.");
             return;
+          }
+          if (!camOk) {
+            setStatusMsg("⚠️ Permisiune cameră refuzată — doar audio disponibil");
           }
         }
 
-        eng = AgoraModule.createAgoraRtcEngine();
-        eng.initialize({
+        setStatusMsg("Se inițializează Agora (appId=" + appId.substring(0, 6) + "...)");
+        eng = acquireAgoraEngine(
+          AgoraModule,
           appId,
-          channelProfile: AgoraModule.ChannelProfileType.ChannelProfileCommunication,
-        });
+          AgoraModule.ChannelProfileType.ChannelProfileCommunication,
+        );
         eng.enableAudio();
+        // Route audio through speaker (not earpiece) by default
+        try { eng.setDefaultAudioRouteToSpeakerphone(true); } catch {}
+        try { eng.setEnableSpeakerphone(true); } catch {}
         if (!isVoice) {
           eng.enableVideo();
           eng.startPreview();
@@ -193,38 +205,63 @@ export default function CallScreen() {
         eng.registerEventHandler({
           onJoinChannelSuccess: (_connection: any, _elapsed: number) => {
             setConnected(true);
+            setStatusMsg("✅ Conectat — aștept celălalt utilizator...");
+            // Re-apply speaker after join (some Android versions reset it)
+            try { eng?.setEnableSpeakerphone(true); } catch {}
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           },
-          // react-native-agora v4: onRemoteVideoStateChanged replaces onUserPublished
+          onUserPublished: (_connection: any, uid: number, _mediaType: string) => {
+            setRemoteUid(uid);
+            setStatusMsg("✅ Conectat cu utilizatorul " + uid);
+          },
+          onUserUnpublished: (_connection: any, uid: number, _mediaType: string) => {
+            setRemoteUid((prev) => (prev === uid ? null : prev));
+          },
           onRemoteVideoStateChanged: (_connection: any, uid: number, state: number) => {
-            if (state === 2) setRemoteUid(uid);    // 2 = Decoding/playing
-            else if (state === 0) setRemoteUid(null); // 0 = Stopped
+            if (state === 2) setRemoteUid(uid);
+            else if (state === 0) setRemoteUid((prev) => (prev === uid ? null : prev));
           },
           onRemoteAudioStateChanged: (_connection: any, uid: number, state: number) => {
-            // 2 = Decoding — remote audio is flowing
-            if (state === 2 && isVoice) setRemoteUid(uid);
+            if (state === 2) setRemoteUid(uid);
           },
-          onUserOffline: (_connection: any) => setRemoteUid(null),
+          onUserOffline: (_connection: any, uid: number) => {
+            setRemoteUid((prev) => (prev === uid ? null : prev));
+          },
           onError: (errCode: number, msg: string) => {
             console.error("[Agora] error", errCode, msg);
+            setStatusMsg(`❌ Eroare Agora cod=${errCode}: ${msg}`);
+            if (errCode !== 0) {
+              Alert.alert(
+                "Eroare apel (cod " + errCode + ")",
+                `${msg}\n\nVerifică conexiunea la internet și permisiunile aplicației.`,
+                [{ text: "OK" }],
+              );
+            }
           },
         });
-        eng.joinChannel(token, channelName, 0, {
+        setStatusMsg("Se conectează la canal: " + channelName);
+        const joinResult = eng.joinChannel(token, channelName, 0, {
           clientRoleType: AgoraModule.ClientRoleType.ClientRoleBroadcaster,
           publishMicrophoneTrack: true,
           publishCameraTrack: !isVoice,
           autoSubscribeAudio: true,
           autoSubscribeVideo: !isVoice,
         });
+        if (joinResult < 0) {
+          setStatusMsg(`❌ joinChannel a eșuat: cod ${joinResult}`);
+          Alert.alert("Eroare canal", `joinChannel a returnat ${joinResult}. Verifică conexiunea la internet.`);
+        }
         engineRef.current = eng;
       } catch (err: any) {
-        console.error("[Agora] init failed:", err?.message ?? err);
-        Alert.alert("Call error", `Could not initialize call: ${err?.message ?? "unknown error"}`);
+        const errMsg = err?.message ?? String(err);
+        setStatusMsg(`❌ Excepție: ${errMsg}`);
+        Alert.alert("Eroare apel", `Nu s-a putut inițializa apelul: ${errMsg}`);
       }
     })();
 
     return () => {
-      try { engineRef.current?.leaveChannel(); engineRef.current?.release(); engineRef.current = null; } catch {}
+      releaseAgoraEngine();
+      engineRef.current = null;
     };
   }, [channelName, token, appId]);
 
@@ -266,7 +303,8 @@ export default function CallScreen() {
         await webClientRef.current?.leave();
       } catch {}
     } else {
-      try { engineRef.current?.leaveChannel(); engineRef.current?.release(); engineRef.current = null; } catch {}
+      releaseAgoraEngine();
+      engineRef.current = null;
     }
     if (callId) {
       try {
@@ -354,6 +392,11 @@ export default function CallScreen() {
         <View style={styles.center}>
           <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
           <Image source={profile.photo} style={styles.connectingAvatar} contentFit="cover" />
+          {Platform.OS !== "web" && (
+            <View style={{ position: "absolute", bottom: -80, left: 20, right: 20, backgroundColor: "rgba(0,0,0,0.7)", borderRadius: 10, padding: 10 }}>
+              <Text style={{ color: "#fff", fontSize: 12, textAlign: "center", fontFamily: "Inter_400Regular" }}>{statusMsg}</Text>
+            </View>
+          )}
         </View>
       )}
 
