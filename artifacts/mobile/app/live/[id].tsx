@@ -17,7 +17,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import WebView from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@clerk/expo";
 import { useCreateBlock } from "@workspace/api-client-react";
@@ -26,8 +25,16 @@ import GiftSplashOverlay from "@/components/GiftSplashOverlay";
 import { CATEGORY_COLORS, LIVE_STREAMS, MOCK_CHAT, LiveStream } from "@/data/livestreams";
 import { ALL_PROFILES } from "@/data/allProfiles";
 import { useApp } from "@/context/AppContext";
-import { fetchLiveSession, LiveSession } from "@/lib/liveApi";
-import { createMeetingToken } from "@/lib/daily";
+import { fetchLiveSession, fetchViewerToken, LiveSession } from "@/lib/liveApi";
+import { acquireAgoraEngine, releaseAgoraEngine } from "@/lib/agoraEngine";
+
+const AgoraModule = (() => { try { return require("react-native-agora"); } catch { return null; } })();
+const AgoraRTC = (() => {
+  try {
+    if (Platform.OS !== "web") return null;
+    return require("agora-rtc-sdk-ng").default;
+  } catch { return null; }
+})();
 
 const MODE_TO_CATEGORY: Record<string, LiveStream["category"]> = {
   dating: "Dating",
@@ -188,10 +195,15 @@ export default function LiveScreen() {
   const mockStream = LIVE_STREAMS.find((s) => s.id === id) ?? streamFromProfile(id) ?? FALLBACK_STREAM;
 
   /* Real broadcast lookup — if this id matches an active live session on the
-     server, we join the host's actual Daily.co room instead of the mock demo. */
+     server, we join the Agora channel as an audience member. */
   const [realSession, setRealSession] = useState<LiveSession | null>(null);
-  const [realJoinUrl, setRealJoinUrl] = useState<string | null>(null);
-  const [realCheckDone, setRealCheckDone] = useState(false);
+  const [agoraData, setAgoraData] = useState<{ token: string; channelName: string; appId: string } | null>(null);
+  const [remoteUid, setRemoteUid] = useState<number | null>(null);
+  const engineRef = useRef<any>(null);
+  // Web Agora refs
+  const webClientRef = useRef<any>(null);
+  const webRemoteVideoTrackRef = useRef<any>(null);
+  const webVideoContainerRef = useRef<any>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,13 +211,97 @@ export default function LiveScreen() {
       .then(async (session) => {
         if (cancelled || !session) return;
         setRealSession(session);
-        const token = await createMeetingToken(session.roomName, { isOwner: false, userName: "Viewer" });
-        if (!cancelled) setRealJoinUrl(`${session.roomUrl}?t=${token}`);
+        const data = await fetchViewerToken(session.id);
+        if (!cancelled) setAgoraData(data);
       })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setRealCheckDone(true); });
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [id]);
+
+  useEffect(() => {
+    if (!agoraData) return;
+
+    // ── Web viewer path ──────────────────────────────────────────────────
+    if (Platform.OS === "web" && AgoraRTC) {
+      let client: any = null;
+      (async () => {
+        try {
+          client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+          webClientRef.current = client;
+          await client.setClientRole("audience");
+          client.on("user-published", async (user: any, mediaType: string) => {
+            await client.subscribe(user, mediaType);
+            if (mediaType === "video") {
+              webRemoteVideoTrackRef.current = user.videoTrack;
+              setRemoteUid(user.uid);
+            }
+            if (mediaType === "audio") {
+              user.audioTrack.play();
+            }
+          });
+          client.on("user-unpublished", () => {
+            webRemoteVideoTrackRef.current = null;
+            setRemoteUid(null);
+          });
+          await client.join(agoraData.appId, agoraData.channelName, agoraData.token, 0);
+        } catch {}
+      })();
+      return () => {
+        try { client?.leave(); } catch {}
+      };
+    }
+
+    // ── Native viewer path ───────────────────────────────────────────────
+    if (!AgoraModule) return;
+    let eng: any = null;
+    try {
+      eng = acquireAgoraEngine(
+        AgoraModule,
+        agoraData.appId,
+        AgoraModule.ChannelProfileType.ChannelProfileLiveBroadcasting,
+      );
+      eng.enableVideo();
+      eng.setClientRole(AgoraModule.ClientRoleType.ClientRoleAudience);
+      eng.registerEventHandler({
+        // Primary: fires when a remote user starts/stops publishing
+        onUserPublished: (_connection: any, uid: number, mediaType: string) => {
+          if (mediaType === "video" || mediaType === "all") {
+            setRemoteUid(uid);
+          }
+        },
+        onUserUnpublished: (_connection: any, uid: number, mediaType: string) => {
+          if (mediaType === "video" || mediaType === "all") {
+            setRemoteUid((prev) => (prev === uid ? null : prev));
+          }
+        },
+        // Fallback: state=2 means video is playing
+        onRemoteVideoStateChanged: (_connection: any, uid: number, state: number) => {
+          if (state === 2) setRemoteUid(uid);
+          else if (state === 0) setRemoteUid((prev) => (prev === uid ? null : prev));
+        },
+        onUserOffline: (_connection: any, uid: number) => {
+          setRemoteUid((prev) => (prev === uid ? null : prev));
+        },
+        onError: (errCode: number, msg: string) => {
+          console.error("[Agora Viewer] error", errCode, msg);
+        },
+      });
+      eng.joinChannel(agoraData.token, agoraData.channelName, 0, {
+        clientRoleType: AgoraModule.ClientRoleType.ClientRoleAudience,
+      });
+      engineRef.current = eng;
+    } catch (err: any) {
+      console.error("[Agora Viewer] init failed:", err?.message ?? err);
+    }
+    return () => { releaseAgoraEngine(); };
+  }, [agoraData]);
+
+  // Play web remote video into container div when remoteUid changes
+  useEffect(() => {
+    if (Platform.OS === "web" && webRemoteVideoTrackRef.current && webVideoContainerRef.current && remoteUid !== null) {
+      try { webRemoteVideoTrackRef.current.play(webVideoContainerRef.current); } catch {}
+    }
+  }, [remoteUid]);
 
   const isRealLive = !!realSession;
   const stream = isRealLive
@@ -347,25 +443,26 @@ export default function LiveScreen() {
       style={styles.root}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* ── Full-screen "stream" background ── */}
-      {isRealLive && realJoinUrl ? (
-        <WebView
-          source={{ uri: realJoinUrl }}
-          style={StyleSheet.absoluteFillObject}
-          mediaPlaybackRequiresUserAction={false}
-          allowsInlineMediaPlayback
-          javaScriptEnabled
-          domStorageEnabled
-          originWhitelist={["*"]}
-          mediaCapturePermissionGrantType="grant"
-          onPermissionRequest={(event) => {
-            event.nativeEvent.grant(event.nativeEvent.resources);
-          }}
-          onShouldStartLoadWithRequest={(request) => {
-            return request.url.includes("daily.co") || request.url.startsWith("about:");
-          }}
+      {/* ── Full-screen stream video or mock background ── */}
+      {/* Web: always-mounted div for Agora remote video */}
+      {Platform.OS === "web" && (
+        <View
+          ref={webVideoContainerRef}
+          style={[StyleSheet.absoluteFillObject, {
+            backgroundColor: "#000",
+            display: isRealLive && remoteUid !== null ? "flex" : "none",
+          }]}
         />
-      ) : (
+      )}
+      {/* Native: RtcSurfaceView for remote stream */}
+      {Platform.OS !== "web" && isRealLive && AgoraModule && remoteUid !== null ? (
+        <AgoraModule.RtcSurfaceView
+          canvas={{ uid: remoteUid }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      ) : null}
+      {/* Fallback: mock avatar background when no live video */}
+      {!(isRealLive && remoteUid !== null) && (
         <Image source={mockStream.avatar} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
       )}
       <LinearGradient
@@ -473,7 +570,7 @@ export default function LiveScreen() {
           <Text style={styles.iconBtnLabel}>Apreciez</Text>
         </TouchableOpacity>
 
-        {/* ── GIFT — TikTok style ── */}
+        {/* ── GIFT ── */}
         <TouchableOpacity
           onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); setGiftOpen(true); }}
           style={styles.giftIconBtn}
