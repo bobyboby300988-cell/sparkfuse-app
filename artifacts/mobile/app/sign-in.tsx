@@ -31,6 +31,7 @@ export default function SignInScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isLocked, setIsLocked] = useState(false);
 
   // OTP verification step
   const [verifyMode, setVerifyMode] = useState<VerifyMode | null>(null);
@@ -50,8 +51,15 @@ export default function SignInScreen() {
     );
   };
 
+  const isLockedError = (err: any): boolean => {
+    const code: string = err?.errors?.[0]?.code ?? err?.code ?? "";
+    const msg: string = (err?.errors?.[0]?.message ?? err?.message ?? "").toLowerCase();
+    return code === "user_locked" || msg.includes("locked") || msg.includes("too many attempts");
+  };
+
   const parseError = (err: any): string => {
     const code: string = err?.errors?.[0]?.code ?? err?.code ?? (err as any)?.code ?? "";
+    if (isLockedError(err)) return t("signIn.errorLocked");
     return code === "form_password_incorrect"
       ? t("signIn.errorWrongPassword")
       : code === "form_identifier_not_found"
@@ -68,6 +76,7 @@ export default function SignInScreen() {
       return;
     }
     setErrorMsg("");
+    setIsLocked(false);
     setLoading(true);
     try {
       const { error } = await signIn.password({
@@ -76,6 +85,7 @@ export default function SignInScreen() {
       });
 
       if (error) {
+        if (isLockedError(error)) setIsLocked(true);
         setErrorMsg(parseError(error));
         return;
       }
@@ -356,6 +366,25 @@ export default function SignInScreen() {
               </View>
             </View>
 
+            <TouchableOpacity
+              onPress={() => router.push("/forgot-password" as Href)}
+              style={{
+                alignSelf: "center",
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.18)",
+                borderRadius: 10,
+                paddingVertical: 8,
+                paddingHorizontal: 20,
+                backgroundColor: "transparent",
+                marginTop: 2,
+              }}
+              activeOpacity={0.6}
+            >
+              <Text style={{ color: "rgba(255,255,255,0.55)", fontSize: 13, fontFamily: "Inter_500Medium" }}>
+                {t("signIn.resetPassword")}
+              </Text>
+            </TouchableOpacity>
+
             {!!errorMsg && (
               <View style={styles.errorBox}>
                 <Ionicons name="alert-circle-outline" size={16} color="#FF6B6B" />
@@ -469,4 +498,5 @@ const styles = StyleSheet.create({
   footer: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
   footerText: { fontSize: 14, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.4)" },
   footerLink: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#FF3366" },
+  forgotLink: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FF3366", opacity: 0.85 },
 });
